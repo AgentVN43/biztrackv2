@@ -186,9 +186,7 @@ const InventoryModel = {
           i.updated_at,
           i.reserved_stock,
           i.available_stock,
-          p.product_id,
-          p.product_name,
-          p.category_id,
+          p.*,
           c.category_name,
           w.warehouse_id AS warehouse_id,
           w.warehouse_name
@@ -208,15 +206,18 @@ const InventoryModel = {
           updated_at: row.updated_at,
           product: {
             product_id: row.product_id,
+            sku: row.sku,
+            product_image: row.product_image,
             product_name: row.product_name,
+            product_retail_price: row.product_retail_price,
             quantity: row.quantity,
             reserved_stock: row.reserved_stock,
             available_stock: row.available_stock,
             category: row.category_id
               ? {
-                  category_id: row.category_id,
-                  category_name: row.category_name,
-                }
+                category_id: row.category_id,
+                category_name: row.category_name,
+              }
               : null,
           },
           warehouse: {

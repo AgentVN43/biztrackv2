@@ -1088,6 +1088,16 @@ const OrderService = {
       throw error;
     }
   },
+
+  getTotalByStatus: async (filters = {}) => {
+    try {
+      const results = await OrderModel.getTotalByStatus(filters);
+      return results;
+    } catch (error) {
+      console.error("Service - getTotalByStatus:", error.message);
+      throw error;
+    }
+  },
 };
 
 module.exports = OrderService;

@@ -299,25 +299,61 @@ const OrderController = {
   // },
 
   read: async (req, res, next) => {
-    const page = parseInt(req.query.page) || 1; // Lấy page từ query, mặc định là 1
-    const limit = parseInt(req.query.limit) || 10; // Lấy limit từ query, mặc định là 10
-    const { effectiveStartDate, effectiveEndDate } = processDateFilters(
-      req.query
-    );
+    const orderStatusMap = {
+      0: "Mới",
+      1: "Xác nhận",
+      2: "Đang đóng hàng",
+      3: "Đang giao",
+      4: "Hoàn tất",
+      5: "Huỷ đơn",
+      6: "Huỷ điều chỉnh",
+    };
 
     try {
-      // Gọi Service và nhận cả dữ liệu và tổng số lượng
+      // 1. Lấy thông tin phân trang
+      const page = parseInt(req.query.page, 10) || 1;
+      const limit = parseInt(req.query.limit, 10) || 10;
+
+      // 2. Lọc theo trạng thái đơn hàng (số → chuỗi)
+      let orderStatus;
+      const orderStatusParam = req.query.order_status;
+
+      if (orderStatusParam !== undefined) {
+        const parsed = parseInt(orderStatusParam, 10);
+
+        if (isNaN(parsed)) {
+          return res.status(400).json({ message: "order_status phải là số." });
+        }
+
+        if (parsed !== -1) {
+          const mappedStatus = orderStatusMap[parsed];
+          if (!mappedStatus) {
+            return res.status(400).json({ message: "Trạng thái đơn hàng không hợp lệ." });
+          }
+          orderStatus = mappedStatus; // dùng chuỗi đúng như trong DB
+        }
+        // Nếu là -1 thì orderStatus vẫn giữ undefined → không lọc
+      }
+
+      // 3. Xử lý bộ lọc ngày tháng
+      const { effectiveStartDate, effectiveEndDate } = processDateFilters(req.query);
+
+      // 4. Gọi service
       const { data: orders, total: totalOrders } = await OrderService.read(
         page,
         limit,
-        { startDate: effectiveStartDate, endDate: effectiveEndDate }
+        {
+          startDate: effectiveStartDate,
+          endDate: effectiveEndDate,
+          order_status: orderStatus,
+        }
       );
 
-      // Sử dụng hàm tiện ích để định dạng phản hồi JSON
+      // 5. Trả về dữ liệu phân trang
       res.status(200).json(paginateResponse(orders, totalOrders, page, limit));
     } catch (err) {
-      console.error("🚀 ~ order.controller.js: read - Lỗi:", err);
-      next(err); // Chuyển lỗi xuống middleware xử lý lỗi
+      console.error("🚀 ~ OrderController.read ~ Lỗi:", err);
+      next(err);
     }
   },
 
@@ -483,6 +519,24 @@ const OrderController = {
         err
       );
       next(err);
+    }
+  },
+  getTotalByStatus: async (req, res, next) => {
+    const { effectiveStartDate, effectiveEndDate } = processDateFilters(req.query);
+
+    try {
+      const data = await OrderService.getTotalByStatus({
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+      });
+
+      res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      console.error("Controller - getTotalByStatus:", error.message);
+      next(error);
     }
   },
 };

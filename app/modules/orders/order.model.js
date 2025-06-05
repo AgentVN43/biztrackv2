@@ -1154,6 +1154,11 @@ const OrderModel = {
       queryParams.unshift(filters.endDate);
     }
 
+    if (filters.order_status) {
+      whereClause += ` AND orders.order_status = ?`;
+      queryParams.unshift(filters.order_status);
+    }
+
     const finalQuery = `
       ${baseQuery}
       ${whereClause}
@@ -1419,6 +1424,58 @@ const OrderModel = {
       connection.release(); // ✅ Luôn giải phóng connection
     }
   },
+
+  getTotalByStatus: async (filters = {}) => {
+    const ALL_STATUSES = [
+      "Mới",
+      "Xác nhận",
+      "Đang đóng hàng",
+      "Đang giao",
+      "Hoàn tất",
+      "Huỷ đơn",
+      "Huỷ điều chỉnh",
+    ];
+
+    let whereClause = "WHERE is_active = 1";
+    const queryParams = [];
+
+    if (filters.startDate && filters.endDate) {
+      whereClause += " AND DATE(order_date) BETWEEN DATE(?) AND DATE(?)";
+      queryParams.push(filters.startDate, filters.endDate);
+    } else if (filters.startDate) {
+      whereClause += " AND DATE(order_date) >= DATE(?)";
+      queryParams.push(filters.startDate);
+    } else if (filters.endDate) {
+      whereClause += " AND DATE(order_date) <= DATE(?)";
+      queryParams.push(filters.endDate);
+    }
+
+    const query = `
+    SELECT order_status, COUNT(*) AS total
+    FROM orders
+    ${whereClause}
+    GROUP BY order_status
+  `;
+
+    try {
+      const [results] = await db.promise().query(query, queryParams);
+
+      const statusMap = {};
+      results.forEach((row) => {
+        statusMap[row.order_status] = row.total;
+      });
+
+      const completeResults = ALL_STATUSES.map((status) => ({
+        order_status: status,
+        total: statusMap[status] || 0,
+      }));
+
+      return completeResults;
+    } catch (error) {
+      console.error("Model - getTotalByStatus:", error.message);
+      throw error;
+    }
+  }
 };
 
 module.exports = OrderModel;
