@@ -425,7 +425,6 @@ const InventoryService = {
    * @returns {Promise<Array<Object>>} Promise giải quyết với danh sách tồn kho.
    */
   getAllInventories: async () => {
-    // ✅ Bỏ tham số `callback`
     try {
       const inventories = await InventoryModel.findAll();
       return inventories; // ✅ Trả về kết quả
@@ -743,6 +742,127 @@ const InventoryService = {
       );
       throw error; // ✅ Ném lỗi
     }
+  },
+
+  increaseStockManually: async (product_id, warehouse_id, quantity, reason) => {
+    if (quantity <= 0) {
+      throw new Error("Số lượng tăng phải lớn hơn 0.");
+    }
+
+    // Bước 1: Kiểm tra xem bản ghi tồn kho đã tồn tại chưa
+    let inventoryRecord = await InventoryModel.findByProductAndWarehouse(
+      product_id,
+      warehouse_id
+    );
+
+    console.log("inventoryRecord:", inventoryRecord);
+
+    const current_quantity_before = inventoryRecord
+      ? inventoryRecord.total_quantity
+      : 0;
+
+    console.log("current_quantity_before:", current_quantity_before);
+
+    let result;
+    if (inventoryRecord) {
+      // Bước 2: Nếu có, tăng tồn kho bằng hàm đã có
+      result = await InventoryModel.update(product_id, warehouse_id, quantity);
+    } else {
+      // Bước 3: Nếu chưa có, tạo bản ghi tồn kho mới
+      inventory_id = uuidv4();
+      result = await InventoryModel.create({
+        inventory_id,
+        product_id,
+        warehouse_id,
+        quantity,
+      });
+    }
+
+    // Lấy tồn kho sau khi cập nhật để có current_quantity_after
+    const updatedInventory = await InventoryModel.findByProductAndWarehouse(
+      product_id,
+      warehouse_id
+    );
+
+    const current_quantity_after = updatedInventory
+      ? updatedInventory.total_quantity
+      : 0;
+    console.log("current_quantity_after:", current_quantity_after);
+
+    // Bước 4: Ghi lại lịch sử điều chỉnh
+    await InventoryModel.recordAdjustment({
+      product_id,
+      warehouse_id,
+      quantity_changed: quantity, // Số lượng thay đổi (luôn là số dương)
+      adjustment_type: "increase",
+      reason,
+      adjusted_by: "9bf04b0d-63be-471c-81dd-bbed309d0700",
+      current_quantity_before,
+      current_quantity_after,
+    });
+
+    return updatedInventory;
+  },
+
+  decreaseStockManually: async (product_id, warehouse_id, quantity, reason) => {
+    if (quantity <= 0) {
+      throw new Error("Số lượng giảm phải lớn hơn 0.");
+    }
+
+    // Bước 1: Lấy tồn kho hiện tại để kiểm tra
+    const currentInventory = await InventoryModel.findByProductAndWarehouse(
+      product_id,
+      warehouse_id
+    );
+
+    console.log("currentInventory:",currentInventory)
+
+    if (!currentInventory) {
+      throw new Error("Không tìm thấy sản phẩm trong kho này.");
+    }
+
+    const current_quantity_before = currentInventory
+      ? currentInventory.total_quantity
+      : 0;
+
+    // Bước 2: Kiểm tra đủ tồn kho khả dụng để giảm
+    // Giảm total quantity và available stock
+    if (currentInventory.available_stock < quantity) {
+      throw new Error("Không đủ tồn kho khả dụng để giảm.");
+    }
+
+    // Bước 3: Giảm tồn kho bằng hàm mới
+    await InventoryModel.decreaseQuantityAndAvailableStock(
+      product_id,
+      warehouse_id,
+      quantity
+    );
+
+    // Bước 4: Ghi lại lịch sử điều chỉnh (RẤT QUAN TRỌNG)
+    // Ví dụ: await InventoryAdjustmentModel.recordAdjustment(product_id, warehouse_id, quantity, 'decrease', reason);
+    // (Bạn cần tạo InventoryAdjustmentModel và hàm recordAdjustment tương ứng)
+
+    // Sau khi cập nhật, lấy lại bản ghi tồn kho để trả về dữ liệu mới nhất
+    const updatedInventory = await InventoryModel.findByProductAndWarehouse(
+      product_id,
+      warehouse_id
+    );
+    const current_quantity_after = updatedInventory
+      ? updatedInventory.total_quantity
+      : 0;
+
+    await InventoryModel.recordAdjustment({
+      product_id,
+      warehouse_id,
+      quantity_changed: quantity,
+      adjustment_type: "decrease",
+      reason,
+      adjusted_by: "9bf04b0d-63be-471c-81dd-bbed309d0700",
+      current_quantity_before,
+      current_quantity_after,
+    });
+
+    return updatedInventory;
   },
 };
 

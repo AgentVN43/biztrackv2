@@ -15,4 +15,7 @@ router.post("/confirm", controller.confirmStock); // Xác nhận tồn kho
 router.post("/release", controller.releaseStock); // Giải phóng hàng
 router.post("/increase", controller.increaseStock); // Tăng tồn kho từ PO
 
+router.put('/stock/increase', controller.stockIncrease);
+router.put('/stock/decrease', controller.stockDecrease);
+
 module.exports = router;

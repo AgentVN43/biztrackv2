@@ -106,6 +106,7 @@
 //   });
 // };
 
+const createResponse = require("../../utils/response");
 const service = require("./inventory.service"); // Đảm bảo đường dẫn đúng
 // const { handleResult } = require("../../utils/responseHelper"); // ✅ Không cần thiết nữa vì chúng ta xử lý response trực tiếp
 
@@ -113,13 +114,11 @@ exports.create = async (req, res, next) => {
   // ✅ Chuyển hàm thành async
   try {
     const newInventory = await service.createInventory(req.body); // ✅ Sử dụng await
-    res
-      .status(201)
-      .json({
-        success: true,
-        data: newInventory,
-        message: "Inventory created successfully",
-      });
+    res.status(201).json({
+      success: true,
+      data: newInventory,
+      message: "Inventory created successfully",
+    });
   } catch (err) {
     console.error("🚀 ~ inventory.controller.js: create - Lỗi:", err);
     next(err);
@@ -134,12 +133,10 @@ exports.update = async (req, res, next) => {
       req.body
     ); // ✅ Sử dụng await
     if (!updatedInventory) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Inventory not found or no changes made",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Inventory not found or no changes made",
+      });
     }
     res.json({
       success: true,
@@ -217,12 +214,10 @@ exports.checkAll = async (req, res, next) => {
       !inventories ||
       (Array.isArray(inventories) && inventories.length === 0)
     ) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Inventory not found for this warehouse",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Inventory not found for this warehouse",
+      });
     }
     res.json({ success: true, data: inventories });
   } catch (err) {
@@ -237,12 +232,10 @@ exports.remove = async (req, res, next) => {
     const result = await service.deleteInventory(req.params.id); // ✅ Sử dụng await
     if (!result || result.affectedRows === 0) {
       // Kiểm tra kết quả xóa
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Inventory not found or already deleted",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Inventory not found or already deleted",
+      });
     }
     res.json({ success: true, message: "Deleted successfully" });
   } catch (err) {
@@ -304,5 +297,57 @@ exports.releaseStock = async (req, res, next) => {
   } catch (err) {
     console.error("🚀 ~ inventory.controller.js: releaseStock - Lỗi:", err);
     next(err);
+  }
+};
+
+exports.stockIncrease = async (req, res, next) => {
+  const { product_id, warehouse_id, quantity, reason } = req.body;
+  try {
+    const updatedInventory = await service.increaseStockManually(
+      product_id,
+      warehouse_id,
+      quantity,
+      reason
+    );
+    // Sử dụng createResponse cho phản hồi thành công, có thể trả về dữ liệu tồn kho cập nhật
+    createResponse(
+      res,
+      200,
+      true,
+      updatedInventory,
+      "Đã tăng tồn kho thành công."
+    );
+  } catch (err) {
+    console.error(
+      "🚀 ~ inventory.controller.js: adjustStockIncrease - Lỗi:",
+      err
+    );
+    next(err); // Chuyển lỗi xuống middleware xử lý lỗi
+  }
+};
+
+exports.stockDecrease = async (req, res, next) => {
+  const { product_id, warehouse_id, quantity, reason } = req.body;
+  try {
+    const updatedInventory = await service.decreaseStockManually(
+      product_id,
+      warehouse_id,
+      quantity,
+      reason
+    );
+    // Sử dụng createResponse cho phản hồi thành công, có thể trả về dữ liệu tồn kho cập nhật
+    createResponse(
+      res,
+      200,
+      true,
+      updatedInventory,
+      "Đã giảm tồn kho thành công."
+    );
+  } catch (err) {
+    console.error(
+      "🚀 ~ inventory.controller.js: adjustStockDecrease - Lỗi:",
+      err
+    );
+    next(err); // Chuyển lỗi xuống middleware xử lý lỗi
   }
 };

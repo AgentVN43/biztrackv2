@@ -1,4 +1,5 @@
 const db = require("../../config/db.config");
+const { v4: uuidv4 } = require("uuid");
 
 const InventoryModel = {
   /**
@@ -215,9 +216,9 @@ const InventoryModel = {
             available_stock: row.available_stock,
             category: row.category_id
               ? {
-                category_id: row.category_id,
-                category_name: row.category_name,
-              }
+                  category_id: row.category_id,
+                  category_name: row.category_name,
+                }
               : null,
           },
           warehouse: {
@@ -416,6 +417,95 @@ const InventoryModel = {
         if (err) {
           console.error(
             "🚀 ~ inventory.model.js: updateInventoryFields - Error:",
+            err
+          );
+          return reject(err);
+        }
+        resolve(result);
+      });
+    });
+  },
+
+  decreaseQuantityAndAvailableStock: (product_id, warehouse_id, quantity) => {
+    return new Promise((resolve, reject) => {
+      const sql = `
+        UPDATE inventories
+        SET
+          quantity = quantity - ?,
+          available_stock = available_stock - ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE
+          product_id = ? AND warehouse_id = ?
+          AND quantity >= ? -- Đảm bảo tổng số lượng không âm
+          AND available_stock >= ? -- Đảm bảo tồn kho khả dụng không âm (hoặc nhỏ hơn reserved)
+      `;
+
+      // Giá trị quantityToSubtract được truyền vào cả 2 tham số.
+      // Các ? cuối cùng là để đảm bảo điều kiện WHERE (quantity >= quantityToSubtract và available_stock >= quantityToSubtract)
+      const values = [
+        quantity,
+        quantity,
+        product_id,
+        warehouse_id,
+        quantity, // check for quantity >= quantityToSubtract
+        quantity, // check for available_stock >= quantityToSubtract
+      ];
+
+      db.query(sql, values, (err, result) => {
+        if (err) {
+          console.error(
+            "🚀 ~ inventory.model.js: decreaseQuantityAndAvailableStock - Error updating inventory:",
+            err
+          );
+          return reject(err);
+        }
+        if (result.affectedRows === 0) {
+          return reject(
+            new Error("Không đủ tồn kho để giảm hoặc dữ liệu không hợp lệ.")
+          );
+        }
+        resolve(result);
+      });
+    });
+  },
+
+  recordAdjustment: ({
+    product_id,
+    warehouse_id,
+    quantity_changed,
+    adjustment_type,
+    reason,
+    adjusted_by,
+    current_quantity_before = null,
+    current_quantity_after = null,
+  }) => {
+    return new Promise((resolve, reject) => {
+      const adjustment_id = uuidv4(); // Tạo UUID cho bản ghi lịch sử
+
+      const sql = `
+        INSERT INTO inventory_adjustments (
+          adjustment_id, product_id, warehouse_id, adjustment_type,
+          quantity_changed, current_quantity_before, current_quantity_after,
+          reason, adjusted_by, adjustment_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `;
+
+      const values = [
+        adjustment_id,
+        product_id,
+        warehouse_id,
+        adjustment_type,
+        quantity_changed,
+        current_quantity_before,
+        current_quantity_after,
+        reason,
+        adjusted_by,
+      ];
+
+      db.query(sql, values, (err, result) => {
+        if (err) {
+          console.error(
+            "🚀 ~ inventory.model.js: recordAdjustment - Error recording adjustment:",
             err
           );
           return reject(err);
