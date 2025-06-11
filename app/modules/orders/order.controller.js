@@ -226,6 +226,7 @@ const OrderDetailService = require("../orderDetails/orderDetail.service"); // C�
 const Inventory = require("../inventories/inventory.service"); // Cần import InventoryService
 const { paginateResponse } = require("../../utils/pagination");
 const { processDateFilters } = require("../../utils/dateUtils");
+const createResponse = require("../../utils/response");
 
 // Hàm tính toán tổng tiền đơn hàng (được giữ lại trong controller vì được sử dụng trực tiếp ở đây)
 function calculateOrderTotals(orderDetails, orderData = {}) {
@@ -328,7 +329,9 @@ const OrderController = {
         if (parsed !== -1) {
           const mappedStatus = orderStatusMap[parsed];
           if (!mappedStatus) {
-            return res.status(400).json({ message: "Trạng thái đơn hàng không hợp lệ." });
+            return res
+              .status(400)
+              .json({ message: "Trạng thái đơn hàng không hợp lệ." });
           }
           orderStatus = mappedStatus; // dùng chuỗi đúng như trong DB
         }
@@ -336,7 +339,9 @@ const OrderController = {
       }
 
       // 3. Xử lý bộ lọc ngày tháng
-      const { effectiveStartDate, effectiveEndDate } = processDateFilters(req.query);
+      const { effectiveStartDate, effectiveEndDate } = processDateFilters(
+        req.query
+      );
 
       // 4. Gọi service
       const { data: orders, total: totalOrders } = await OrderService.read(
@@ -386,18 +391,48 @@ const OrderController = {
    * @param {Object} res - Đối tượng Response.
    * @param {Function} next - Hàm middleware tiếp theo.
    */
+  // update: async (req, res, next) => {
+  //   // ✅ Chuyển sang async
+  //   const { id } = req.params;
+  //   try {
+  //     const updatedOrder = await OrderService.update(id, req.body); // ✅ Sử dụng await
+  //     res.status(200).json({
+  //       success: true,
+  //       data: updatedOrder,
+  //       message: "Order updated successfully",
+  //     });
+  //   } catch (err) {
+  //     console.error("🚀 ~ order.controller.js: update - Lỗi:", err);
+  //     next(err);
+  //   }
+  // },
+
   update: async (req, res, next) => {
-    // ✅ Chuyển sang async
     const { id } = req.params;
+    const updateData = req.body;
+    // Lấy user_id từ req.user (do middleware xác thực cung cấp)
+    // Nếu req.user không tồn tại (ví dụ: route không được bảo vệ bằng middleware auth), nó sẽ là null.
+    const initiatedByUserId = req.user ? req.user.user_id : null;
+
     try {
-      const updatedOrder = await OrderService.update(id, req.body); // ✅ Sử dụng await
-      res.status(200).json({
-        success: true,
-        data: updatedOrder,
-        message: "Order updated successfully",
-      });
+      // Truyền order_id, updateData và initiatedByUserId xuống service
+      const updatedOrder = await OrderService.update(
+        id,
+        updateData,
+        initiatedByUserId
+      );
+
+      // Sử dụng hàm tiện ích createResponse để chuẩn hóa phản hồi
+      createResponse(
+        res,
+        200,
+        true,
+        updatedOrder,
+        "Order updated successfully"
+      );
     } catch (err) {
       console.error("🚀 ~ order.controller.js: update - Lỗi:", err);
+      // Chuyển lỗi xuống middleware xử lý lỗi toàn cục
       next(err);
     }
   },
@@ -522,7 +557,9 @@ const OrderController = {
     }
   },
   getTotalByStatus: async (req, res, next) => {
-    const { effectiveStartDate, effectiveEndDate } = processDateFilters(req.query);
+    const { effectiveStartDate, effectiveEndDate } = processDateFilters(
+      req.query
+    );
 
     try {
       const data = await OrderService.getTotalByStatus({

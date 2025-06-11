@@ -243,10 +243,28 @@ exports.getWithDetailsById = async (req, res, next) => {
   }
 };
 
+// exports.postOrder = async (req, res, next) => {
+//   // ✅ Chuyển hàm thành async
+//   try {
+//     const result = await service.confirmPurchaseOrder(req.params.id); // service.confirmPurchaseOrder cần trả về Promise
+//     res.json({ success: true, data: result });
+//   } catch (err) {
+//     console.error("🚀 ~ purchaseOrder.controller.js: postOrder - Lỗi:", err);
+//     next(err);
+//   }
+// };
+
 exports.postOrder = async (req, res, next) => {
-  // ✅ Chuyển hàm thành async
+  // Lấy user_id từ req.user (do middleware xác thực cung cấp)
+  // Nếu req.user không tồn tại (ví dụ: route không được bảo vệ bằng middleware auth), nó sẽ là null.
+  const initiatedByUserId = req.user ? req.user.user_id : null;
+
   try {
-    const result = await service.confirmPurchaseOrder(req.params.id); // service.confirmPurchaseOrder cần trả về Promise
+    // Truyền po_id và initiatedByUserId xuống service
+    const result = await service.confirmPurchaseOrder(
+      req.params.id,
+      initiatedByUserId
+    );
     res.json({ success: true, data: result });
   } catch (err) {
     console.error("🚀 ~ purchaseOrder.controller.js: postOrder - Lỗi:", err);
