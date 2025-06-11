@@ -204,15 +204,72 @@ const PurchaseOrderModel = {
    * @param {Object} data - Dữ liệu cập nhật.
    * @returns {Promise<Object|null>} Promise giải quyết với đối tượng đơn mua hàng đã cập nhật hoặc null nếu không tìm thấy.
    */
+  // update: async (po_id, data) => {
+  //   const fields = [];
+  //   const values = [];
+
+  //   // Xây dựng động các cặp 'field = ?' và giá trị tương ứng
+  //   // ✅ Chỉ thêm các trường có trong schema
+  //   if (data.supplier_name !== undefined) {
+  //     fields.push("supplier_name = ?");
+  //     values.push(data.supplier_name);
+  //   }
+  //   if (data.warehouse_id !== undefined) {
+  //     fields.push("warehouse_id = ?");
+  //     values.push(data.warehouse_id);
+  //   }
+  //   if (data.note !== undefined) {
+  //     fields.push("note = ?");
+  //     values.push(data.note);
+  //   }
+  //   if (data.status !== undefined) {
+  //     fields.push("status = ?");
+  //     values.push(data.status);
+  //   }
+  //   if (data.total_amount !== undefined) {
+  //     fields.push("total_amount = ?");
+  //     values.push(data.total_amount);
+  //   }
+  //   // posted_at chỉ nên cập nhật khi trạng thái chuyển sang 'posted'
+  //   // if (data.posted_at !== undefined) {
+  //   //     fields.push("posted_at = ?");
+  //   //     values.push(data.posted_at);
+  //   // }
+
+  //   if (fields.length === 0) {
+  //     throw new Error("No valid fields to update.");
+  //   }
+
+  //   fields.push(`updated_at = CURRENT_TIMESTAMP`); // Luôn cập nhật thời gian sửa đổi
+  //   values.push(po_id);
+  //   const sql = `UPDATE purchase_orders SET ${fields.join(
+  //     ", "
+  //   )} WHERE po_id = ?`;
+
+  //   try {
+  //     const [results] = await db.promise().query(sql, values);
+  //     if (results.affectedRows === 0) {
+  //       return null; // Không có hàng nào bị ảnh hưởng (không tìm thấy po_id)
+  //     }
+  //     return { po_id, ...data }; // Trả về thông tin đã cập nhật
+  //   } catch (error) {
+  //     console.error(
+  //       "🚀 ~ purchase_order.model.js: update - Lỗi khi cập nhật đơn mua hàng:",
+  //       error
+  //     );
+  //     throw error;
+  //   }
+  // },
+
   update: async (po_id, data) => {
     const fields = [];
     const values = [];
 
-    // Xây dựng động các cặp 'field = ?' và giá trị tương ứng
-    // ✅ Chỉ thêm các trường có trong schema
-    if (data.supplier_name !== undefined) {
-      fields.push("supplier_name = ?");
-      values.push(data.supplier_name);
+    // Build dynamic 'field = ?' pairs and corresponding values
+    // ✅ Use supplier_id instead of supplier_name
+    if (data.supplier_id !== undefined) {
+      fields.push("supplier_id = ?");
+      values.push(data.supplier_id);
     }
     if (data.warehouse_id !== undefined) {
       fields.push("warehouse_id = ?");
@@ -230,18 +287,14 @@ const PurchaseOrderModel = {
       fields.push("total_amount = ?");
       values.push(data.total_amount);
     }
-    // posted_at chỉ nên cập nhật khi trạng thái chuyển sang 'posted'
-    // if (data.posted_at !== undefined) {
-    //     fields.push("posted_at = ?");
-    //     values.push(data.posted_at);
-    // }
 
     if (fields.length === 0) {
       throw new Error("No valid fields to update.");
     }
 
-    fields.push(`updated_at = CURRENT_TIMESTAMP`); // Luôn cập nhật thời gian sửa đổi
-    values.push(po_id);
+    fields.push(`updated_at = CURRENT_TIMESTAMP`); // Always update modified timestamp
+    values.push(po_id); // Add po_id as the last value for the WHERE clause
+
     const sql = `UPDATE purchase_orders SET ${fields.join(
       ", "
     )} WHERE po_id = ?`;
@@ -249,9 +302,9 @@ const PurchaseOrderModel = {
     try {
       const [results] = await db.promise().query(sql, values);
       if (results.affectedRows === 0) {
-        return null; // Không có hàng nào bị ảnh hưởng (không tìm thấy po_id)
+        return null; // No rows affected (po_id not found)
       }
-      return { po_id, ...data }; // Trả về thông tin đã cập nhật
+      return { po_id, ...data }; // Return updated info
     } catch (error) {
       console.error(
         "🚀 ~ purchase_order.model.js: update - Lỗi khi cập nhật đơn mua hàng:",
@@ -375,23 +428,67 @@ const PurchaseOrderModel = {
    * @param {string} po_id - ID đơn mua hàng.
    * @returns {Promise<Array<Object>>} Promise giải quyết với mảng các bản ghi đơn mua hàng kèm chi tiết.
    */
+  // findWithDetailsById: async (po_id) => {
+  //   const sql = `
+  //           SELECT
+  //               po.po_id, po.supplier_name, po.warehouse_id, po.note, po.status, po.total_amount,
+  //               pod.po_detail_id, pod.product_id, pod.quantity, pod.price,
+  //               p.product_name AS product_name, p.sku
+  //           FROM purchase_orders po
+  //           JOIN purchase_order_details pod ON po.po_id = pod.po_id
+  //           JOIN products p ON pod.product_id = p.product_id
+  //           WHERE po.po_id = ?;
+  //       `; // ✅ Thêm total_amount vào SELECT
+  //   try {
+  //     const [rows] = await db.promise().query(sql, [po_id]);
+  //     return rows;
+  //   } catch (error) {
+  //     console.error(
+  //       "🚀 ~ purchase_order.model.js: findWithDetailsById - Lỗi khi tìm đơn mua hàng kèm chi tiết:",
+  //       error
+  //     );
+  //     throw error;
+  //   }
+  // },
+
   findWithDetailsById: async (po_id) => {
     const sql = `
-            SELECT 
-                po.po_id, po.supplier_name, po.warehouse_id, po.note, po.status, po.total_amount,
-                pod.po_detail_id, pod.product_id, pod.quantity, pod.price,
-                p.product_name AS product_name, p.sku
-            FROM purchase_orders po
-            JOIN purchase_order_details pod ON po.po_id = pod.po_id
-            JOIN products p ON pod.product_id = p.product_id
-            WHERE po.po_id = ?;
-        `; // ✅ Thêm total_amount vào SELECT
+      SELECT
+        po.po_id,
+        po.supplier_id,
+        s.supplier_name, -- ✅ Get supplier_name from the joined suppliers table
+        po.warehouse_id,
+        po.note,
+        po.status,
+        po.posted_at,
+        po.created_at,
+        po.updated_at,
+        po.total_amount,
+        pod.po_detail_id,
+        pod.product_id,
+        pod.quantity,
+        pod.price,
+        p.product_name, -- ✅ Get product_name from the joined products table
+        p.sku -- ✅ Get sku from the joined products table
+      FROM
+        purchase_orders po
+      JOIN
+        suppliers s ON po.supplier_id = s.supplier_id -- ✅ Join with suppliers
+      JOIN
+        purchase_order_details pod ON po.po_id = pod.po_id
+      JOIN
+        products p ON pod.product_id = p.product_id -- ✅ Join with products
+      WHERE
+        po.po_id = ?
+      ORDER BY
+        pod.created_at ASC; -- Order by detail creation for consistent results
+    `;
     try {
       const [rows] = await db.promise().query(sql, [po_id]);
       return rows;
     } catch (error) {
       console.error(
-        "🚀 ~ purchase_order.model.js: findWithDetailsById - Lỗi khi tìm đơn mua hàng kèm chi tiết:",
+        "🚀 ~ purchase_order.model.js: findWithDetailsById - Error fetching purchase order with details:",
         error
       );
       throw error;

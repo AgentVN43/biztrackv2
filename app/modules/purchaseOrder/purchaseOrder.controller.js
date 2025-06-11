@@ -275,13 +275,13 @@ exports.postOrder = async (req, res, next) => {
 exports.updatePOWithDetails = async (req, res, next) => {
   // ✅ Chuyển hàm thành async
   const poId = req.params.id;
-  const { supplier_name, note, status, details } = req.body;
+  const { supplier_id, note, status, details } = req.body;
 
   try {
     // service.updatePOWithDetails cần trả về Promise
     const result = await service.updatePOWithDetails(
       poId,
-      { supplier_name, note, status },
+      { supplier_id, note, status },
       details
     );
     res.json({ success: true, data: result });
