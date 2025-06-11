@@ -216,9 +216,9 @@ const InventoryModel = {
             available_stock: row.available_stock,
             category: row.category_id
               ? {
-                  category_id: row.category_id,
-                  category_name: row.category_name,
-                }
+                category_id: row.category_id,
+                category_name: row.category_name,
+              }
               : null,
           },
           warehouse: {
@@ -283,13 +283,17 @@ const InventoryModel = {
       const sql = `
         SELECT
           i.product_id,
-          p.product_name,
-          p.product_retail_price,
+          i.inventory_id,
+          i.created_at,
+          i.updated_at,
+          p.*,
+          c.category_name,
           SUM(i.quantity) AS total_quantity,
           SUM(i.available_stock) AS available_quantity,
           SUM(i.reserved_stock) AS reserved_quantity
         FROM inventories i
         JOIN products p ON i.product_id = p.product_id
+        LEFT JOIN categories c ON p.category_id = c.category_id
         WHERE i.warehouse_id = ?
         GROUP BY i.product_id, p.product_name
         ORDER BY p.product_name ASC
@@ -302,7 +306,28 @@ const InventoryModel = {
           );
           return reject(err);
         }
-        resolve({ success: true, data: results });
+        const formattedResults = results.map((row) => ({
+          inventory_id: row.inventory_id,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          product: {
+            product_id: row.product_id,
+            sku: row.sku,
+            product_image: row.product_image,
+            product_name: row.product_name,
+            product_retail_price: row.product_retail_price,
+            total_quantity: row.total_quantity,
+            reserved_quantity: row.reserved_quantity,
+            available_quantity: row.available_quantity,
+            category: row.category_id
+              ? {
+                category_id: row.category_id,
+                category_name: row.category_name,
+              }
+              : null,
+          },
+        }));
+        resolve(formattedResults);
       });
     });
   },
