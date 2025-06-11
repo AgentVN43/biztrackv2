@@ -241,7 +241,8 @@ function calculateOrderTotals(orderDetails, orderData = {}) {
     const discount = parseFloat(detail.discount) || 0;
 
     calculatedTotalAmount += price * quantity;
-    calculatedDiscountProductAmount += discount * quantity;
+    calculatedDiscountProductAmount += discount;
+    // calculatedDiscountProductAmount += discount * quantity;
   });
 
   const orderDiscountAmount = parseFloat(orderData.order_amount || 0);
