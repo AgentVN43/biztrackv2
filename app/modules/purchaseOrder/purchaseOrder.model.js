@@ -106,38 +106,84 @@ const PurchaseOrderModel = {
    * @param {number} [data.total_amount] - Tổng số tiền.
    * @returns {Promise<Object>} Promise giải quyết với đối tượng đơn mua hàng đã tạo.
    */
-  create: async (data) => {
-    const po_id = data.po_id || uuidv4(); // Sử dụng po_id nếu có, nếu không tự sinh
-    const { supplier_name, warehouse_id, note, status, total_amount } = data; // ✅ Chỉ lấy các trường có trong DB
+  // create: async (data) => {
+  //   const po_id = data.po_id || uuidv4(); // Sử dụng po_id nếu có, nếu không tự sinh
+  //   const { supplier_name, warehouse_id, note, status, total_amount } = data; // ✅ Chỉ lấy các trường có trong DB
 
-    // Validate bắt buộc theo schema
-    if (!supplier_name || !warehouse_id || !status) {
-      // total_amount có thể NULL, nên không validate ở đây
+  //   // Validate bắt buộc theo schema
+  //   if (!supplier_name || !warehouse_id || !status) {
+  //     // total_amount có thể NULL, nên không validate ở đây
+  //     throw new Error(
+  //       "Thiếu thông tin bắt buộc để tạo đơn mua hàng (supplier_name, warehouse_id, status)."
+  //     );
+  //   }
+
+  //   const query = `
+  //           INSERT INTO purchase_orders (
+  //               po_id, supplier_name, warehouse_id, note, status, total_amount
+  //           ) VALUES (?, ?, ?, ?, ?, ?)
+  //       `; // ✅ Cập nhật câu SQL INSERT
+
+  //   const values = [
+  //     po_id,
+  //     supplier_name,
+  //     warehouse_id,
+  //     note || null, // note có thể NULL
+  //     status,
+  //     total_amount || 0, // total_amount có default 0, nhưng nếu truyền null sẽ lỗi nếu cột là NOT NULL
+  //   ]; // ✅ Cập nhật các giá trị
+
+  //   try {
+  //     console.log("🚀 ~ purchase_order.model.js: create - SQL Query:", query);
+  //     console.log("🚀 ~ purchase_order.model.js: create - SQL Values:", values);
+  //     const [results] = await db.promise().query(query, values);
+  //     const purchaseOrderResult = { po_id, ...data }; // Trả về dữ liệu gốc kèm po_id
+  //     console.log(
+  //       "🚀 ~ purchase_order.model.js: create - Purchase Order created successfully:",
+  //       purchaseOrderResult
+  //     );
+  //     return purchaseOrderResult;
+  //   } catch (error) {
+  //     console.error(
+  //       "🚀 ~ purchase_order.model.js: create - Lỗi khi tạo đơn mua hàng (DB error):",
+  //       error
+  //     );
+  //     throw error;
+  //   }
+  // },
+
+  create: async (data) => {
+    const po_id = data.po_id || uuidv4(); // Use po_id if provided, otherwise generate a new UUID
+    const { supplier_id, warehouse_id, note, status, total_amount } = data; // ✅ Change to supplier_id
+
+    // Validate mandatory fields based on schema
+    if (!supplier_id || !warehouse_id || !status) {
+      // ✅ Validate supplier_id
       throw new Error(
-        "Thiếu thông tin bắt buộc để tạo đơn mua hàng (supplier_name, warehouse_id, status)."
+        "Missing required information to create purchase order (supplier_id, warehouse_id, status)."
       );
     }
 
     const query = `
-            INSERT INTO purchase_orders (
-                po_id, supplier_name, warehouse_id, note, status, total_amount
-            ) VALUES (?, ?, ?, ?, ?, ?)
-        `; // ✅ Cập nhật câu SQL INSERT
+        INSERT INTO purchase_orders (
+            po_id, supplier_id, warehouse_id, note, status, total_amount
+        ) VALUES (?, ?, ?, ?, ?, ?)
+    `; // ✅ Update SQL INSERT to use supplier_id
 
     const values = [
       po_id,
-      supplier_name,
+      supplier_id, // ✅ Use supplier_id here
       warehouse_id,
-      note || null, // note có thể NULL
+      note || null,
       status,
-      total_amount || 0, // total_amount có default 0, nhưng nếu truyền null sẽ lỗi nếu cột là NOT NULL
-    ]; // ✅ Cập nhật các giá trị
+      total_amount || 0,
+    ];
 
     try {
       console.log("🚀 ~ purchase_order.model.js: create - SQL Query:", query);
       console.log("🚀 ~ purchase_order.model.js: create - SQL Values:", values);
       const [results] = await db.promise().query(query, values);
-      const purchaseOrderResult = { po_id, ...data }; // Trả về dữ liệu gốc kèm po_id
+      const purchaseOrderResult = { po_id, ...data }; // Return original data with po_id
       console.log(
         "🚀 ~ purchase_order.model.js: create - Purchase Order created successfully:",
         purchaseOrderResult
@@ -145,7 +191,7 @@ const PurchaseOrderModel = {
       return purchaseOrderResult;
     } catch (error) {
       console.error(
-        "🚀 ~ purchase_order.model.js: create - Lỗi khi tạo đơn mua hàng (DB error):",
+        "🚀 ~ purchase_order.model.js: create - Error creating purchase order (DB error):",
         error
       );
       throw error;
@@ -241,14 +287,39 @@ const PurchaseOrderModel = {
    * Lấy tất cả các đơn mua hàng.
    * @returns {Promise<Array<Object>>} Promise giải quyết với danh sách đơn mua hàng.
    */
+  // findAll: async () => {
+  //   const sql = "SELECT * FROM purchase_orders ORDER BY created_at DESC";
+  //   try {
+  //     const [rows] = await db.promise().query(sql);
+  //     return rows;
+  //   } catch (error) {
+  //     console.error(
+  //       "🚀 ~ purchase_order.model.js: findAll - Lỗi khi lấy tất cả đơn mua hàng:",
+  //       error
+  //     );
+  //     throw error;
+  //   }
+  // },
+
   findAll: async () => {
-    const sql = "SELECT * FROM purchase_orders ORDER BY created_at DESC";
+    // Modify the SQL query to join with the suppliers table
+    const sql = `
+      SELECT
+        po.*,
+        s.supplier_name
+      FROM
+        purchase_orders po
+      JOIN
+        suppliers s ON po.supplier_id = s.supplier_id
+      ORDER BY
+        po.created_at DESC;
+    `;
     try {
       const [rows] = await db.promise().query(sql);
       return rows;
     } catch (error) {
       console.error(
-        "🚀 ~ purchase_order.model.js: findAll - Lỗi khi lấy tất cả đơn mua hàng:",
+        "🚀 ~ purchase_order.model.js: findAll - Error fetching all purchase orders:",
         error
       );
       throw error;
