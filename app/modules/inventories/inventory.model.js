@@ -514,6 +514,27 @@ const InventoryModel = {
       });
     });
   },
+
+  getTotalStockByProductId: (product_id) => {
+    return new Promise((resolve, reject) => {
+      const sql = `
+        SELECT COALESCE(SUM(quantity), 0) AS total_stock
+        FROM inventories
+        WHERE product_id = ?;
+      `;
+      db.query(sql, [product_id], (err, results) => {
+        if (err) {
+          console.error(
+            "🚀 ~ inventory.model.js: getTotalStockByProductId - Error:",
+            err
+          );
+          return reject(err);
+        }
+        // Trả về tổng số lượng hoặc 0 nếu không có bản ghi nào
+        resolve(results && results.length ? results[0].total_stock : 0);
+      });
+    });
+  },
 };
 
 module.exports = InventoryModel;

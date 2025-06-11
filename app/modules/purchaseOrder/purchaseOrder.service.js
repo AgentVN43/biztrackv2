@@ -463,6 +463,10 @@ const PurchaseOrderModel = require("./purchaseOrder.model");
 const PurchaseOrderDetailModel = require("./purchaseOrderDetail.model");
 const InventoryService = require("../../modules/inventories/inventory.service");
 
+const ProductEventModel = require('../product_report/product_event.model'); // Thêm import ProductEventModel
+const InventoryModel = require('../inventories/inventory.model'); // Thêm import InventoryModel để lấy total stock
+const SupplierModel = require('../suppliers/supplier.model'); 
+
 const PurchaseOrderService = {
   /**
    * Tạo một đơn mua hàng mới và các chi tiết đơn mua hàng.
@@ -735,7 +739,61 @@ const PurchaseOrderService = {
    * @param {string} po_id - ID đơn mua hàng.
    * @returns {Promise<Object>} Promise giải quyết với thông báo thành công.
    */
-  confirmPurchaseOrder: async (po_id) => {
+  // confirmPurchaseOrder: async (po_id) => {
+  //   console.log(
+  //     "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - === Running confirmPurchaseOrder ==="
+  //   );
+
+  //   try {
+  //     const order = await PurchaseOrderModel.findById(po_id);
+  //     if (!order) {
+  //       throw new Error("Purchase order not found");
+  //     }
+  //     if (order.status === "posted") {
+  //       throw new Error("Already posted");
+  //     }
+
+  //     const details = await PurchaseOrderDetailModel.findByPOId(po_id);
+  //     if (!details || details.length === 0) {
+  //       throw new Error("No purchase order details found");
+  //     }
+
+  //     // Xử lý từng detail để cập nhật tồn kho
+  //     await Promise.all(
+  //       details.map(async (item) => {
+  //         const { product_id, quantity } = item;
+
+  //         // InventoryService.increaseStockFromPurchaseOrder đã được refactor để trả về Promise
+  //         // Nó sẽ xử lý logic tìm/tạo và cập nhật tồn kho
+  //         await InventoryService.increaseStockFromPurchaseOrder(
+  //           [{ product_id, quantity }],
+  //           order.warehouse_id
+  //         );
+  //         console.log(
+  //           `✅ Updated inventory for ${product_id} in warehouse ${order.warehouse_id}`
+  //         );
+  //       })
+  //     );
+
+  //     // Khi tất cả inventory xử lý xong, cập nhật trạng thái PO
+  //     await PurchaseOrderModel.updateStatus(po_id, "posted", new Date());
+  //     console.log(
+  //       "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - Purchase order posted and inventory updated."
+  //     );
+
+  //     return {
+  //       message: "Purchase order posted and inventory updated",
+  //     };
+  //   } catch (error) {
+  //     console.error(
+  //       "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - Lỗi trong quá trình xác nhận đơn mua hàng:",
+  //       error
+  //     );
+  //     throw error;
+  //   }
+  // },
+
+  confirmPurchaseOrder: async (po_id, initiatedByUserId = null) => {
     console.log(
       "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - === Running confirmPurchaseOrder ==="
     );
@@ -754,19 +812,49 @@ const PurchaseOrderService = {
         throw new Error("No purchase order details found");
       }
 
-      // Xử lý từng detail để cập nhật tồn kho
+      // Lấy tên nhà cung cấp cho trường partner_name trong lịch sử sự kiện
+      let partner_name = null;
+      if (order.supplier_id) {
+        const supplier = await SupplierModel.findById(order.supplier_id); // Giả định SupplierModel.findById tồn tại
+        partner_name = supplier ? supplier.supplier_name : null; // Giả định đối tượng supplier có trường supplier_name
+      }
+
+      // Xử lý từng detail để cập nhật tồn kho và ghi nhận lịch sử
       await Promise.all(
         details.map(async (item) => {
-          const { product_id, quantity } = item;
+          const { product_id, quantity, unit_price } = item; // Giả định unit_price có sẵn trong item detail
 
-          // InventoryService.increaseStockFromPurchaseOrder đã được refactor để trả về Promise
-          // Nó sẽ xử lý logic tìm/tạo và cập nhật tồn kho
+          // 1. Cập nhật tồn kho thông qua InventoryService (tăng tồn kho từ PO)
           await InventoryService.increaseStockFromPurchaseOrder(
-            [{ product_id, quantity }],
+            [{ product_id, quantity }], // increaseStockFromPurchaseOrder dự kiến một mảng orderDetails
             order.warehouse_id
           );
           console.log(
             `✅ Updated inventory for ${product_id} in warehouse ${order.warehouse_id}`
+          );
+
+          // 2. Lấy tồn kho tổng sau khi cập nhật (quan trọng cho current_stock_after)
+          const current_stock_after =
+            await InventoryModel.getTotalStockByProductId(product_id);
+
+          // 3. Ghi nhận sự kiện Product Event
+          await ProductEventModel.recordEvent({
+            product_id: product_id,
+            warehouse_id: order.warehouse_id,
+            event_type: "PO_RECEIVED", // Loại sự kiện khi nhận hàng từ PO
+            quantity_impact: quantity, // Số lượng dương vì là nhập hàng
+            transaction_price: unit_price, // Giá nhập từ chi tiết PO
+            partner_name: partner_name,
+            current_stock_after: current_stock_after,
+            reference_id: po_id,
+            reference_type: "PURCHASE_ORDER",
+            description: `Sản phẩm ${
+              item.product_name || product_id
+            } nhận từ đơn mua hàng ${po_id}.`, // Có thể lấy product_name từ item nếu có
+            initiated_by: initiatedByUserId,
+          });
+          console.log(
+            `🚀 ~ Product Event ghi nhận: Nhập ${quantity} của ${product_id} từ PO ${po_id}`
           );
         })
       );

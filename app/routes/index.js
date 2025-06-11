@@ -15,6 +15,8 @@ const searchRoutes = require("../modules/search/search.routes");
 const invoiceRoutes = require("../modules/invoice/invoice.routes");
 const analysisRoutes = require("../modules/analysis/analysis.routes");
 const transactionRoutes = require("../modules/transactions/transaction.route");
+const productReportRoutes = require("../modules/product_report/product_report.routes");
+const supplierRoutes = require("../modules/suppliers/supplier.routes");
 
 module.exports = (app) => {
   // Register all routes
@@ -23,6 +25,7 @@ module.exports = (app) => {
   app.use("/api/v1/users", userRoutes);
   app.use("/api/v1/categories", categoryRoutes);
   app.use("/api/v1/products", productRoutes);
+  app.use("/api/v1/product-report", productReportRoutes);
   app.use("/api/v1/warehouses", warehouseRoutes);
   app.use("/api/v1/purchase-orders", purchaseOrderRoutes);
   app.use("/api/v1/inventories", inventoriesRoutes);
@@ -34,6 +37,7 @@ module.exports = (app) => {
   app.use("/api/v1/invoices", invoiceRoutes);
   app.use("/api/v1/analysis", analysisRoutes);
   app.use("/api/v1/transactions", transactionRoutes);
+  app.use("/api/v1/suppliers", supplierRoutes);
 
   // Default route for non-existent endpoints
   app.use("*", (req, res) => {
