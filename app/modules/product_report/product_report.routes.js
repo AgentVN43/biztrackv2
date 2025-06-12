@@ -4,5 +4,6 @@ const productReportController = require("./product_report.controller"); // Đả
 
 // Tuyến đường để lấy lịch sử của một sản phẩm
 router.get("/:id/history", productReportController.getProductHistory);
+router.get('/:productId/:warehouseId/history', productReportController.getProductHistoryByProductAndWarehouse);
 
 module.exports = router;

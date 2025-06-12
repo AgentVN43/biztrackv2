@@ -112,8 +112,48 @@ const ProductEventModel = {
     });
   },
 
-  // Bạn có thể thêm các hàm khác ở đây trong tương lai,
-  // ví dụ: getEventsByReferenceId, filterEventsByDateRange, v.v.
+  /**
+   * Lấy tất cả các sự kiện lịch sử cho một sản phẩm cụ thể trong một kho cụ thể.
+   *
+   * @param {string} product_id - ID của sản phẩm.
+   * @param {string} warehouse_id - ID của kho.
+   * @returns {Promise<Array<Object>>} Promise giải quyết với một mảng các sự kiện.
+   */
+  getEventsByProductAndWarehouseId: (product_id, warehouse_id) => {
+    return new Promise((resolve, reject) => {
+      const sql = `
+        SELECT
+          pe.event_id,
+          pe.product_id,
+          pe.warehouse_id,
+          w.warehouse_name, -- Lấy tên kho từ bảng warehouses
+          pe.event_type,
+          pe.quantity_impact,
+          pe.transaction_price,
+          pe.partner_name,
+          pe.current_stock_after,
+          pe.reference_id,
+          pe.reference_type,
+          pe.description,
+          pe.event_timestamp,
+          pe.initiated_by
+        FROM product_events pe
+        JOIN warehouses w ON pe.warehouse_id = w.warehouse_id -- JOIN với bảng warehouses
+        WHERE pe.product_id = ? AND pe.warehouse_id = ?
+        ORDER BY pe.event_timestamp ASC;
+      `;
+      db.query(sql, [product_id, warehouse_id], (err, results) => {
+        if (err) {
+          console.error(
+            "🚀 ~ product_event.model.js: getEventsByProductAndWarehouseId - Error fetching product events by product and warehouse:",
+            err
+          );
+          return reject(err);
+        }
+        resolve(results);
+      });
+    });
+  },
 };
 
 module.exports = ProductEventModel;
