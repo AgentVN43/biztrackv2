@@ -468,70 +468,141 @@ const OrderController = {
    * @param {Object} res - Đối tượng Response.
    * @param {Function} next - Hàm middleware tiếp theo.
    */
+  // createOrderWithDetails: async (req, res, next) => {
+  //   // ✅ Chuyển sang async
+  //   const { order: orderData, orderDetails } = req.body;
+
+  //   console.log(
+  //     "🚀 ~ order.controller.js: createOrderWithDetails - REQ.BODY:",
+  //     req.body
+  //   );
+
+  //   if (!Array.isArray(orderDetails) || orderDetails.length === 0) {
+  //     return res.status(400).json({
+  //       message: "Danh sách sản phẩm trống hoặc không hợp lệ",
+  //     });
+  //   }
+
+  //   try {
+  //     const calculated = calculateOrderTotals(orderDetails, orderData);
+
+  //     const orderToCreate = {
+  //       ...orderData,
+  //       total_amount: calculated.total_amount.toFixed(2),
+  //       discount_amount: calculated.discount_amount.toFixed(2),
+  //       final_amount: calculated.final_amount.toFixed(2),
+  //       order_amount: calculated.order_amount.toFixed(2),
+  //       shipping_fee: calculated.shipping_fee.toFixed(2),
+  //     };
+
+  //     const newOrder = await OrderService.create(orderToCreate); // Await OrderService.create
+
+  //     const createdDetails = await Promise.all(
+  //       // Await all detail creations
+  //       orderDetails.map(async (detail) => {
+  //         const detailData = { ...detail, order_id: newOrder.order_id };
+  //         return await OrderDetailService.create(detailData); // Await OrderDetailService.create
+  //       })
+  //     );
+
+  //     // Reserve stock (assuming orderToCreate.warehouse_id is available)
+  //     if (orderToCreate.warehouse_id) {
+  //       await Inventory.reserveStockFromOrderDetails(
+  //         // Await Inventory.reserveStockFromOrderDetails
+  //         orderDetails,
+  //         orderToCreate.warehouse_id
+  //       );
+  //       console.log(
+  //         "🚀 ~ order.controller.js: createOrderWithDetails - Stock reserved successfully."
+  //       );
+  //     } else {
+  //       console.warn(
+  //         "🚀 ~ order.controller.js: createOrderWithDetails - No warehouse_id provided for stock reservation."
+  //       );
+  //     }
+
+  //     res.status(201).json({
+  //       message: "Tạo đơn hàng thành công",
+  //       order: newOrder,
+  //       order_details: createdDetails,
+  //     });
+  //   } catch (error) {
+  //     console.error(
+  //       "🚀 ~ order.controller.js: createOrderWithDetails - Lỗi:",
+  //       error
+  //     );
+  //     next(error); // Pass error to middleware
+  //   }
+  // },
+
   createOrderWithDetails: async (req, res, next) => {
-    // ✅ Chuyển sang async
     const { order: orderData, orderDetails } = req.body;
 
     console.log(
-      "🚀 ~ order.controller.js: createOrderWithDetails - REQ.BODY:",
+      "🚀 ~ order.controller.js: createOrderWithDetails - REQ.BODY (dữ liệu thô từ client):",
       req.body
     );
+    console.log(
+      "🚀 ~ order.controller.js: createOrderWithDetails - orderData (từ req.body.order):",
+      orderData
+    ); // <-- LOG THÊM ĐỂ KIỂM TRA amount_paid Ở ĐÂY
 
     if (!Array.isArray(orderDetails) || orderDetails.length === 0) {
-      return res.status(400).json({
-        message: "Danh sách sản phẩm trống hoặc không hợp lệ",
-      });
+      return createResponse(
+        res,
+        400,
+        false,
+        null,
+        "Danh sách sản phẩm trống hoặc không hợp lệ."
+      );
+    }
+    if (!orderData || !orderData.customer_id || !orderData.warehouse_id) {
+      return createResponse(
+        res,
+        400,
+        false,
+        null,
+        "Thông tin đơn hàng chính bị thiếu (customer_id, warehouse_id)."
+      );
     }
 
     try {
-      const calculated = calculateOrderTotals(orderDetails, orderData);
+      // ✅ KHÔNG CÒN GỌI calculateOrderTotals VÀ toFixed Ở ĐÂY.
+      // Service sẽ đảm nhiệm việc tính toán và định dạng số.
 
-      const orderToCreate = {
+      // Gộp orderData và orderDetails thành một đối tượng duy nhất để truyền cho Service.
+      // Service sẽ xử lý destructuring và tính toán.
+      const orderDataForService = {
         ...orderData,
-        total_amount: calculated.total_amount.toFixed(2),
-        discount_amount: calculated.discount_amount.toFixed(2),
-        final_amount: calculated.final_amount.toFixed(2),
-        order_amount: calculated.order_amount.toFixed(2),
-        shipping_fee: calculated.shipping_fee.toFixed(2),
+        details: orderDetails, // Truyền mảng chi tiết sản phẩm
       };
-
-      const newOrder = await OrderService.create(orderToCreate); // Await OrderService.create
-
-      const createdDetails = await Promise.all(
-        // Await all detail creations
-        orderDetails.map(async (detail) => {
-          const detailData = { ...detail, order_id: newOrder.order_id };
-          return await OrderDetailService.create(detailData); // Await OrderDetailService.create
-        })
+      console.log(
+        "🚀 ~ order.controller.js: createOrderWithDetails - Dữ liệu gửi đến OrderService.create:",
+        orderDataForService
       );
 
-      // Reserve stock (assuming orderToCreate.warehouse_id is available)
-      if (orderToCreate.warehouse_id) {
-        await Inventory.reserveStockFromOrderDetails(
-          // Await Inventory.reserveStockFromOrderDetails
-          orderDetails,
-          orderToCreate.warehouse_id
-        );
-        console.log(
-          "🚀 ~ order.controller.js: createOrderWithDetails - Stock reserved successfully."
-        );
-      } else {
-        console.warn(
-          "🚀 ~ order.controller.js: createOrderWithDetails - No warehouse_id provided for stock reservation."
-        );
-      }
+      const newOrderWithDetails = await OrderService.create(
+        orderDataForService
+      ); // Gọi OrderService.create
 
-      res.status(201).json({
-        message: "Tạo đơn hàng thành công",
-        order: newOrder,
-        order_details: createdDetails,
-      });
+      
+
+      // Sau khi Service đã tạo order chính, chi tiết và đặt chỗ tồn kho,
+      // trả về kết quả đã xử lý đầy đủ.
+      createResponse(
+        res,
+        201,
+        true,
+        newOrderWithDetails,
+        "Tạo đơn hàng thành công!"
+      );
     } catch (error) {
       console.error(
         "🚀 ~ order.controller.js: createOrderWithDetails - Lỗi:",
         error
       );
-      next(error); // Pass error to middleware
+      // Chuyển lỗi đến middleware xử lý lỗi (để hiển thị thông báo lỗi chi tiết hơn)
+      next(error);
     }
   },
 

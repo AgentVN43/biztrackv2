@@ -14,5 +14,6 @@ router.get("/:invoice_code", InvoiceController.getInvoiceByInvoiceCode);        
 router.post("/", InvoiceController.createInvoice);                 // Tạo hóa đơn mới
 router.put("/:id", InvoiceController.updateInvoice);               // Cập nhật hóa đơn
 router.delete("/:id", InvoiceController.deleteInvoice);            // Xóa hóa đơn
+router.post('/:id/payments', InvoiceController.recordInvoicePayment); // Thêm authMiddleware nếu cần
 
 module.exports = router;

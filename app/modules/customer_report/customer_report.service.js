@@ -191,19 +191,36 @@ const CustomerReportService = {
    * @returns {Promise<number>} Promise giải quyết với tổng công nợ.
    * @throws {Error} Nếu có lỗi trong quá trình truy vấn database.
    */
+  // getReceivables: async (customer_id) => {
+  //   try {
+  //     // Giả định bảng `invoices` có `customer_id` và `status` (paid/unpaid)
+  //     // Nếu không, bạn cần JOIN với bảng `orders` hoặc `transactions` để lấy customer_id.
+  //     // Đây là cách đơn giản nhất:
+  //     const sql = `
+  //       SELECT COALESCE(SUM(final_amount), 0) AS total_receivables
+  //       FROM invoices
+  //       WHERE customer_id = ? AND status != 'paid'; -- Hoặc status = 'unpaid', 'partially_paid'
+  //     `;
+  //     // Nếu bạn muốn tính toán từ transactions, logic sẽ phức tạp hơn:
+  //     // Tính tổng amount của các invoices cho customer đó
+  //     // Trừ đi tổng amount của các transactions type 'receipt' liên quan đến customer/invoice đó
+  //     const [rows] = await db.promise().query(sql, [customer_id]);
+  //     return rows[0].total_receivables;
+  //   } catch (error) {
+  //     console.error("🚀 ~ CustomerReportService: getReceivables - Lỗi:", error);
+  //     throw error;
+  //   }
+  // },
+
   getReceivables: async (customer_id) => {
     try {
-      // Giả định bảng `invoices` có `customer_id` và `status` (paid/unpaid)
-      // Nếu không, bạn cần JOIN với bảng `orders` hoặc `transactions` để lấy customer_id.
-      // Đây là cách đơn giản nhất:
       const sql = `
-        SELECT COALESCE(SUM(final_amount), 0) AS total_receivables
+        SELECT
+          COALESCE(SUM(final_amount - amount_paid), 0) AS total_receivables
         FROM invoices
-        WHERE customer_id = ? AND status != 'paid'; -- Hoặc status = 'unpaid', 'partially_paid'
+        WHERE customer_id = ?
+          AND (status = 'pending' OR status = 'partial_paid' OR status = 'overdue'); -- Hoặc các trạng thái khác biểu thị chưa thanh toán đủ
       `;
-      // Nếu bạn muốn tính toán từ transactions, logic sẽ phức tạp hơn:
-      // Tính tổng amount của các invoices cho customer đó
-      // Trừ đi tổng amount của các transactions type 'receipt' liên quan đến customer/invoice đó
       const [rows] = await db.promise().query(sql, [customer_id]);
       return rows[0].total_receivables;
     } catch (error) {

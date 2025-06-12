@@ -942,14 +942,97 @@ const OrderModel = {
    * @param {Object} data - Dữ liệu đơn hàng.
    * @returns {Promise<Object>} Promise giải quyết với thông tin đơn hàng đã tạo.
    */
+  // create: async (data) => {
+  //   // ✅ Chuyển sang async
+  //   const {
+  //     customer_id,
+  //     order_date,
+  //     total_amount,
+  //     discount_amount,
+  //     final_amount,
+  //     amount_paid,
+  //     shipping_address,
+  //     payment_method,
+  //     note,
+  //     order_amount,
+  //     warehouse_id,
+  //     shipping_fee,
+  //   } = data;
+
+  //   // --- VALIDATE INPUTS ---
+  //   if (!customer_id) {
+  //     throw new Error("customer_id là bắt buộc");
+  //   }
+  //   if (!order_date || isNaN(Date.parse(order_date))) {
+  //     throw new Error("order_date không hợp lệ");
+  //   }
+  //   if (!warehouse_id) {
+  //     throw new Error("warehouse_id là bắt buộc");
+  //   }
+
+  //   try {
+  //     const order_code = await generateOrderCode(); // ✅ Sử dụng await
+  //     const order_status = "Mới"; // Trạng thái mặc định cho đơn hàng mới
+  //     const is_active = 1; // Mặc định là active
+  //     const order_id = uuidv4(); // Tạo UUID cho order_id
+
+  //     // Câu lệnh SQL để thêm đơn hàng vào bảng 'orders'
+  //     const query = `
+  //       INSERT INTO orders (
+  //         order_id, customer_id, order_date, order_code, total_amount,
+  //         discount_amount, final_amount, amount_paid, order_status, is_active,
+  //         shipping_address, payment_method, note, warehouse_id, order_amount, shipping_fee
+  //       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  //     `;
+
+  //     // Các giá trị tương ứng với các placeholder trong câu lệnh SQL
+  //     const values = [
+  //       order_id,
+  //       customer_id,
+  //       order_date,
+  //       order_code,
+  //       total_amount || 0,
+  //       discount_amount || 0,
+  //       final_amount || 0,
+  //       amount_paid || 0,
+  //       order_status,
+  //       is_active,
+  //       shipping_address || null,
+  //       payment_method || null,
+  //       note || null,
+  //       warehouse_id || null,
+  //       order_amount || 0,
+  //       shipping_fee || 0,
+  //     ];
+
+  //     // Thực hiện truy vấn
+  //     const [results] = await db.promise().query(query, values); // ✅ Sử dụng db.promise().query
+
+  //     // Trả về thông tin đơn hàng đã tạo thành công
+  //     return {
+  //       order_id,
+  //       order_code,
+  //       customer_id,
+  //       order_date,
+  //       order_status,
+  //       is_active,
+  //       amount_paid,
+  //       ...data, // Bao gồm cả dữ liệu gốc đã gửi
+  //     };
+  //   } catch (error) {
+  //     console.error("Lỗi khi lưu đơn hàng:", error.message);
+  //     throw error;
+  //   }
+  // },
+
   create: async (data) => {
-    // ✅ Chuyển sang async
     const {
       customer_id,
       order_date,
       total_amount,
       discount_amount,
       final_amount,
+      amount_paid = 0, // ✅ Đảm bảo amount_paid được destructure từ data
       shipping_address,
       payment_method,
       note,
@@ -970,21 +1053,23 @@ const OrderModel = {
     }
 
     try {
-      const order_code = await generateOrderCode(); // ✅ Sử dụng await
+      const order_code = await generateOrderCode();
       const order_status = "Mới"; // Trạng thái mặc định cho đơn hàng mới
       const is_active = 1; // Mặc định là active
       const order_id = uuidv4(); // Tạo UUID cho order_id
 
       // Câu lệnh SQL để thêm đơn hàng vào bảng 'orders'
+      // ✅ Đã bổ sung cột amount_paid vào danh sách cột
       const query = `
         INSERT INTO orders (
           order_id, customer_id, order_date, order_code, total_amount,
-          discount_amount, final_amount, order_status, is_active,
+          discount_amount, final_amount, amount_paid, order_status, is_active,
           shipping_address, payment_method, note, warehouse_id, order_amount, shipping_fee
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       // Các giá trị tương ứng với các placeholder trong câu lệnh SQL
+      // ✅ Đã bổ sung giá trị amount_paid vào danh sách values
       const values = [
         order_id,
         customer_id,
@@ -993,6 +1078,7 @@ const OrderModel = {
         total_amount || 0,
         discount_amount || 0,
         final_amount || 0,
+        amount_paid, // ✅ Giá trị amount_paid được truyền vào đây
         order_status,
         is_active,
         shipping_address || null,
@@ -1004,7 +1090,7 @@ const OrderModel = {
       ];
 
       // Thực hiện truy vấn
-      const [results] = await db.promise().query(query, values); // ✅ Sử dụng db.promise().query
+      const [results] = await db.promise().query(query, values);
 
       // Trả về thông tin đơn hàng đã tạo thành công
       return {
@@ -1014,7 +1100,7 @@ const OrderModel = {
         order_date,
         order_status,
         is_active,
-        ...data, // Bao gồm cả dữ liệu gốc đã gửi
+        ...data, // Bao gồm cả dữ liệu gốc đã gửi (lúc này đã có amount_paid)
       };
     } catch (error) {
       console.error("Lỗi khi lưu đơn hàng:", error.message);
@@ -1475,7 +1561,7 @@ const OrderModel = {
       console.error("Model - getTotalByStatus:", error.message);
       throw error;
     }
-  }
+  },
 };
 
 module.exports = OrderModel;

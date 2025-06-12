@@ -17,17 +17,30 @@ const Invoice = {
       final_amount,
       issued_date,
       due_date,
-      status,
       note,
+      amount_paid = 0.0,
     } = data;
+
+    // ✅ Logic xác định trạng thái ban đầu của hóa đơn dựa trên amount_paid và final_amount
+    let status;
+    if (final_amount <= 0) {
+      // Trường hợp tổng tiền là 0 hoặc âm (hoàn trả)
+      status = "paid"; // Coi như đã thanh toán
+    } else if (amount_paid >= final_amount) {
+      status = "paid"; // Đã thanh toán đủ
+    } else if (amount_paid > 0) {
+      status = "partial_paid"; // Thanh toán một phần
+    } else {
+      status = "pending"; // Chưa thanh toán (hoặc 'pending' theo đề xuất của bạn)
+    }
 
     const query = `
             INSERT INTO invoices (
                 invoice_id, invoice_code, invoice_type, order_id,
                 customer_id, supplier_id, total_amount, tax_amount,
                 discount_amount, final_amount, issued_date, due_date,
-                status, note
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                status, note, amount_paid
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
     const values = [
@@ -45,13 +58,14 @@ const Invoice = {
       due_date,
       status,
       note,
+      amount_paid,
     ];
 
     try {
       console.log("🚀 ~ invoice.model.js: create - SQL Query:", query);
       console.log("🚀 ~ invoice.model.js: create - SQL Values:", values);
-      const [results] = await db.promise().query(query, values);
-      const invoiceResult = { invoice_id, ...data };
+      await db.promise().query(query, values);
+      const invoiceResult = { invoice_id, ...data, status, amount_paid };
       console.log(
         "🚀 ~ invoice.model.js: create - Invoice created successfully:",
         invoiceResult
@@ -60,6 +74,55 @@ const Invoice = {
     } catch (error) {
       console.error(
         "🚀 ~ invoice.model.js: create - Error creating invoice:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  updateAmountPaidAndStatus: async (invoice_id, paymentAmount) => {
+    try {
+      // 1. Lấy thông tin hóa đơn hiện tại
+      const [invoiceRows] = await db
+        .promise()
+        .query(
+          "SELECT final_amount, amount_paid FROM invoices WHERE invoice_id = ?",
+          [invoice_id]
+        );
+      if (invoiceRows.length === 0) {
+        throw new Error("Invoice not found.");
+      }
+      const currentInvoice = invoiceRows[0];
+      const newAmountPaid =
+        parseFloat(currentInvoice.amount_paid) + parseFloat(paymentAmount);
+      let newStatus = currentInvoice.status;
+
+      // 2. Xác định trạng thái mới
+      if (newAmountPaid >= currentInvoice.final_amount) {
+        newStatus = "paid"; // Đã thanh toán đủ
+      } else if (newAmountPaid > 0) {
+        newStatus = "partial_paid"; // Thanh toán một phần
+      } else {
+        newStatus = "pending"; // Chưa thanh toán
+      }
+
+      // 3. Cập nhật hóa đơn
+      const sql = `
+        UPDATE invoices
+        SET amount_paid = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE invoice_id = ?
+      `;
+      const [result] = await db
+        .promise()
+        .query(sql, [newAmountPaid, newStatus, invoice_id]);
+
+      if (result.affectedRows === 0) {
+        return null; // Invoice not found for update
+      }
+      return { invoice_id, amount_paid: newAmountPaid, status: newStatus };
+    } catch (error) {
+      console.error(
+        "🚀 ~ InvoiceModel: updateAmountPaidAndStatus - Lỗi khi cập nhật amount_paid và status:",
         error
       );
       throw error;
@@ -205,6 +268,24 @@ const Invoice = {
     } catch (error) {
       console.error(
         "🚀 ~ invoice.model.js: getByInvoiceCode - Error fetching invoice:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  findById: async (invoice_id) => {
+    const query = "SELECT * FROM invoices WHERE invoice_id = ?";
+
+    try {
+      const [results] = await db.promise().query(query, [invoice_id]);
+      if (results.length === 0) {
+        throw new Error("Invoice not found");
+      }
+      return results[0]; // Return the first matching invoice
+    } catch (error) {
+      console.error(
+        "🚀 ~ invoice.model.js: getByInvoiceId - Error fetching invoice:",
         error
       );
       throw error;

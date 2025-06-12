@@ -732,6 +732,7 @@ const OrderDetailModel = require("../orderDetails/orderDetail.model"); // ✅ C�
 const ProductEventModel = require("../product_report/product_event.model"); // Thêm import ProductEventModel
 const CustomerModel = require("../customers/customer.model"); // Thêm import CustomerModel
 const InventoryModel = require("../inventories/inventory.model");
+const { v4: uuidv4 } = require("uuid");
 
 // Hàm tính toán tổng tiền đơn hàng
 function calculateOrderTotals(orderDetails, orderData = {}) {
@@ -806,29 +807,124 @@ const OrderService = {
    * @param {Object} data - Dữ liệu đơn hàng.
    * @returns {Promise<Object>} Promise giải quyết với đơn hàng đã tạo.
    */
+  // create: async (data) => {
+  //   // ✅ Chuyển sang async
+  //   try {
+  //     const {
+  //       details = [],
+  //       amount_paid = 0, // Số tiền đã thanh toán ban đầu
+  //       ...otherData // Lấy các trường còn lại (customer_id, order_date, shipping_address, payment_method, note, warehouse_id)
+  //     } = data;
+
+  //     // Tính toán các giá trị tài chính bằng hàm tiện ích
+  //     const calculatedAmounts = calculateOrderTotals(details, data);
+
+  //     // Tạo một đối tượng dữ liệu mới để truyền vào model
+  //     const orderDataForModel = {
+  //       ...otherData, // Các trường khác từ payload gốc
+  //       ...calculatedAmounts, // Ghi đè các trường tính toán từ hàm calculateOrderTotals
+  //       amount_paid: parseFloat(amount_paid), // Đảm bảo amount_paid là số
+  //     };
+
+  //     const createdOrder = await OrderModel.create(orderDataForModel); // ✅ Sử dụng await
+  //     return createdOrder;
+  //   } catch (error) {
+  //     console.error("🚀 ~ order.service.js: create - Lỗi:", error);
+  //     throw error;
+  //   }
+  // },
+
   create: async (data) => {
-    // ✅ Chuyển sang async
+    console.log(
+      "🚀 ~ OrderService.create - Dữ liệu nhận được từ Controller (raw):",
+      data
+    );
     try {
       const {
         details = [],
-        amount_paid = 0, // Số tiền đã thanh toán ban đầu
+        amount_paid: initialAmountPaidFromPayload = 0, // ✅ Lấy amount_paid từ payload với tên khác để tránh nhầm lẫn
         ...otherData // Lấy các trường còn lại (customer_id, order_date, shipping_address, payment_method, note, warehouse_id)
       } = data;
 
       // Tính toán các giá trị tài chính bằng hàm tiện ích
-      const calculatedAmounts = calculateOrderTotals(details, data);
+      const calculatedAmounts = calculateOrderTotals(details, data); // 'data' ở đây chứa cả discount_amount và shipping_fee
+      console.log(
+        "🚀 ~ OrderService.create - Các giá trị đã tính toán (số thực):",
+        calculatedAmounts
+      );
 
       // Tạo một đối tượng dữ liệu mới để truyền vào model
       const orderDataForModel = {
         ...otherData, // Các trường khác từ payload gốc
-        ...calculatedAmounts, // Ghi đè các trường tính toán từ hàm calculateOrderTotals
-        amount_paid: parseFloat(amount_paid), // Đảm bảo amount_paid là số
+        // Áp dụng toFixed(2) TẠI ĐÂY, trước khi gửi đến model
+        total_amount: calculatedAmounts.total_amount.toFixed(2),
+        discount_amount: calculatedAmounts.discount_amount.toFixed(2),
+        final_amount: calculatedAmounts.final_amount.toFixed(2),
+        shipping_fee: calculatedAmounts.shipping_fee.toFixed(2),
+        order_amount: calculatedAmounts.order_amount.toFixed(2),
+        amount_paid: parseFloat(initialAmountPaidFromPayload).toFixed(2), // ✅ Sử dụng giá trị từ payload và định dạng
       };
+      console.log(
+        "🚀 ~ OrderService.create - Dữ liệu gửi đến OrderModel.create (đã định dạng chuỗi):",
+        orderDataForModel
+      );
 
-      const createdOrder = await OrderModel.create(orderDataForModel); // ✅ Sử dụng await
-      return createdOrder;
+      // Gọi model để tạo đơn hàng chính
+      const createdOrder = await OrderModel.create(orderDataForModel);
+      console.log(
+        "🚀 ~ OrderService.create - Đơn hàng chính đã tạo thành công:",
+        createdOrder
+      );
+
+      // Nếu có chi tiết đơn hàng, tạo các bản ghi chi tiết
+      const createdDetails = [];
+      if (details && details.length > 0) {
+        await Promise.all(
+          details.map(async (item) => {
+            const order_detail_id = uuidv4();
+            const detailToCreate = {
+              order_detail_id,
+              order_id: createdOrder.order_id,
+              product_id: item.product_id,
+              quantity: item.quantity,
+              price: item.price, // Giữ nguyên giá từ payload (hoặc giá đã được xử lý trong service)
+              discount: item.discount || 0, // Lưu KM trên từng sản phẩm nếu cần
+            };
+            const createdDetail = await OrderDetailModel.create(detailToCreate);
+            createdDetails.push(createdDetail);
+          })
+        );
+        console.log(
+          "🚀 ~ order.service.js: create - Chi tiết đơn hàng đã tạo thành công."
+        );
+      }
+
+      // Đặt chỗ tồn kho (giả định warehouse_id có trong orderDataForModel)
+      if (orderDataForModel.warehouse_id) {
+        await InventoryService.reserveStockFromOrderDetails(
+          // Đảm bảo tên hàm đúng
+          details, // Truyền details gốc (đã bao gồm quantity)
+          orderDataForModel.warehouse_id
+        );
+        console.log(
+          "🚀 ~ order.service.js: create - Đặt chỗ tồn kho thành công."
+        );
+      } else {
+        console.warn(
+          "� ~ order.service.js: create - Không có warehouse_id để đặt chỗ tồn kho."
+        );
+      }
+
+      // Trả về đối tượng đơn hàng hoàn chỉnh bao gồm chi tiết
+      return {
+        ...createdOrder,
+        order_details: createdDetails,
+      };
     } catch (error) {
-      console.error("🚀 ~ order.service.js: create - Lỗi:", error);
+      console.error(
+        "🚀 ~ order.service.js: create - Lỗi khi tạo đơn hàng:",
+        error
+      );
       throw error;
     }
   },
@@ -883,6 +979,209 @@ const OrderService = {
    * @param {Object} data - Dữ liệu cập nhật.
    * @returns {Promise<Object>} Promise giải quyết với kết quả cập nhật.
    */
+  // update: async (order_id, data, initiatedByUserId = null) => {
+  //   console.log("🚀 ~ order.service: update - Incoming data:", data);
+
+  //   try {
+  //     const updateResult = await OrderModel.update(order_id, data);
+  //     if (!updateResult) {
+  //       console.log(
+  //         "🚀 ~ order.service: update - OrderModel.update không tìm thấy đơn hàng."
+  //       );
+  //       throw new Error("Đơn hàng không tồn tại");
+  //     }
+
+  //     if (!data.order_status) {
+  //       console.log(
+  //         "🚀 ~ order.service: update - data.order_status không được cung cấp. Bỏ qua logic phụ."
+  //       );
+  //       return updateResult;
+  //     }
+
+  //     console.log(
+  //       "🚀 ~ order.service: update - order_status đã được cung cấp, tiếp tục xử lý logic phụ."
+  //     );
+
+  //     const order = await OrderModel.readById(order_id);
+  //     if (!order) {
+  //       console.log(
+  //         "🚀 ~ order.service: update - OrderModel.readById không tìm thấy đơn hàng."
+  //       );
+  //       throw new Error("Không thể đọc thông tin đơn hàng");
+  //     }
+
+  //     console.log(
+  //       "🚀 ~ order.service: update - Thông tin đơn hàng đã đọc:",
+  //       order
+  //     );
+  //     const orderDetails = order.order_details || [];
+  //     const warehouse_id = order.warehouse_id || null;
+  //     const customer_id = order.customer_id || null;
+
+  //     let partner_name = null;
+  //     if (customer_id) {
+  //       const customer = await CustomerModel.getById(customer_id);
+  //       partner_name = customer ? customer.customer_name : null;
+  //     }
+
+  //     if (data.order_status === "Hoàn tất") {
+  //       console.log(
+  //         "🚀 ~ order.service: update - Trạng thái đơn hàng là 'Hoàn tất'. Bắt đầu xử lý tồn kho, hóa đơn, giao dịch."
+  //       );
+
+  //       if (orderDetails.length === 0) {
+  //         console.warn(
+  //           "🚀 ~ order.service: update - Đơn hàng 'Hoàn tất' nhưng không có chi tiết đơn hàng (orderDetails)."
+  //         );
+  //       }
+
+  //       // ✅ Gọi InventoryService.confirmStockReservation (đã là async)
+  //       await InventoryService.confirmStockReservation(
+  //         orderDetails,
+  //         order.warehouse_id
+  //       );
+  //       console.log(
+  //         "🚀 ~ order.service: update - Xác nhận tồn kho thành công."
+  //       );
+
+  //       // ✅ Ghi nhận sự kiện Product Event cho mỗi sản phẩm trong đơn hàng
+  //       for (const item of orderDetails) {
+  //         const current_stock_after =
+  //           await InventoryModel.getTotalStockByProductId(item.product_id);
+  //         await ProductEventModel.recordEvent({
+  //           product_id: item.product_id,
+  //           warehouse_id: warehouse_id,
+  //           event_type: "ORDER_SOLD",
+  //           quantity_impact: -item.quantity, // Số lượng âm vì là bán hàng
+  //           transaction_price: item.price, // Giả sử price có trong orderDetails item
+  //           partner_name: partner_name,
+  //           current_stock_after: current_stock_after,
+  //           reference_id: order.order_id,
+  //           reference_type: "ORDER",
+  //           description: `Sản phẩm ${
+  //             item.product_name || item.product_id
+  //           } được bán trong đơn hàng ${order.order_id}.`,
+  //           initiated_by: initiatedByUserId,
+  //         });
+  //         console.log(
+  //           `🚀 ~ Product Event ghi nhận: Bán ${item.quantity} của ${item.product_id}`
+  //         );
+  //       }
+
+  //       // ✅ Tự động sinh invoice_code
+  //       const generateInvoiceCode = () => {
+  //         const date = new Date();
+  //         const y = date.getFullYear().toString().substr(-2);
+  //         const m = ("0" + (date.getMonth() + 1)).slice(-2);
+  //         const d = ("0" + date.getDate()).slice(-2);
+  //         return `INV-${y}${m}${d}-${String(
+  //           Math.floor(1000 + Math.random() * 9000)
+  //         ).padStart(4, "0")}`;
+  //       };
+
+  //       const invoiceData = {
+  //         invoice_code: generateInvoiceCode(),
+  //         invoice_type: "sale_invoice",
+  //         order_id: order.order_id,
+  //         customer_id: order.customer_id || null,
+  //         total_amount: parseFloat(order.total_amount),
+  //         tax_amount: 0, // Có thể tính nếu có thuế
+  //         discount_amount: parseFloat(order.discount_amount || 0),
+  //         final_amount: parseFloat(order.final_amount),
+  //         issued_date: new Date(),
+  //         due_date: new Date(), // hoặc sau vài ngày
+  //         amount_paid: parseFloat(order.amount_paid || 0),
+  //         status: "paid", // Vì đơn hàng đã hoàn tất
+  //         note: "Hóa đơn bán hàng tự động phát sinh từ đơn hàng",
+  //       };
+
+  //       console.log(
+  //         "🚀 ~ order.service: update - Dữ liệu Invoice sẽ tạo:",
+  //         invoiceData
+  //       );
+  //       const invoiceResult = await InvoiceService.create(invoiceData);
+  //       console.log(
+  //         "🚀 ~ order.service: update - Invoice đã tạo thành công (async/await):",
+  //         invoiceResult
+  //       );
+
+  //       // ✅ Tạo giao dịch liên kết tới invoice
+  //       const transactionData = {
+  //         transaction_code: `TRX-${Date.now()}`,
+  //         type: "receipt",
+  //         amount: invoiceResult.final_amount,
+  //         description: `Thu tiền từ hóa đơn ${invoiceResult.invoice_code}`,
+  //         category: "sale",
+  //         payment_method: order.payment_method || "COD",
+  //         related_type: "invoice",
+  //         related_id: invoiceResult.invoice_id,
+  //       };
+  //       console.log(
+  //         "🚀 ~ order.service: update - Dữ liệu Transaction sẽ tạo:",
+  //         transactionData
+  //       );
+  //       const transactionResult = await TransactionService.createTransaction(
+  //         transactionData
+  //       );
+  //       console.log(
+  //         "🚀 ~ order.service: update - Giao dịch đã tạo thành công:",
+  //         transactionResult
+  //       );
+
+  //       return updateResult;
+  //     } else if (data.order_status === "Huỷ đơn") {
+  //       console.log(
+  //         "🚀 ~ order.service: update - Trạng thái đơn hàng là 'Huỷ đơn'. Bắt đầu giải phóng tồn kho."
+  //       );
+  //       await InventoryService.releaseReservedStock(orderDetails, warehouse_id);
+  //       console.log(
+  //         "🚀 ~ order.service: update - Giải phóng tồn kho thành công."
+  //       );
+
+  //       // ✅ Ghi nhận sự kiện Product Event cho mỗi sản phẩm khi hủy đơn
+  //       for (const item of orderDetails) {
+  //         const current_stock_after =
+  //           await InventoryModel.getTotalStockByProductId(item.product_id);
+  //         await ProductEventModel.recordEvent({
+  //           product_id: item.product_id,
+  //           warehouse_id: warehouse_id,
+  //           event_type: "ORDER_CANCELLED", // hoặc 'RETURN_TO_STOCK_FROM_CANCELLATION'
+  //           quantity_impact: item.quantity, // Số lượng dương vì được trả về kho
+  //           transaction_price: item.price, // Giá gốc của giao dịch
+  //           partner_name: partner_name,
+  //           current_stock_after: current_stock_after,
+  //           reference_id: order.order_id,
+  //           reference_type: "ORDER",
+  //           description: `Đơn hàng ${order.order_id} bị hủy - Sản phẩm ${
+  //             item.product_name || item.product_id
+  //           } tồn kho được giải phóng.`,
+  //           initiated_by: initiatedByUserId,
+  //         });
+  //         console.log(
+  //           `🚀 ~ Product Event ghi nhận: Hủy đơn ${item.quantity} của ${item.product_id}`
+  //         );
+  //       }
+
+  //       // await TransactionService.markAsCancelled(order_id);
+  //       // console.log(
+  //       //   "🚀 ~ order.service: update - Giao dịch liên quan đã được hủy thành công."
+  //       // );
+  //       return updateResult;
+  //     } else {
+  //       console.log(
+  //         "🚀 ~ order.service: update - Trạng thái đơn hàng thay đổi nhưng không có logic xử lý cụ thể."
+  //       );
+  //       return updateResult;
+  //     }
+  //   } catch (error) {
+  //     console.error(
+  //       "🚀 ~ order.service: update - Lỗi trong quá trình xử lý:",
+  //       error
+  //     );
+  //     throw error;
+  //   }
+  // },
+
   update: async (order_id, data, initiatedByUserId = null) => {
     console.log("🚀 ~ order.service: update - Incoming data:", data);
 
@@ -935,7 +1234,7 @@ const OrderService = {
 
         if (orderDetails.length === 0) {
           console.warn(
-            "🚀 ~ order.service: update - Đơn hàng 'Hoàn tất' nhưng không có chi tiết đơn hàng (orderDetails)."
+            "� ~ order.service: update - Đơn hàng 'Hoàn tất' nhưng không có chi tiết đơn hàng (orderDetails)."
           );
         }
 
@@ -989,12 +1288,12 @@ const OrderService = {
           order_id: order.order_id,
           customer_id: order.customer_id || null,
           total_amount: parseFloat(order.total_amount),
-          tax_amount: 0, // Có thể tính nếu có thuế
+          tax_amount: 0, // Cần tính toán nếu có thuế
           discount_amount: parseFloat(order.discount_amount || 0),
           final_amount: parseFloat(order.final_amount),
           issued_date: new Date(),
-          due_date: new Date(), // hoặc sau vài ngày
-          status: "paid", // Vì đơn hàng đã hoàn tất
+          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Hóa đơn đến hạn sau 7 ngày
+          amount_paid: parseFloat(order.amount_paid || 0), // ✅ LẤY amount_paid TỪ ĐƠN HÀNG
           note: "Hóa đơn bán hàng tự động phát sinh từ đơn hàng",
         };
 
@@ -1002,34 +1301,43 @@ const OrderService = {
           "🚀 ~ order.service: update - Dữ liệu Invoice sẽ tạo:",
           invoiceData
         );
-        const invoiceResult = await InvoiceService.create(invoiceData);
+        const invoiceResult = await InvoiceService.create(invoiceData); // InvoiceModel.create sẽ tự xác định status
         console.log(
           "🚀 ~ order.service: update - Invoice đã tạo thành công (async/await):",
           invoiceResult
         );
 
-        // ✅ Tạo giao dịch liên kết tới invoice
-        const transactionData = {
-          transaction_code: `TRX-${Date.now()}`,
-          type: "receipt",
-          amount: invoiceResult.final_amount,
-          description: `Thu tiền từ hóa đơn ${invoiceResult.invoice_code}`,
-          category: "sale",
-          payment_method: order.payment_method || "COD",
-          related_type: "invoice",
-          related_id: invoiceResult.invoice_id,
-        };
-        console.log(
-          "🚀 ~ order.service: update - Dữ liệu Transaction sẽ tạo:",
-          transactionData
-        );
-        const transactionResult = await TransactionService.createTransaction(
-          transactionData
-        );
-        console.log(
-          "🚀 ~ order.service: update - Giao dịch đã tạo thành công:",
-          transactionResult
-        );
+        // ✅ TẠO GIAO DỊCH CHỈ KHI CÓ SỐ TIỀN THANH TOÁN BAN ĐẦU KHÁC 0
+        if (parseFloat(order.amount_paid) > 0) {
+          // Đảm bảo chỉ tạo transaction nếu amount_paid > 0
+          const transactionData = {
+            transaction_code: `TRX-${Date.now()}`,
+            type: "receipt", // Loại giao dịch là thu tiền
+            amount: parseFloat(order.amount_paid), // Số tiền của transaction là amount_paid của đơn hàng
+            description: `Thanh toán ban đầu cho hóa đơn ${invoiceResult.invoice_code} (Đơn hàng ${order.order_code})`,
+            category: "sale_payment",
+            payment_method: order.payment_method || "COD",
+            customer_id: order.customer_id,
+            related_type: "invoice",
+            related_id: invoiceResult.invoice_id,
+            initiated_by: initiatedByUserId,
+          };
+          console.log(
+            "🚀 ~ order.service: update - Dữ liệu Transaction sẽ tạo:",
+            transactionData
+          );
+          const transactionResult = await TransactionService.createTransaction(
+            transactionData
+          );
+          console.log(
+            "🚀 ~ order.service: update - Giao dịch đã tạo thành công:",
+            transactionResult
+          );
+        } else {
+          console.log(
+            "🚀 ~ order.service: update - Đơn hàng chưa có thanh toán ban đầu. Không tạo giao dịch."
+          );
+        }
 
         return updateResult;
       } else if (data.order_status === "Huỷ đơn") {
@@ -1065,10 +1373,10 @@ const OrderService = {
           );
         }
 
-        // await TransactionService.markAsCancelled(order_id);
-        // console.log(
-        //   "🚀 ~ order.service: update - Giao dịch liên quan đã được hủy thành công."
-        // );
+        await TransactionService.markAsCancelled(order_id);
+        console.log(
+          "🚀 ~ order.service: update - Giao dịch liên quan đã được hủy thành công."
+        );
         return updateResult;
       } else {
         console.log(
