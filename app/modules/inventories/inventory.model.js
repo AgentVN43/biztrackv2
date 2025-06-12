@@ -290,9 +290,12 @@ const InventoryModel = {
           c.category_name,
           SUM(i.quantity) AS total_quantity,
           SUM(i.available_stock) AS available_quantity,
-          SUM(i.reserved_stock) AS reserved_quantity
+          SUM(i.reserved_stock) AS reserved_quantity,
+          w.warehouse_id AS warehouse_id,
+          w.warehouse_name
         FROM inventories i
         JOIN products p ON i.product_id = p.product_id
+        JOIN warehouses w ON i.warehouse_id = w.warehouse_id
         LEFT JOIN categories c ON p.category_id = c.category_id
         WHERE i.warehouse_id = ?
         GROUP BY i.product_id, p.product_name
@@ -325,6 +328,10 @@ const InventoryModel = {
                 category_name: row.category_name,
               }
               : null,
+          },
+          warehouse: {
+            warehouse_id: row.warehouse_id,
+            warehouse_name: row.warehouse_name,
           },
         }));
         resolve(formattedResults);
