@@ -17,6 +17,7 @@ const analysisRoutes = require("../modules/analysis/analysis.routes");
 const transactionRoutes = require("../modules/transactions/transaction.route");
 const productReportRoutes = require("../modules/product_report/product_report.routes");
 const supplierRoutes = require("../modules/suppliers/supplier.routes");
+const customerReportRoutes = require("../modules/customer_report/customer_report.routes");
 
 module.exports = (app) => {
   // Register all routes
@@ -31,6 +32,7 @@ module.exports = (app) => {
   app.use("/api/v1/inventories", inventoriesRoutes);
   app.use("/api/v1/payments", paymentRoutes);
   app.use("/api/v1/customers", customerRoutes);
+  app.use("/api/v1/customer-report", customerReportRoutes);
   app.use("/api/v1/orders", orderRoutes);
   app.use("/api/v1/order-details", orderDetailRoutes);
   app.use("/api/v1/search", searchRoutes);

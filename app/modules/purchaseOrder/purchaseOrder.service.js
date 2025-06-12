@@ -908,6 +908,7 @@ const PurchaseOrderService = {
       }
 
       const details = await PurchaseOrderDetailModel.findByPOId(po_id);
+      console.log("🚀 ~ This is details:",details)
       if (!details || details.length === 0) {
         throw new Error("No purchase order details found");
       }
@@ -922,7 +923,7 @@ const PurchaseOrderService = {
       // Xử lý từng detail để cập nhật tồn kho và ghi nhận lịch sử
       await Promise.all(
         details.map(async (item) => {
-          const { product_id, quantity, total_amount } = item; // Giả định unit_price có sẵn trong item detail
+          const { product_id, quantity, price } = item; // Giả định unit_price có sẵn trong item detail
 
           // 1. Cập nhật tồn kho thông qua InventoryService (tăng tồn kho từ PO)
           await InventoryService.increaseStockFromPurchaseOrder(
@@ -943,7 +944,7 @@ const PurchaseOrderService = {
             warehouse_id: order.warehouse_id,
             event_type: "PO_RECEIVED", // Loại sự kiện khi nhận hàng từ PO
             quantity_impact: quantity, // Số lượng dương vì là nhập hàng
-            transaction_price: total_amount, // Giá nhập từ chi tiết PO
+            transaction_price: price, // Giá nhập từ chi tiết PO
             partner_name: partner_name,
             current_stock_after: current_stock_after,
             reference_id: po_id,
