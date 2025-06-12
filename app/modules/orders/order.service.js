@@ -809,7 +809,23 @@ const OrderService = {
   create: async (data) => {
     // ✅ Chuyển sang async
     try {
-      const createdOrder = await OrderModel.create(data); // ✅ Sử dụng await
+      const {
+        details = [],
+        amount_paid = 0, // Số tiền đã thanh toán ban đầu
+        ...otherData // Lấy các trường còn lại (customer_id, order_date, shipping_address, payment_method, note, warehouse_id)
+      } = data;
+
+      // Tính toán các giá trị tài chính bằng hàm tiện ích
+      const calculatedAmounts = calculateOrderTotals(details, data);
+
+      // Tạo một đối tượng dữ liệu mới để truyền vào model
+      const orderDataForModel = {
+        ...otherData, // Các trường khác từ payload gốc
+        ...calculatedAmounts, // Ghi đè các trường tính toán từ hàm calculateOrderTotals
+        amount_paid: parseFloat(amount_paid), // Đảm bảo amount_paid là số
+      };
+
+      const createdOrder = await OrderModel.create(orderDataForModel); // ✅ Sử dụng await
       return createdOrder;
     } catch (error) {
       console.error("🚀 ~ order.service.js: create - Lỗi:", error);
