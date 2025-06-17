@@ -209,33 +209,77 @@ exports.getById = async (customer_id) => {
   }
 };
 
-exports.update = async (customer_id, data) => {
-  const {
-    customer_name,
-    email,
-    phone,
-    total_expenditure,
-    status,
-    total_orders,
-  } = data;
+// exports.update = async (customer_id, data) => {
+//   const {
+//     customer_name,
+//     email,
+//     phone,
+//     total_expenditure,
+//     status,
+//     total_orders,
+//   } = data;
+//   try {
+//     const [result] = await db.query(
+//       "UPDATE customers SET customer_name = ?, email = ?, phone = ?, total_expenditure = ?, status = ?, total_orders = ?, updated_at = CURRENT_TIMESTAMP WHERE customer_id = ?",
+//       [
+//         customer_name,
+//         email,
+//         phone,
+//         total_expenditure,
+//         status,
+//         total_orders,
+//         customer_id,
+//       ]
+//     );
+//     return result.affectedRows > 0 ? { customer_id, ...data } : null;
+//   } catch (err) {
+//     console.error(
+//       `Lỗi khi cập nhật khách hàng với ID ${customer_id}:`,
+//       err.message
+//     );
+//     throw err;
+//   }
+// };
+
+exports.update = async (customer_id, customerData) => {
+  const fields = [];
+  const values = [];
+
+  // Duyệt qua customerData để xây dựng các cặp 'field = ?' và giá trị tương ứng
+  for (const key in customerData) {
+    // Bỏ qua các khóa như customer_id hoặc updated_at nếu không muốn cập nhật trực tiếp
+    // Đảm bảo chỉ cập nhật các trường có trong bảng và có giá trị hợp lệ
+    if (
+      customerData.hasOwnProperty(key) &&
+      key !== "customer_id" &&
+      key !== "created_at"
+    ) {
+      fields.push(`${key} = ?`);
+      values.push(customerData[key]);
+    }
+  }
+
+  if (fields.length === 0) {
+    throw new Error("Không có trường hợp lệ để cập nhật.");
+  }
+
+  // Luôn cập nhật updated_at
+  fields.push("updated_at = CURRENT_TIMESTAMP");
+  values.push(customer_id); // customer_id là tham số cuối cùng cho mệnh đề WHERE
+
+  const query = `UPDATE customers SET ${fields.join(
+    ", "
+  )} WHERE customer_id = ?`;
   try {
-    const [result] = await db.query(
-      "UPDATE customers SET customer_name = ?, email = ?, phone = ?, total_expenditure = ?, status = ?, total_orders = ?, updated_at = CURRENT_TIMESTAMP WHERE customer_id = ?",
-      [
-        customer_name,
-        email,
-        phone,
-        total_expenditure,
-        status,
-        total_orders,
-        customer_id,
-      ]
-    );
-    return result.affectedRows > 0 ? { customer_id, ...data } : null;
+    const [result] = await db.query(query, values);
+    if (result.affectedRows === 0) {
+      return null; // Không tìm thấy khách hàng để cập nhật
+    }
+    return { customer_id, ...customerData }; // Trả về ID khách hàng và dữ liệu đã cập nhật
   } catch (err) {
     console.error(
-      `Lỗi khi cập nhật khách hàng với ID ${customer_id}:`,
-      err.message
+      `🚀 ~ CustomerModel: update - Lỗi khi cập nhật khách hàng với ID ${customer_id}:`,
+      err
     );
     throw err;
   }

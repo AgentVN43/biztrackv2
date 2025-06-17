@@ -228,6 +228,37 @@ const CustomerReportService = {
       throw error;
     }
   },
+
+  getUnpaidOrPartiallyPaidInvoices: async (customer_id) => {
+    try {
+      const sql = `
+        SELECT
+          invoice_id,
+          invoice_code,
+          invoice_type,
+          order_id,
+          final_amount,
+          amount_paid,
+          (final_amount - amount_paid) AS remaining_receivable,
+          status,
+          issued_date,
+          due_date,
+          note
+        FROM invoices
+        WHERE customer_id = ?
+          AND (status = 'pending' OR status = 'partial_paid' OR status = 'overdue')
+        ORDER BY issued_date ASC;
+      `;
+      const [rows] = await db.promise().query(sql, [customer_id]);
+      return rows;
+    } catch (error) {
+      console.error(
+        "🚀 ~ CustomerReportService: getUnpaidOrPartiallyPaidInvoices - Lỗi:",
+        error
+      );
+      throw error;
+    }
+  },
 };
 
 module.exports = CustomerReportService;
