@@ -1,6 +1,7 @@
 const { processDateFilters } = require("../../utils/dateUtils");
 const createResponse = require("../../utils/response");
 const CustomerService = require("./customer.service");
+const CustomerReportService = require("../customer_report/customer_report.service");
 
 exports.create = async (req, res) => {
   const customerData = req.body;
@@ -63,35 +64,89 @@ exports.get = async (req, res) => {
   }
 };
 
-exports.getById = async (req, res) => {
-  const id = req.params.id;
-  try {
-    const result = await CustomerService.getCustomerById(id);
-    if (!result) {
-      return res.status(404).json({ message: "Customer not found" });
-    }
-    res.status(200).json({
-      success: true,
-      data: result, // Trả về kết quả customer
-    });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
-};
+// exports.getById = async (req, res) => {
+//   const id = req.params.id;
+//   try {
+//     const result = await CustomerService.getCustomerById(id);
+//     if (!result) {
+//       return res.status(404).json({ message: "Customer not found" });
+//     }
+//     res.status(200).json({
+//       success: true,
+//       data: result, // Trả về kết quả customer
+//     });
+//   } catch (err) {
+//     return res.status(500).json({ error: err.message });
+//   }
+// };
 
-exports.update = async (req, res) => {
-  const id = req.params.id;
-  const customerData = req.body;
+(exports.getById = async (req, res, next) => {
+  const customer_id = req.params.id; // Lấy ID khách hàng từ URL params
+
   try {
-    const result = await CustomerService.updateCustomer(id, customerData);
-    if (!result) {
-      return res.status(404).json({ message: "Customer not found" });
+    // 1. Lấy thông tin cơ bản của khách hàng
+    const customer = await CustomerService.getCustomerById(customer_id); // Giả định CustomerService có hàm getById
+    if (!customer) {
+      return createResponse(
+        res,
+        404,
+        false,
+        null,
+        "Không tìm thấy khách hàng."
+      );
     }
-    res.status(200).json({ message: "Customer updated successfully" });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
+
+    // 2. Lấy dữ liệu báo cáo từ CustomerReportService
+    const overview = await CustomerReportService.getTotalOrdersAndExpenditure(
+      customer_id
+    );
+    const receivables = await CustomerReportService.getReceivables(customer_id);
+    // Bạn có thể lấy thêm các báo cáo khác nếu muốn, ví dụ:
+    // const salesReturnHistory = await CustomerReportService.getSalesReturnHistory(customer_id);
+    // const orderHistory = await CustomerReportService.getOrderHistoryWithDetails(customer_id);
+
+    // 3. Kết hợp thông tin cơ bản và dữ liệu báo cáo
+    const customerWithReport = {
+      ...customer, // Thông tin cơ bản của khách hàng
+      total_orders: overview.total_orders,
+      total_expenditure: parseFloat(overview.total_expenditure || 0), // Đảm bảo là số
+      total_receivables: parseFloat(receivables || 0), // Đảm bảo là số
+
+      // sales_return_history: salesReturnHistory, // Nếu bạn fetch
+      // order_history: orderHistory, // Nếu bạn fetch
+    };
+
+    // 4. Trả về phản hồi thành công
+    createResponse(
+      res,
+      200,
+      true,
+      customerWithReport,
+      "Thông tin khách hàng và báo cáo đã được tải thành công."
+    );
+  } catch (error) {
+    console.error(
+      "🚀 ~ CustomerController: getById - Lỗi khi lấy thông tin khách hàng và báo cáo:",
+      error
+    );
+    next(error); // Chuyển lỗi đến middleware xử lý lỗi
   }
-};
+}),
+
+
+  (exports.update = async (req, res) => {
+    const id = req.params.id;
+    const customerData = req.body;
+    try {
+      const result = await CustomerService.updateCustomer(id, customerData);
+      if (!result) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+      res.status(200).json({ message: "Customer updated successfully" });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
 
 exports.updateStatus = async (req, res) => {
   const id = req.params.id;

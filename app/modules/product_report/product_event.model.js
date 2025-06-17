@@ -97,7 +97,7 @@ const ProductEventModel = {
           initiated_by
         FROM product_events
         WHERE product_id = ?
-        ORDER BY event_timestamp ASC; -- Sắp xếp theo thời gian tăng dần
+        ORDER BY event_timestamp DESC; -- Sắp xếp theo thời gian tăng dần
       `;
       db.query(sql, [product_id], (err, results) => {
         if (err) {
@@ -140,7 +140,7 @@ const ProductEventModel = {
         FROM product_events pe
         JOIN warehouses w ON pe.warehouse_id = w.warehouse_id -- JOIN với bảng warehouses
         WHERE pe.product_id = ? AND pe.warehouse_id = ?
-        ORDER BY pe.event_timestamp ASC;
+        ORDER BY pe.event_timestamp DESC;
       `;
       db.query(sql, [product_id, warehouse_id], (err, results) => {
         if (err) {
