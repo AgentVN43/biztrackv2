@@ -83,17 +83,33 @@ const CustomerReportController = {
    * Lấy tổng công nợ cần thu từ một khách hàng.
    * GET /api/customers/:id/receivables
    */
+  //
+
   getCustomerReceivables: async (req, res, next) => {
     const customer_id = req.params.id;
     try {
-      const receivables = await CustomerReportService.getReceivables(
+      // Lấy tổng công nợ
+      const totalReceivables = await CustomerReportService.getReceivables(
         customer_id
       );
+      // Lấy danh sách hóa đơn chưa thanh toán đủ
+      const unpaidInvoices =
+        await CustomerReportService.getUnpaidOrPartiallyPaidInvoices(
+          customer_id
+        );
+
+      // Kết hợp cả hai thông tin vào phản hồi
+      const responseData = {
+        customer_id,
+        total_receivables: totalReceivables,
+        unpaid_invoices: unpaidInvoices,
+      };
+
       createResponse(
         res,
         200,
         true,
-        { customer_id, total_receivables: receivables },
+        responseData,
         "Customer receivables retrieved successfully."
       );
     } catch (error) {
