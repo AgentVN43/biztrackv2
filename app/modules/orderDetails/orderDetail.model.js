@@ -65,7 +65,7 @@
 //       products.product_name,
 //       order_details.quantity,
 //       order_details.price,
-//       order_details.discount 
+//       order_details.discount
 //     FROM orders
 //     LEFT JOIN customers ON orders.customer_id = customers.customer_id
 //     LEFT JOIN order_details ON orders.order_id = order_details.order_id
@@ -224,17 +224,20 @@
 const db = require("../../config/db.config");
 const { v4: uuidv4 } = require("uuid");
 
-const OrderDetailModel = { // ✅ Đổi tên thành OrderDetailModel để nhất quán
+const OrderDetailModel = {
+  // ✅ Đổi tên thành OrderDetailModel để nhất quán
   /**
    * Tạo một chi tiết đơn hàng mới.
    * @param {Object} data - Dữ liệu chi tiết đơn hàng.
    * @returns {Promise<Object>} Promise giải quyết với chi tiết đơn hàng đã tạo.
    */
-  create: async (data) => { // ✅ Chuyển sang async
+  create: async (data) => {
+    // ✅ Chuyển sang async
     const order_detail_id = uuidv4();
     const { order_id, product_id, quantity, price, discount } = data;
     try {
-      await db.promise().query( // ✅ Sử dụng db.promise().query
+      await db.promise().query(
+        // ✅ Sử dụng db.promise().query
         "INSERT INTO order_details (order_detail_id, order_id, product_id, quantity, price, discount) VALUES (?, ?, ?, ?, ?, ?)",
         [order_detail_id, order_id, product_id, quantity, price, discount || 0]
       );
@@ -249,7 +252,8 @@ const OrderDetailModel = { // ✅ Đổi tên thành OrderDetailModel để nh�
    * Đọc tất cả các chi tiết đơn hàng.
    * @returns {Promise<Array<Object>>} Promise giải quyết với danh sách chi tiết đơn hàng.
    */
-  read: async () => { // ✅ Chuyển sang async
+  read: async () => {
+    // ✅ Chuyển sang async
     try {
       const [results] = await db.promise().query("SELECT * FROM order_details"); // ✅ Sử dụng db.promise().query
       return results;
@@ -264,9 +268,11 @@ const OrderDetailModel = { // ✅ Đổi tên thành OrderDetailModel để nh�
    * @param {string} order_detail_id - ID chi tiết đơn hàng.
    * @returns {Promise<Object|null>} Promise giải quyết với chi tiết đơn hàng hoặc null.
    */
-  readById: async (order_detail_id) => { // ✅ Chuyển sang async
+  readById: async (order_detail_id) => {
+    // ✅ Chuyển sang async
     try {
-      const [results] = await db.promise().query( // ✅ Sử dụng db.promise().query
+      const [results] = await db.promise().query(
+        // ✅ Sử dụng db.promise().query
         "SELECT * FROM order_details WHERE order_detail_id = ?",
         [order_detail_id]
       );
@@ -282,40 +288,128 @@ const OrderDetailModel = { // ✅ Đổi tên thành OrderDetailModel để nh�
    * @param {string} order_id - ID đơn hàng chính.
    * @returns {Promise<Object|null>} Promise giải quyết với đối tượng đơn hàng kèm chi tiết hoặc null.
    */
-  getOrderDetailByOrderId: async (order_id) => { // ✅ Chuyển sang async
+  // getOrderDetailByOrderId: async (order_id) => { // ✅ Chuyển sang async
+  //   const query = `
+  //     SELECT
+  //       orders.order_id,
+  //       orders.order_code,
+  //       orders.order_date,
+  //       orders.order_status,
+  //       orders.total_amount,
+  //       orders.final_amount,
+  //       orders.amount_paid AS order_initial_amount_paid,
+  //       orders.order_amount,
+  //       orders.shipping_fee,
+  //       orders.warehouse_id,
+  //       orders.shipping_address,
+  //       orders.payment_method,
+  //       orders.note,
+  //       customers.customer_id,
+  //       customers.customer_name,
+  //       customers.email,
+  //       customers.phone,
+  //       order_details.product_id,
+  //       products.product_name,
+  //       order_details.quantity,
+  //       order_details.price,
+  //       order_details.discount
+  //     FROM orders
+  //     LEFT JOIN customers ON orders.customer_id = customers.customer_id
+  //     LEFT JOIN order_details ON orders.order_id = order_details.order_id
+  //     LEFT JOIN products ON order_details.product_id = products.product_id
+  //     WHERE orders.order_id = ?
+  //   `;
+
+  //   try {
+  //     const [results] = await db.promise().query(query, [order_id]); // ✅ Sử dụng db.promise().query
+
+  //     if (results.length === 0) {
+  //       return null;
+  //     }
+
+  //     // Nhóm dữ liệu lại thành một object đơn hàng + mảng sản phẩm
+  //     const order = {
+  //       order_id: results[0].order_id,
+  //       order_code: results[0].order_code,
+  //       order_date: results[0].order_date,
+  //       order_status: results[0].order_status,
+  //       total_amount: results[0].total_amount,
+  //       final_amount: results[0].final_amount,
+  //       order_amount: results[0].order_amount,
+  //       warehouse_id: results[0].warehouse_id,
+  //       shipping_fee: results[0].shipping_fee,
+  //       shipping_address: results[0].shipping_address,
+  //       payment_method: results[0].payment_method,
+  //       note: results[0].note,
+
+  //       customer: {
+  //         customer_id: results[0].customer_id,
+  //         customer_name: results[0].customer_name,
+  //         email: results[0].email,
+  //         phone: results[0].phone,
+  //       },
+
+  //       products: results
+  //         .filter((r) => r.product_id) // chỉ lấy những dòng có sản phẩm
+  //         .map((r) => ({
+  //           product_id: r.product_id,
+  //           product_name: r.product_name,
+  //           quantity: r.quantity,
+  //           price: parseFloat(r.price),
+  //           discount: parseFloat(r.discount) || 0,
+  //         })),
+  //     };
+  //     console.log("� ~ orderDetail.model.js: getOrderDetailByOrderId - order:", order);
+
+  //     return order;
+  //   } catch (error) {
+  //     console.error("🚀 ~ orderDetail.model.js: getOrderDetailByOrderId - Lỗi:", error);
+  //     throw error;
+  //   }
+  // },
+
+  getOrderDetailByOrderId: async (order_id) => {
     const query = `
       SELECT
-        orders.order_id,
-        orders.order_code,
-        orders.order_date,
-        orders.order_status,
-        orders.total_amount,
-        orders.final_amount,
-        orders.order_amount,
-        orders.shipping_fee,
-        orders.warehouse_id,
-        orders.shipping_address,
-        orders.payment_method,
-        orders.note,
-        customers.customer_id,
-        customers.customer_name,
-        customers.email,
-        customers.phone,
-        order_details.product_id,
-        products.product_name,
-        order_details.quantity,
-        order_details.price,
-        order_details.discount 
-      FROM orders
-      LEFT JOIN customers ON orders.customer_id = customers.customer_id
-      LEFT JOIN order_details ON orders.order_id = order_details.order_id
-      LEFT JOIN products ON order_details.product_id = products.product_id
-      WHERE orders.order_id = ?
+        o.order_id,
+        o.order_code,
+        o.order_date,
+        o.order_status,
+        o.total_amount,
+        o.final_amount,
+        o.amount_paid AS order_initial_amount_paid, -- Lấy amount_paid từ đơn hàng
+        o.order_amount,
+        o.shipping_fee,
+        o.warehouse_id,
+        o.shipping_address,
+        o.payment_method,
+        o.note,
+        c.customer_id,
+        c.customer_name,
+        c.email,
+        c.phone,
+        od.product_id,
+        p.product_name,
+        p.sku, -- Thêm SKU của sản phẩm
+        od.quantity,
+        od.price,
+        od.discount,
+        inv.invoice_id, -- Lấy invoice_id
+        inv.invoice_code, -- Lấy invoice_code
+        inv.amount_paid AS invoice_current_amount_paid, -- Lấy amount_paid HIỆN TẠI từ hóa đơn
+        inv.status AS invoice_status -- Lấy trạng thái của hóa đơn
+      FROM orders o
+      LEFT JOIN customers c ON o.customer_id = c.customer_id
+      LEFT JOIN order_details od ON o.order_id = od.order_id
+      LEFT JOIN products p ON od.product_id = p.product_id
+      LEFT JOIN invoices inv ON o.order_id = inv.order_id
+      WHERE o.order_id = ?
     `;
 
     try {
-      const [results] = await db.promise().query(query, [order_id]); // ✅ Sử dụng db.promise().query
-
+      // ✅ DÒNG ĐÃ SỬA: Bỏ .promise() vì db đã là promise-based
+      // const [results] = await db.query(query, [order_id]);
+      const [results] = await db.promise().query(query, [order_id]);
       if (results.length === 0) {
         return null;
       }
@@ -326,11 +420,14 @@ const OrderDetailModel = { // ✅ Đổi tên thành OrderDetailModel để nh�
         order_code: results[0].order_code,
         order_date: results[0].order_date,
         order_status: results[0].order_status,
-        total_amount: results[0].total_amount,
-        final_amount: results[0].final_amount,
-        order_amount: results[0].order_amount,
+        total_amount: parseFloat(results[0].total_amount),
+        final_amount: parseFloat(results[0].final_amount),
+        amount_paid: parseFloat(
+          results[0].order_initial_amount_paid || 0
+        ),
+        order_amount: parseFloat(results[0].order_amount),
+        shipping_fee: parseFloat(results[0].shipping_fee || 0),
         warehouse_id: results[0].warehouse_id,
-        shipping_fee: results[0].shipping_fee,
         shipping_address: results[0].shipping_address,
         payment_method: results[0].payment_method,
         note: results[0].note,
@@ -342,21 +439,39 @@ const OrderDetailModel = { // ✅ Đổi tên thành OrderDetailModel để nh�
           phone: results[0].phone,
         },
 
+        invoice: results[0].invoice_id
+          ? {
+              invoice_id: results[0].invoice_id,
+              invoice_code: results[0].invoice_code,
+              amount_paid: parseFloat(
+                results[0].invoice_current_amount_paid || 0
+              ),
+              status: results[0].invoice_status,
+            }
+          : null,
+
         products: results
-          .filter((r) => r.product_id) // chỉ lấy những dòng có sản phẩm
+          .filter((r) => r.product_id)
           .map((r) => ({
             product_id: r.product_id,
             product_name: r.product_name,
+            sku: r.sku,
             quantity: r.quantity,
             price: parseFloat(r.price),
             discount: parseFloat(r.discount) || 0,
           })),
       };
-      console.log("� ~ orderDetail.model.js: getOrderDetailByOrderId - order:", order);
+      console.log(
+        "🚀 ~ orderDetail.model.js: getOrderDetailByOrderId - order:",
+        order
+      );
 
       return order;
     } catch (error) {
-      console.error("🚀 ~ orderDetail.model.js: getOrderDetailByOrderId - Lỗi:", error);
+      console.error(
+        "🚀 ~ orderDetail.model.js: getOrderDetailByOrderId - Lỗi:",
+        error
+      );
       throw error;
     }
   },
@@ -367,10 +482,12 @@ const OrderDetailModel = { // ✅ Đổi tên thành OrderDetailModel để nh�
    * @param {Object} data - Dữ liệu cập nhật.
    * @returns {Promise<Object|null>} Promise giải quyết với chi tiết đơn hàng đã cập nhật hoặc null.
    */
-  update: async (order_detail_id, data) => { // ✅ Chuyển sang async
+  update: async (order_detail_id, data) => {
+    // ✅ Chuyển sang async
     const { order_id, product_id, quantity, price, discount } = data;
     try {
-      const [results] = await db.promise().query( // ✅ Sử dụng db.promise().query
+      const [results] = await db.promise().query(
+        // ✅ Sử dụng db.promise().query
         "UPDATE order_details SET order_id = ?, product_id = ?, quantity = ?, price = ?, discount = ?, updated_at = CURRENT_TIMESTAMP WHERE order_detail_id = ?",
         [order_id, product_id, quantity, price, discount || 0, order_detail_id]
       );
@@ -386,9 +503,11 @@ const OrderDetailModel = { // ✅ Đổi tên thành OrderDetailModel để nh�
    * @param {string} order_detail_id - ID chi tiết đơn hàng.
    * @returns {Promise<boolean>} Promise giải quyết với true nếu xóa thành công, false nếu không.
    */
-  delete: async (order_detail_id) => { // ✅ Chuyển sang async
+  delete: async (order_detail_id) => {
+    // ✅ Chuyển sang async
     try {
-      const [results] = await db.promise().query( // ✅ Sử dụng db.promise().query
+      const [results] = await db.promise().query(
+        // ✅ Sử dụng db.promise().query
         "DELETE FROM order_details WHERE order_detail_id = ?",
         [order_detail_id]
       );

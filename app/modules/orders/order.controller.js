@@ -567,11 +567,6 @@ const OrderController = {
     }
 
     try {
-      // ✅ KHÔNG CÒN GỌI calculateOrderTotals VÀ toFixed Ở ĐÂY.
-      // Service sẽ đảm nhiệm việc tính toán và định dạng số.
-
-      // Gộp orderData và orderDetails thành một đối tượng duy nhất để truyền cho Service.
-      // Service sẽ xử lý destructuring và tính toán.
       const orderDataForService = {
         ...orderData,
         details: orderDetails, // Truyền mảng chi tiết sản phẩm
@@ -585,10 +580,6 @@ const OrderController = {
         orderDataForService
       ); // Gọi OrderService.create
 
-      
-
-      // Sau khi Service đã tạo order chính, chi tiết và đặt chỗ tồn kho,
-      // trả về kết quả đã xử lý đầy đủ.
       createResponse(
         res,
         201,
