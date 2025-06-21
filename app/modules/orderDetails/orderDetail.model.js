@@ -391,9 +391,9 @@ const OrderDetailModel = {
         od.product_id,
         p.product_name,
         p.sku, -- Thêm SKU của sản phẩm
-        od.quantity,
-        od.price,
-        od.discount,
+        od.quantity AS detail_quantity,
+        od.price AS detail_price,
+        od.discount AS detail_discount,
         inv.invoice_id, -- Lấy invoice_id
         inv.invoice_code, -- Lấy invoice_code
         inv.amount_paid AS invoice_current_amount_paid, -- Lấy amount_paid HIỆN TẠI từ hóa đơn
@@ -414,6 +414,31 @@ const OrderDetailModel = {
         return null;
       }
 
+      // --- LOGIC NHÓM SẢN PHẨM ---
+      const productsMap = new Map();
+      results
+        .filter((r) => r.product_id) // Chỉ xử lý các hàng có thông tin sản phẩm
+        .forEach((r) => {
+          const productId = r.product_id;
+          if (productsMap.has(productId)) {
+            // Nếu sản phẩm đã có trong map, cộng dồn số lượng
+            const existingProduct = productsMap.get(productId);
+            existingProduct.quantity += r.detail_quantity; // Cộng dồn từ detail_quantity
+          } else {
+            // Nếu chưa có, thêm sản phẩm vào map
+            productsMap.set(productId, {
+              product_id: r.product_id,
+              product_name: r.product_name,
+              sku: r.sku,
+              quantity: r.detail_quantity, // Bắt đầu với detail_quantity của hàng này
+              price: parseFloat(r.detail_price), // Giá và chiết khấu lấy từ hàng đầu tiên
+              discount: parseFloat(r.detail_discount) || 0,
+            });
+          }
+        });
+      const groupedProducts = Array.from(productsMap.values());
+      // --- KẾT THÚC LOGIC NHÓM SẢN PHẨM ---
+
       // Nhóm dữ liệu lại thành một object đơn hàng + mảng sản phẩm
       const order = {
         order_id: results[0].order_id,
@@ -422,9 +447,7 @@ const OrderDetailModel = {
         order_status: results[0].order_status,
         total_amount: parseFloat(results[0].total_amount),
         final_amount: parseFloat(results[0].final_amount),
-        amount_paid: parseFloat(
-          results[0].order_initial_amount_paid || 0
-        ),
+        amount_paid: parseFloat(results[0].order_initial_amount_paid || 0),
         order_amount: parseFloat(results[0].order_amount),
         shipping_fee: parseFloat(results[0].shipping_fee || 0),
         warehouse_id: results[0].warehouse_id,
@@ -450,16 +473,7 @@ const OrderDetailModel = {
             }
           : null,
 
-        products: results
-          .filter((r) => r.product_id)
-          .map((r) => ({
-            product_id: r.product_id,
-            product_name: r.product_name,
-            sku: r.sku,
-            quantity: r.quantity,
-            price: parseFloat(r.price),
-            discount: parseFloat(r.discount) || 0,
-          })),
+        products: groupedProducts, // Sử dụng mảng sản phẩm đã nhóm
       };
       console.log(
         "🚀 ~ orderDetail.model.js: getOrderDetailByOrderId - order:",

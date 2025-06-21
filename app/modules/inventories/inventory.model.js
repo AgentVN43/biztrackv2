@@ -16,10 +16,10 @@ const InventoryModel = {
         SET
           quantity = quantity - ?,
           reserved_stock = reserved_stock - ?,
-          available_stock = available_stock - ?,
           updated_at = CURRENT_TIMESTAMP
         WHERE product_id = ? AND warehouse_id = ? 
       `;
+      // --available_stock = available_stock - ?,
       // AND reserved_stock >= ? AND quantity >= ?
       // Xoá 2 quantity ở trong array values
       // const values = [
@@ -33,7 +33,7 @@ const InventoryModel = {
       //   quantity,
       // ];
 
-      const values = [quantity, quantity, quantity, product_id, warehouse_id];
+      const values = [quantity, quantity, product_id, warehouse_id];
 
       db.query(sql, values, (err, result) => {
         if (err) {
