@@ -16,7 +16,8 @@ const InventoryModel = {
         SET
           quantity = quantity - ?,
           reserved_stock = reserved_stock - ?,
-          available_stock = (quantity - ? - (reserved_stock - ?))
+          available_stock = available_stock - ?,
+          updated_at = CURRENT_TIMESTAMP
         WHERE product_id = ? AND warehouse_id = ? 
       `;
       // AND reserved_stock >= ? AND quantity >= ?

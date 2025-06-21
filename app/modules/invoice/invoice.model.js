@@ -291,6 +291,13 @@ const Invoice = {
       throw error;
     }
   },
+
+  findByOrderId: async (order_id) => {
+    // Thêm hàm này
+    const query = "SELECT * FROM invoices WHERE order_id = ?";
+    const [rows] = await db.promise().query(query, [order_id]);
+    return rows.length ? rows[0] : null;
+  },
 };
 
 module.exports = Invoice;
