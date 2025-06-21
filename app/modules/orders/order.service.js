@@ -972,7 +972,7 @@ const OrderService = {
       // --- Đặt chỗ tồn kho (nếu có warehouse_id) ---
       if (orderDataForModel.warehouse_id) {
         // Giả sử InventoryService.reserveStockFromOrderDetails là khả dụng
-        // await InventoryService.reserveStockFromOrderDetails(details, orderDataForModel.warehouse_id);
+       await InventoryService.reserveStockFromOrderDetails(details, orderDataForModel.warehouse_id);
         console.log(
           "🚀 ~ order.service.js: create - Đặt chỗ tồn kho thành công."
         );

@@ -17,19 +17,22 @@ const InventoryModel = {
           quantity = quantity - ?,
           reserved_stock = reserved_stock - ?,
           available_stock = (quantity - ? - (reserved_stock - ?))
-        WHERE product_id = ? AND warehouse_id = ? AND reserved_stock >= ? AND quantity >= ?
+        WHERE product_id = ? AND warehouse_id = ? 
       `;
+      // AND reserved_stock >= ? AND quantity >= ?
+      // Xoá 2 quantity ở trong array values
+      // const values = [
+      //   quantity,
+      //   quantity,
+      //   quantity,
+      //   quantity,
+      //   product_id,
+      //   warehouse_id,
+      //   quantity,
+      //   quantity,
+      // ];
 
-      const values = [
-        quantity,
-        quantity,
-        quantity,
-        quantity,
-        product_id,
-        warehouse_id,
-        quantity,
-        quantity,
-      ];
+      const values = [quantity, quantity, quantity, product_id, warehouse_id];
 
       db.query(sql, values, (err, result) => {
         if (err) {
@@ -39,9 +42,10 @@ const InventoryModel = {
           );
           return reject(err);
         }
-        if (result.affectedRows === 0) {
-          return reject(new Error("Không đủ hàng trong kho hoặc hàng tạm giữ"));
-        }
+        // Uncomment không cho bán hàng âm kho
+        // if (result.affectedRows === 0) {
+        //   return reject(new Error("Không đủ hàng trong kho hoặc hàng tạm giữ"));
+        // }
         resolve(result);
       });
     });
@@ -216,9 +220,9 @@ const InventoryModel = {
             available_stock: row.available_stock,
             category: row.category_id
               ? {
-                category_id: row.category_id,
-                category_name: row.category_name,
-              }
+                  category_id: row.category_id,
+                  category_name: row.category_name,
+                }
               : null,
           },
           warehouse: {
@@ -324,9 +328,9 @@ const InventoryModel = {
             available_quantity: row.available_quantity,
             category: row.category_id
               ? {
-                category_id: row.category_id,
-                category_name: row.category_name,
-              }
+                  category_id: row.category_id,
+                  category_name: row.category_name,
+                }
               : null,
           },
           warehouse: {
@@ -468,20 +472,25 @@ const InventoryModel = {
           updated_at = CURRENT_TIMESTAMP
         WHERE
           product_id = ? AND warehouse_id = ?
-          AND quantity >= ? -- Đảm bảo tổng số lượng không âm
-          AND available_stock >= ? -- Đảm bảo tồn kho khả dụng không âm (hoặc nhỏ hơn reserved)
       `;
+
+      // const sql = `
+      //   UPDATE inventories
+      //   SET
+      //     quantity = quantity - ?,
+      //     available_stock = available_stock - ?,
+      //     updated_at = CURRENT_TIMESTAMP
+      //   WHERE
+      //     product_id = ? AND warehouse_id = ?
+      //     AND quantity >= ? -- Đảm bảo tổng số lượng không âm
+      //     AND available_stock >= ? -- Đảm bảo tồn kho khả dụng không âm (hoặc nhỏ hơn reserved)
+      // `;
 
       // Giá trị quantityToSubtract được truyền vào cả 2 tham số.
       // Các ? cuối cùng là để đảm bảo điều kiện WHERE (quantity >= quantityToSubtract và available_stock >= quantityToSubtract)
-      const values = [
-        quantity,
-        quantity,
-        product_id,
-        warehouse_id,
-        quantity, // check for quantity >= quantityToSubtract
-        quantity, // check for available_stock >= quantityToSubtract
-      ];
+      const values = [quantity, quantity, product_id, warehouse_id]; 
+      //quantity, check for quantity >= quantityToSubtract
+      // quantity, check for available_stock >= quantityToSubtract
 
       db.query(sql, values, (err, result) => {
         if (err) {
