@@ -935,8 +935,25 @@ const PurchaseOrderService = {
           );
 
           // 2. Lấy tồn kho tổng sau khi cập nhật (quan trọng cho current_stock_after)
-          const current_stock_after =
-            await InventoryModel.getTotalStockByProductId(product_id);
+          // const current_stock_after =
+          //   await InventoryModel.getTotalStockByProductId(product_id);
+          const inventoryAtWarehouse =
+            await InventoryModel.findByProductAndWarehouse(
+              product_id,
+              order.warehouse_id
+            );
+
+          console.log(
+            `DEBUG: Đối tượng inventoryAtWarehouse thô cho ${product_id} tại kho ${order.warehouse_id}:`,
+            inventoryAtWarehouse
+          );
+
+          const current_stock_after_at_warehouse = inventoryAtWarehouse
+            ? inventoryAtWarehouse.quantity
+            : 0;
+          console.log(
+            `DEBUG: Tồn kho SAU cập nhật (sử dụng .quantity từ object) cho ${product_id} tại kho ${order.warehouse_id}: ${current_stock_after_at_warehouse}`
+          );
 
           // 3. Ghi nhận sự kiện Product Event
           await ProductEventModel.recordEvent({
@@ -946,7 +963,7 @@ const PurchaseOrderService = {
             quantity_impact: quantity, // Số lượng dương vì là nhập hàng
             transaction_price: price, // Giá nhập từ chi tiết PO
             partner_name: partner_name,
-            current_stock_after: current_stock_after,
+            current_stock_after: current_stock_after_at_warehouse,
             reference_id: po_id,
             reference_type: "PURCHASE_ORDER",
             description: `Sản phẩm ${

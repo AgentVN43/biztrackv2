@@ -61,7 +61,7 @@ const InventoryModel = {
   findByProductAndWarehouse: (product_id, warehouse_id) => {
     return new Promise((resolve, reject) => {
       const sql =
-        "SELECT product_id, warehouse_id, SUM(quantity) AS total_quantity FROM inventories WHERE product_id = ? AND warehouse_id = ? GROUP BY product_id, warehouse_id";
+        "SELECT product_id, warehouse_id, SUM(quantity) AS quantity FROM inventories WHERE product_id = ? AND warehouse_id = ? GROUP BY product_id, warehouse_id";
       db.query(sql, [product_id, warehouse_id], (err, results) => {
         if (err) {
           console.error(
@@ -74,6 +74,8 @@ const InventoryModel = {
       });
     });
   },
+
+
 
   /**
    * Tạo một bản ghi tồn kho mới.

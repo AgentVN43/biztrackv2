@@ -218,6 +218,28 @@ const InvoiceService = {
   },
 
   /**
+   * Cập nhật số tiền đã thanh toán (amount_paid) và trạng thái của hóa đơn.
+   * @param {string} invoice_id - ID hóa đơn cần cập nhật.
+   * @param {number} paymentAmount - Số tiền thanh toán mới nhận được.
+   * @returns {Promise<Object>} Kết quả cập nhật.
+   */
+  updateAmountPaidAndStatus: async (invoice_id, paymentAmount) => {
+    try {
+      const result = await InvoiceModel.updateAmountPaidAndStatus(
+        invoice_id,
+        paymentAmount
+      );
+      return result;
+    } catch (error) {
+      console.error(
+        "🚀 ~ InvoiceService: updateAmountPaidAndStatus - Error:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  /**
    * Lấy tổng công nợ phải trả và danh sách các hóa đơn mua hàng chưa thanh toán đủ cho một nhà cung cấp.
    * @param {string} supplier_id - ID của nhà cung cấp.
    * @returns {Promise<Object>} Đối tượng chứa tổng công nợ và danh sách hóa đơn.
@@ -227,10 +249,7 @@ const InvoiceService = {
       const totalPayables = await InvoiceModel.getTotalPayablesBySupplierId(
         supplier_id
       );
-      const unpaidInvoices =
-        await InvoiceModel.getDebtSupplier(
-          supplier_id
-        );
+      const unpaidInvoices = await InvoiceModel.getDebtSupplier(supplier_id);
 
       return {
         supplier_id,

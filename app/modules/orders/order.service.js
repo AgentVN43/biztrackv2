@@ -1725,7 +1725,6 @@ const OrderService = {
   //   }
   // },
 
-  
   update: async (order_id, data, initiatedByUserId = null) => {
     console.log("🚀 ~ order.service: update - Incoming data:", data);
 
@@ -1794,8 +1793,17 @@ const OrderService = {
 
         // 2. Ghi nhận Product Event
         for (const item of orderDetails) {
-          const current_stock_after =
-            await InventoryModel.getTotalStockByProductId(item.product_id);
+          // const current_stock_after =
+          //   await InventoryModel.getTotalStockByProductId(item.product_id);
+          const inventoryAtWarehouse =
+            await InventoryModel.findByProductAndWarehouse(
+              item.product_id,
+              warehouse_id
+            );
+          const current_stock_after_at_warehouse = inventoryAtWarehouse
+            ? inventoryAtWarehouse.quantity
+            : 0;
+
           await ProductEventModel.recordEvent({
             product_id: item.product_id,
             warehouse_id: warehouse_id,
@@ -1803,7 +1811,7 @@ const OrderService = {
             quantity_impact: -item.quantity,
             transaction_price: item.price,
             partner_name: partner_name,
-            current_stock_after: current_stock_after,
+            current_stock_after: current_stock_after_at_warehouse,
             reference_id: order.order_id,
             reference_type: "ORDER",
             description: `Sản phẩm ${
@@ -1963,8 +1971,18 @@ const OrderService = {
         );
 
         for (const item of orderDetails) {
-          const current_stock_after =
-            await InventoryModel.getTotalStockByProductId(item.product_id);
+          // const current_stock_after =
+          //   await InventoryModel.getTotalStockByProductId(item.product_id);
+
+          const inventoryAtWarehouse =
+            await InventoryModel.findByProductAndWarehouse(
+              item.product_id,
+              warehouse_id
+            );
+          const current_stock_after_at_warehouse = inventoryAtWarehouse
+            ? inventoryAtWarehouse.quantity
+            : 0;
+
           await ProductEventModel.recordEvent({
             product_id: item.product_id,
             warehouse_id: warehouse_id,
@@ -1972,7 +1990,7 @@ const OrderService = {
             quantity_impact: item.quantity,
             transaction_price: item.price,
             partner_name: partner_name,
-            current_stock_after: current_stock_after,
+            current_stock_after: current_stock_after_at_warehouse,
             reference_id: order.order_id,
             reference_type: "ORDER",
             description: `Đơn hàng ${order.order_id} bị hủy - Sản phẩm ${
