@@ -261,6 +261,10 @@ const InvoiceService = {
       throw error;
     }
   },
+
+  findByOrderId: async (order_id) => {
+    return await InvoiceModel.findByOrderId(order_id);
+  },
 };
 
 module.exports = InvoiceService; // Đảm bảo bạn xuất InvoiceService

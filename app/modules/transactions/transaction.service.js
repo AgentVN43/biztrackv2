@@ -116,22 +116,22 @@ const TransactionService = {
       const transaction = await TransactionModel.createTransaction(data);
 
       // ✅ Logic xử lý cập nhật hóa đơn liên quan
-      if (
-        (transaction.type === "receipt" || transaction.type === "payment") && // Check if it's a payment/receipt
-        transaction.related_type === "invoice" && // Check if it's related to an invoice
-        transaction.related_id // Check if related_id exists (which should be invoice_id)
-      ) {
-        console.log(
-          `🚀 ~ TransactionService: createTransaction - Giao dịch liên quan đến hóa đơn (${transaction.type}). Đang cập nhật hóa đơn.`
-        );
-        await InvoiceService.updateAmountPaidAndStatus(
-          transaction.related_id, // invoice_id
-          transaction.amount // Số tiền của giao dịch
-        );
-        console.log(
-          `✅ Đã cập nhật hóa đơn ID ${transaction.related_id} với số tiền ${transaction.amount}`
-        );
-      }
+      // if (
+      //   (transaction.type === "receipt" || transaction.type === "payment") && // Check if it's a payment/receipt
+      //   transaction.related_type === "invoice" && // Check if it's related to an invoice
+      //   transaction.related_id // Check if related_id exists (which should be invoice_id)
+      // ) {
+      //   console.log(
+      //     `🚀 ~ TransactionService: createTransaction - Giao dịch liên quan đến hóa đơn (${transaction.type}). Đang cập nhật hóa đơn.`
+      //   );
+      //   await InvoiceService.updateAmountPaidAndStatus(
+      //     transaction.related_id, // invoice_id
+      //     transaction.amount // Số tiền của giao dịch
+      //   );
+      //   console.log(
+      //     `✅ Đã cập nhật hóa đơn ID ${transaction.related_id} với số tiền ${transaction.amount}`
+      //   );
+      // }
 
       return transaction;
     } catch (error) {

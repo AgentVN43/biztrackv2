@@ -3,14 +3,88 @@ const db = require("../../config/db.config");
 const { v4: uuidv4 } = require("uuid");
 
 const Invoice = {
-  create: async (data) => {
+  // create: async (data) => {
+  //   const invoice_id = uuidv4();
+  //   const {
+  //     invoice_code,
+  //     invoice_type,
+  //     order_id,
+  //     customer_id,
+  //     supplier_id,
+  //     total_amount,
+  //     tax_amount,
+  //     discount_amount,
+  //     final_amount,
+  //     issued_date,
+  //     due_date,
+  //     note,
+  //     amount_paid = 0.0,
+  //   } = data;
+
+  //   // ✅ Logic xác định trạng thái ban đầu của hóa đơn dựa trên amount_paid và final_amount
+  //   let status;
+  //   if (final_amount <= 0) {
+  //     // Trường hợp tổng tiền là 0 hoặc âm (hoàn trả)
+  //     status = "paid"; // Coi như đã thanh toán
+  //   } else if (amount_paid >= final_amount) {
+  //     status = "paid"; // Đã thanh toán đủ
+  //   } else if (amount_paid > 0) {
+  //     status = "partial_paid"; // Thanh toán một phần
+  //   } else {
+  //     status = "pending"; // Chưa thanh toán (hoặc 'pending' theo đề xuất của bạn)
+  //   }
+
+  //   const query = `
+  //           INSERT INTO invoices (
+  //               invoice_id, invoice_code, invoice_type, order_id,
+  //               customer_id, supplier_id, total_amount, tax_amount,
+  //               discount_amount, final_amount, issued_date, due_date,
+  //               status, note, amount_paid
+  //           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  //       `;
+
+  //   const values = [
+  //     invoice_id,
+  //     invoice_code,
+  //     invoice_type,
+  //     order_id,
+  //     customer_id,
+  //     supplier_id,
+  //     total_amount,
+  //     tax_amount,
+  //     discount_amount,
+  //     final_amount,
+  //     issued_date,
+  //     due_date,
+  //     status,
+  //     note,
+  //     amount_paid,
+  //   ];
+
+  //   try {
+  //     console.log("🚀 ~ invoice.model.js: create - SQL Query:", query);
+  //     console.log("🚀 ~ invoice.model.js: create - SQL Values:", values);
+  //     await db.promise().query(query, values);
+  //     const invoiceResult = { invoice_id, ...data, status, amount_paid };
+  //     console.log(
+  //       "🚀 ~ invoice.model.js: create - Invoice created successfully:",
+  //       invoiceResult
+  //     );
+  //     return invoiceResult;
+  //   } catch (error) {
+  //     console.error(
+  //       "🚀 ~ invoice.model.js: create - Error creating invoice:",
+  //       error
+  //     );
+  //     throw error;
+  //   }
+  // },
+
+  create: async (invoiceData) => {
     const invoice_id = uuidv4();
     const {
       invoice_code,
       invoice_type,
-      order_id,
-      customer_id,
-      supplier_id,
       total_amount,
       tax_amount,
       discount_amount,
@@ -18,38 +92,48 @@ const Invoice = {
       issued_date,
       due_date,
       note,
-      amount_paid = 0.0,
-    } = data;
+      amount_paid = 0.0, // ✅ Lấy amount_paid từ invoiceData, mặc định là 0.00
+    } = invoiceData;
 
-    // ✅ Logic xác định trạng thái ban đầu của hóa đơn dựa trên amount_paid và final_amount
+    let invoice_order_id = null;
+    let invoice_customer_id = null;
+    let invoice_supplier_id = null;
+
+    if (invoice_type === "sale_invoice") {
+      invoice_order_id = invoiceData.order_id;
+      invoice_customer_id = invoiceData.customer_id;
+    } else if (invoice_type === "purchase_invoice") {
+      invoice_order_id = invoiceData.po_id_for_invoice_flow;
+      invoice_supplier_id = invoiceData.supplier_id;
+    }
+
     let status;
-    if (final_amount <= 0) {
-      // Trường hợp tổng tiền là 0 hoặc âm (hoàn trả)
-      status = "paid"; // Coi như đã thanh toán
-    } else if (amount_paid >= final_amount) {
-      status = "paid"; // Đã thanh toán đủ
-    } else if (amount_paid > 0) {
-      status = "partial_paid"; // Thanh toán một phần
+    if (parseFloat(final_amount) <= 0) {
+      status = "paid";
+    } else if (parseFloat(amount_paid) >= parseFloat(final_amount)) {
+      // ✅ Sử dụng amount_paid từ invoiceData
+      status = "paid";
+    } else if (parseFloat(amount_paid) > 0) {
+      // ✅ Sử dụng amount_paid từ invoiceData
+      status = "partial_paid";
     } else {
-      status = "pending"; // Chưa thanh toán (hoặc 'pending' theo đề xuất của bạn)
+      status = "pending";
     }
 
     const query = `
-            INSERT INTO invoices (
-                invoice_id, invoice_code, invoice_type, order_id,
-                customer_id, supplier_id, total_amount, tax_amount,
-                discount_amount, final_amount, issued_date, due_date,
-                status, note, amount_paid
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-
+      INSERT INTO invoices (
+        invoice_id, invoice_code, invoice_type, order_id, customer_id, supplier_id,
+        total_amount, tax_amount, discount_amount, final_amount,
+        issued_date, due_date, status, note, amount_paid
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
     const values = [
       invoice_id,
       invoice_code,
       invoice_type,
-      order_id,
-      customer_id,
-      supplier_id,
+      invoice_order_id,
+      invoice_customer_id,
+      invoice_supplier_id,
       total_amount,
       tax_amount,
       discount_amount,
@@ -58,24 +142,17 @@ const Invoice = {
       due_date,
       status,
       note,
-      amount_paid,
+      amount_paid, // ✅ Sử dụng amount_paid từ invoiceData
     ];
 
     try {
-      console.log("🚀 ~ invoice.model.js: create - SQL Query:", query);
-      console.log("🚀 ~ invoice.model.js: create - SQL Values:", values);
+      console.log("🚀 ~ InvoiceModel: create - SQL Query:", query);
+      console.log("🚀 ~ InvoiceModel: create - SQL Values:", values);
       await db.promise().query(query, values);
-      const invoiceResult = { invoice_id, ...data, status, amount_paid };
-      console.log(
-        "🚀 ~ invoice.model.js: create - Invoice created successfully:",
-        invoiceResult
-      );
-      return invoiceResult;
+      // Trả về invoiceData gốc, và các giá trị đã tính toán/khởi tạo
+      return { invoice_id, ...invoiceData, status, amount_paid };
     } catch (error) {
-      console.error(
-        "🚀 ~ invoice.model.js: create - Error creating invoice:",
-        error
-      );
+      console.error("🚀 ~ InvoiceModel: create - Lỗi khi tạo hóa đơn:", error);
       throw error;
     }
   },
@@ -294,8 +371,16 @@ const Invoice = {
 
   findByOrderId: async (order_id) => {
     const query = "SELECT * FROM invoices WHERE order_id = ?";
-    const [rows] = await db.promise().query(query, [order_id]);
-    return rows.length ? rows[0] : null;
+    try {
+      const [rows] = await db.promise().query(query, [order_id]);
+      return rows.length ? rows[0] : null;
+    } catch (error) {
+      console.error(
+        "🚀 ~ InvoiceModel: findByOrderId - Lỗi khi tìm hóa đơn theo Order ID:",
+        error
+      );
+      throw error;
+    }
   },
 
   getDebtSupplier: async (supplier_id) => {
@@ -324,15 +409,18 @@ const Invoice = {
     `;
     try {
       const [rows] = await db.promise().query(sql, [supplier_id]);
-      return rows.map(row => ({
-          ...row,
-          final_amount: parseFloat(row.final_amount),
-          amount_paid: parseFloat(row.amount_paid),
-          remaining_payable: parseFloat(row.remaining_payable),
-          po_total_amount: parseFloat(row.po_total_amount),
+      return rows.map((row) => ({
+        ...row,
+        final_amount: parseFloat(row.final_amount),
+        amount_paid: parseFloat(row.amount_paid),
+        remaining_payable: parseFloat(row.remaining_payable),
+        po_total_amount: parseFloat(row.po_total_amount),
       }));
     } catch (error) {
-      console.error('🚀 ~ InvoiceModel: getUnpaidOrPartiallyPaidPurchaseInvoicesBySupplierId - Error:', error);
+      console.error(
+        "🚀 ~ InvoiceModel: getUnpaidOrPartiallyPaidPurchaseInvoicesBySupplierId - Error:",
+        error
+      );
       throw error;
     }
   },
@@ -356,7 +444,10 @@ const Invoice = {
       const [rows] = await db.promise().query(sql, [supplier_id]);
       return parseFloat(rows[0].total_payables || 0);
     } catch (error) {
-      console.error('🚀 ~ InvoiceModel: getTotalPayablesBySupplierId - Error:', error);
+      console.error(
+        "🚀 ~ InvoiceModel: getTotalPayablesBySupplierId - Error:",
+        error
+      );
       throw error;
     }
   },
