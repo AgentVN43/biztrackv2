@@ -55,10 +55,10 @@ function calculateOrderTotals(orderDetails, orderData = {}) {
     const discount = parseFloat(detail.discount || 0);
 
     calculatedGrossProductAmount += price * quantity;
-    calculatedProductLevelDiscountSum += discount * quantity;
+    calculatedProductLevelDiscountSum += discount; //* quantity;
   });
 
-  const orderLevelDiscountAmount = parseFloat(orderData.discount_amount || 0);
+  const orderLevelDiscountAmount = parseFloat(orderData.order_amount || 0);
   const taxAmount = parseFloat(orderData.tax_amount || 0); // ✅ Đã sửa lỗi: Đảm bảo tax_amount luôn là số
   const shippingFee = parseFloat(orderData.shipping_fee || 0);
 
@@ -79,7 +79,7 @@ function calculateOrderTotals(orderDetails, orderData = {}) {
     discount_amount: totalCombinedDiscount, // Tổng tất cả khuyến mãi (trên sản phẩm + trên đơn)
     final_amount: finalAmount,
     shipping_fee: shippingFee,
-    order_amount: calculatedGrossProductAmount, // order_amount theo định nghĩa cũ của bạn (Tổng giá trị sản phẩm gốc)
+    order_amount: orderLevelDiscountAmount, // order_amount theo định nghĩa cũ của bạn (Tổng giá trị sản phẩm gốc)
   };
 }
 
