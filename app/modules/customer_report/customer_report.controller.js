@@ -1,6 +1,6 @@
 const createResponse = require("../../utils/response");
-const CustomerReportService = require("./customer_report.service"); // Đảm bảo đường dẫn đúng
-
+const CustomerReportService = require("./customer_report.service");
+const TransactionService = require("../transactions/transaction.service");
 const CustomerReportController = {
   /**
    * Lấy tổng quan (tổng đơn hàng, tổng chi tiêu) của một khách hàng.
@@ -118,6 +118,37 @@ const CustomerReportController = {
         error
       );
       next(error);
+    }
+  },
+
+  getCustomerTransactions: async (req, res, next) => {
+    const { customerId } = req.params; // Lấy customerId từ URL params
+    try {
+      const transactions = await TransactionService.getTransactionsByCustomerId(
+        customerId
+      );
+      if (!transactions || transactions.length === 0) {
+        return createResponse(
+          res,
+          404,
+          false,
+          null,
+          `Không tìm thấy giao dịch nào cho khách hàng ID: ${customerId}.`
+        );
+      }
+      createResponse(
+        res,
+        200,
+        true,
+        transactions,
+        "Lịch sử giao dịch của khách hàng đã được tải thành công."
+      );
+    } catch (error) {
+      console.error(
+        "🚀 ~ CustomerReportController: getCustomerTransactions - Lỗi:",
+        error
+      );
+      next(error); // Chuyển lỗi xuống middleware xử lý lỗi
     }
   },
 };
