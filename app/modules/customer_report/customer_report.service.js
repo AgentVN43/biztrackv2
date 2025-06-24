@@ -191,27 +191,6 @@ const CustomerReportService = {
    * @returns {Promise<number>} Promise giải quyết với tổng công nợ.
    * @throws {Error} Nếu có lỗi trong quá trình truy vấn database.
    */
-  // getReceivables: async (customer_id) => {
-  //   try {
-  //     // Giả định bảng `invoices` có `customer_id` và `status` (paid/unpaid)
-  //     // Nếu không, bạn cần JOIN với bảng `orders` hoặc `transactions` để lấy customer_id.
-  //     // Đây là cách đơn giản nhất:
-  //     const sql = `
-  //       SELECT COALESCE(SUM(final_amount), 0) AS total_receivables
-  //       FROM invoices
-  //       WHERE customer_id = ? AND status != 'paid'; -- Hoặc status = 'unpaid', 'partially_paid'
-  //     `;
-  //     // Nếu bạn muốn tính toán từ transactions, logic sẽ phức tạp hơn:
-  //     // Tính tổng amount của các invoices cho customer đó
-  //     // Trừ đi tổng amount của các transactions type 'receipt' liên quan đến customer/invoice đó
-  //     const [rows] = await db.promise().query(sql, [customer_id]);
-  //     return rows[0].total_receivables;
-  //   } catch (error) {
-  //     console.error("🚀 ~ CustomerReportService: getReceivables - Lỗi:", error);
-  //     throw error;
-  //   }
-  // },
-
   getReceivables: async (customer_id) => {
     try {
       const sql = `
@@ -254,6 +233,92 @@ const CustomerReportService = {
     } catch (error) {
       console.error(
         "🚀 ~ CustomerReportService: getUnpaidOrPartiallyPaidInvoices - Lỗi:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  getCustomerFinancialLedger: async (customer_id) => {
+    try {
+      // 1. Lấy tất cả hóa đơn bán hàng của khách hàng
+      const invoices = await InvoiceModel.getAllByCustomerId(customer_id); // Giả định InvoiceModel có hàm getAllByCustomerId
+      const mappedInvoices = invoices.map((inv) => ({
+        reference_code: inv.invoice_code,
+        timestamp: inv.issued_date,
+        entry_type: "Sale Invoice", // Hoặc 'Credit Note' nếu có loại đó
+        debit_amount: parseFloat(inv.final_amount),
+        credit_amount: 0,
+        description: `Hóa đơn bán hàng: ${inv.invoice_code}`,
+        invoice_id: inv.invoice_id,
+        related_id: inv.order_id, // Nếu muốn liên kết với order
+      }));
+
+      // 2. Lấy tất cả giao dịch thu tiền/hoàn tiền của khách hàng
+      // Thêm category 'sale_refund' nếu có
+      const transactions = await TransactionModel.getTransactionsByCustomerId(
+        customer_id
+      ); // Hàm này đã có trong TransactionModel
+      const mappedTransactions = transactions.map((trx) => {
+        let entryType;
+        let debit = 0;
+        let credit = 0;
+        let description = trx.description;
+
+        switch (trx.type) {
+          case "receipt":
+            entryType = "Payment Received";
+            credit = parseFloat(trx.amount);
+            description = `Phiếu thu: ${trx.transaction_code}`;
+            if (trx.related_type === "invoice" && trx.invoice_code) {
+              description += ` (HĐ: ${trx.invoice_code})`;
+            }
+            break;
+          case "refund": // Giả định refund là khoản chi trả cho khách hàng
+            entryType = "Refund Issued";
+            debit = parseFloat(trx.amount); // Refund có thể coi là giảm công nợ cho mình -> tăng nợ khách hàng (nếu tiền ra khỏi mình)
+            description = `Hoàn tiền: ${trx.transaction_code}`;
+            break;
+          // Có thể thêm các loại giao dịch khác như adjustment (điều chỉnh)
+          default:
+            entryType = "Other Transaction";
+            break;
+        }
+
+        return {
+          reference_code: trx.transaction_code,
+          timestamp: trx.created_at,
+          entry_type: entryType,
+          debit_amount: debit,
+          credit_amount: credit,
+          description: description,
+          transaction_id: trx.transaction_id,
+          related_id: trx.related_id, // ID của hóa đơn hoặc order liên quan
+        };
+      });
+
+      // 3. Kết hợp và sắp xếp theo thời gian
+      const combinedEntries = [...mappedInvoices, ...mappedTransactions];
+      combinedEntries.sort(
+        (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+      );
+
+      // 4. Tính toán running balance
+      let currentRunningBalance = 0;
+      const ledger = combinedEntries.map((entry) => {
+        // Hóa đơn bán hàng làm tăng công nợ khách hàng (Debits Receivable)
+        // Thanh toán / Hoàn tiền làm giảm công nợ khách hàng (Credits Receivable)
+        currentRunningBalance += entry.debit_amount - entry.credit_amount;
+        return {
+          ...entry,
+          running_balance: parseFloat(currentRunningBalance.toFixed(2)), // Định dạng số thập phân
+        };
+      });
+
+      return ledger;
+    } catch (error) {
+      console.error(
+        "🚀 ~ CustomerReportService: getCustomerFinancialLedger - Lỗi:",
         error
       );
       throw error;

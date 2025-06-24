@@ -405,7 +405,7 @@ const Invoice = {
       WHERE i.supplier_id = ?
         AND i.invoice_type = 'purchase_invoice'
         AND i.status IN ('pending', 'partial_paid', 'overdue')
-      ORDER BY i.due_date ASC, i.issued_date ASC;
+      ORDER BY i.due_date ASC, i.issued_date DESC;
     `;
     try {
       const [rows] = await db.promise().query(sql, [supplier_id]);
@@ -446,6 +446,31 @@ const Invoice = {
     } catch (error) {
       console.error(
         "🚀 ~ InvoiceModel: getTotalPayablesBySupplierId - Error:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy tất cả hóa đơn (sale_invoice, refund_invoice, credit_note, debit_note)
+   * của một khách hàng cụ thể.
+   * @param {string} customer_id - ID của khách hàng.
+   * @returns {Promise<Array<Object>>} Mảng các hóa đơn.
+   */
+  getAllByCustomerId: async (customer_id) => {
+    const query = `
+      SELECT * FROM invoices
+      WHERE customer_id = ?
+      AND invoice_type IN ('sale_invoice', 'refund_invoice', 'credit_note', 'debit_note')
+      ORDER BY issued_date DESC;
+    `;
+    try {
+      const [rows] = await db.promise().query(query, [customer_id]);
+      return rows;
+    } catch (error) {
+      console.error(
+        "🚀 ~ InvoiceModel: getAllByCustomerId - Lỗi khi lấy hóa đơn theo Customer ID:",
         error
       );
       throw error;

@@ -12,5 +12,6 @@ router.get('/:id/sales-return-history', customerReportController.getCustomerSale
 router.get('/:id/order-history', customerReportController.getCustomerOrderHistory);
 router.get('/:id/receivables', customerReportController.getCustomerReceivables);
 router.get('/:customerId/transactions', customerReportController.getCustomerTransactions);
+router.get('/:id/financial', customerReportController.getCustomerFinancialLedger);
 
 module.exports = router;

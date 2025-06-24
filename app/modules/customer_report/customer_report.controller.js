@@ -151,6 +151,37 @@ const CustomerReportController = {
       next(error); // Chuyển lỗi xuống middleware xử lý lỗi
     }
   },
+
+  getCustomerFinancialLedger: async (req, res, next) => {
+    const customer_id = req.params.id;
+    try {
+      const ledger = await CustomerReportService.getCustomerFinancialLedger(
+        customer_id
+      );
+      if (ledger.length === 0) {
+        return createResponse(
+          res,
+          404,
+          false,
+          null,
+          `Không tìm thấy các mục nhập sổ cái tài chính cho khách hàng ID: ${customer_id}.`
+        );
+      }
+      createResponse(
+        res,
+        200,
+        true,
+        ledger,
+        "Sổ cái tài chính của khách hàng đã được tải thành công."
+      );
+    } catch (error) {
+      console.error(
+        "🚀 ~ CustomerReportController: getCustomerFinancialLedger - Lỗi:",
+        error
+      );
+      next(error);
+    }
+  },
 };
 
 module.exports = CustomerReportController;
