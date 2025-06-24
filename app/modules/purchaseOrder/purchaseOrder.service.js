@@ -908,7 +908,7 @@ const PurchaseOrderService = {
       }
 
       const details = await PurchaseOrderDetailModel.findByPOId(po_id);
-      console.log("🚀 ~ This is details:",details)
+      console.log("🚀 ~ This is details:", details);
       if (!details || details.length === 0) {
         throw new Error("No purchase order details found");
       }
@@ -1075,6 +1075,58 @@ const PurchaseOrderService = {
     } catch (error) {
       console.error(
         "🚀 ~ purchaseOrder.service.js: getPurchaseOrderDetailsById - Lỗi:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  getPurchaseHistoryBySupplierId: async (supplier_id) => {
+    try {
+      const rawResults = await PurchaseOrderModel.findBySupplierIdWithDetails(
+        supplier_id
+      );
+
+      if (!rawResults || rawResults.length === 0) {
+        return [];
+      }
+
+      const poMap = new Map();
+
+      rawResults.forEach((row) => {
+        const poId = row.po_id;
+        if (!poMap.has(poId)) {
+          poMap.set(poId, {
+            po_id: row.po_id,
+            supplier_id: row.supplier_id,
+            supplier_name: row.supplier_name,
+            warehouse_id: row.warehouse_id,
+            warehouse_name: row.warehouse_name,
+            note: row.note,
+            status: row.status,
+            posted_at: row.posted_at,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            total_amount: parseFloat(row.total_amount),
+            details: [],
+          });
+        }
+        // Add product details to the corresponding PO
+        poMap.get(poId).details.push({
+          po_detail_id: row.po_detail_id,
+          product_id: row.product_id,
+          product_name: row.product_name,
+          sku: row.sku,
+          quantity: row.quantity,
+          price: parseFloat(row.price),
+        });
+      });
+
+      // Convert Map values to an array
+      return Array.from(poMap.values());
+    } catch (error) {
+      console.error(
+        "🚀 ~ purchaseOrder.service.js: getPurchaseHistoryBySupplierId - Error:",
         error
       );
       throw error;

@@ -293,10 +293,72 @@ const Invoice = {
   },
 
   findByOrderId: async (order_id) => {
-    // Thêm hàm này
     const query = "SELECT * FROM invoices WHERE order_id = ?";
     const [rows] = await db.promise().query(query, [order_id]);
     return rows.length ? rows[0] : null;
+  },
+
+  getDebtSupplier: async (supplier_id) => {
+    const sql = `
+      SELECT
+        i.invoice_id,
+        i.order_id,
+        i.invoice_code,
+        i.final_amount,
+        i.amount_paid,
+        (i.final_amount - i.amount_paid) AS remaining_payable,
+        i.status,
+        i.issued_date,
+        i.due_date,
+        po.po_id,
+        po.total_amount AS po_total_amount,
+        po.status AS po_status,
+        s.supplier_name
+      FROM invoices i
+      LEFT JOIN purchase_orders po ON i.order_id = po.po_id
+      LEFT JOIN suppliers s ON i.supplier_id = s.supplier_id
+      WHERE i.supplier_id = ?
+        AND i.invoice_type = 'purchase_invoice'
+        AND i.status IN ('pending', 'partial_paid', 'overdue')
+      ORDER BY i.due_date ASC, i.issued_date ASC;
+    `;
+    try {
+      const [rows] = await db.promise().query(sql, [supplier_id]);
+      return rows.map(row => ({
+          ...row,
+          final_amount: parseFloat(row.final_amount),
+          amount_paid: parseFloat(row.amount_paid),
+          remaining_payable: parseFloat(row.remaining_payable),
+          po_total_amount: parseFloat(row.po_total_amount),
+      }));
+    } catch (error) {
+      console.error('🚀 ~ InvoiceModel: getUnpaidOrPartiallyPaidPurchaseInvoicesBySupplierId - Error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy tổng công nợ phải trả cho một nhà cung cấp.
+   * Tính tổng (final_amount - amount_paid) từ các hóa đơn mua hàng chưa thanh toán đủ.
+   * @param {string} supplier_id - ID của nhà cung cấp.
+   * @returns {Promise<number>} Tổng số tiền công nợ phải trả.
+   */
+  getTotalPayablesBySupplierId: async (supplier_id) => {
+    const sql = `
+      SELECT
+        COALESCE(SUM(i.final_amount - i.amount_paid), 0) AS total_payables
+      FROM invoices i
+      WHERE i.supplier_id = ?
+        AND i.invoice_type = 'purchase_invoice'
+        AND i.status IN ('pending', 'partial_paid', 'overdue');
+    `;
+    try {
+      const [rows] = await db.promise().query(sql, [supplier_id]);
+      return parseFloat(rows[0].total_payables || 0);
+    } catch (error) {
+      console.error('🚀 ~ InvoiceModel: getTotalPayablesBySupplierId - Error:', error);
+      throw error;
+    }
   },
 };
 

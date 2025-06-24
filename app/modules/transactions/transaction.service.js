@@ -94,19 +94,52 @@
 
 // transaction.service.js
 const TransactionModel = require("./transaction.model");
+const InvoiceService = require("../invoice/invoice.service"); 
 
 const TransactionService = {
+  // createTransaction: async (data) => {
+  //   // Thêm logic nghiệp vụ nếu cần trước khi gọi model
+  //   try {
+  //     const transaction = await TransactionModel.createTransaction(data);
+  //     return transaction;
+  //   } catch (error) {
+  //     console.error(
+  //       "🚀 ~ transaction.service.js: createTransaction - Error:",
+  //       error
+  //     );
+  //     throw error; // Ném lỗi để được bắt bởi tầng gọi
+  //   }
+  // },
+
   createTransaction: async (data) => {
-    // Thêm logic nghiệp vụ nếu cần trước khi gọi model
     try {
       const transaction = await TransactionModel.createTransaction(data);
+
+      // ✅ Logic xử lý cập nhật hóa đơn liên quan
+      if (
+        (transaction.type === "receipt" || transaction.type === "payment") && // Check if it's a payment/receipt
+        transaction.related_type === "invoice" && // Check if it's related to an invoice
+        transaction.related_id // Check if related_id exists (which should be invoice_id)
+      ) {
+        console.log(
+          `🚀 ~ TransactionService: createTransaction - Giao dịch liên quan đến hóa đơn (${transaction.type}). Đang cập nhật hóa đơn.`
+        );
+        await InvoiceService.updateAmountPaidAndStatus(
+          transaction.related_id, // invoice_id
+          transaction.amount // Số tiền của giao dịch
+        );
+        console.log(
+          `✅ Đã cập nhật hóa đơn ID ${transaction.related_id} với số tiền ${transaction.amount}`
+        );
+      }
+
       return transaction;
     } catch (error) {
       console.error(
-        "🚀 ~ transaction.service.js: createTransaction - Error:",
+        "🚀 ~ transaction.service.js: createTransaction - Lỗi:",
         error
       );
-      throw error; // Ném lỗi để được bắt bởi tầng gọi
+      throw error;
     }
   },
 
@@ -139,7 +172,31 @@ const TransactionService = {
     }
   },
 
-  // Các hàm service khác có thể được thêm vào
+  /**
+   * Hàm mới để xử lý một thanh toán/thu tiền và cập nhật hóa đơn tương ứng.
+   * Đây là một wrapper tiện ích nếu bạn muốn gọi logic này độc lập.
+   * @param {string} invoiceId - ID của hóa đơn cần xử lý.
+   * @param {number} paymentAmount - Số tiền thanh toán/thu.
+   * @returns {Promise<Object>} Kết quả cập nhật hóa đơn.
+   */
+  processPaymentForInvoice: async (invoiceId, paymentAmount) => {
+    try {
+      const updatedInvoice = await InvoiceService.updateAmountPaidAndStatus(
+        invoiceId,
+        paymentAmount
+      );
+      console.log(
+        `✅ Đã xử lý thanh toán ${paymentAmount} cho hóa đơn ${invoiceId}. Trạng thái mới: ${updatedInvoice.status}`
+      );
+      return updatedInvoice;
+    } catch (error) {
+      console.error(
+        "🚀 ~ TransactionService: processPaymentForInvoice - Lỗi xử lý thanh toán cho hóa đơn:",
+        error
+      );
+      throw error;
+    }
+  },
 };
 
 module.exports = TransactionService;

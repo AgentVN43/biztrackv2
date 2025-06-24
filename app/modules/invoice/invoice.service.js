@@ -216,6 +216,32 @@ const InvoiceService = {
       throw error;
     }
   },
+
+  /**
+   * Lấy tổng công nợ phải trả và danh sách các hóa đơn mua hàng chưa thanh toán đủ cho một nhà cung cấp.
+   * @param {string} supplier_id - ID của nhà cung cấp.
+   * @returns {Promise<Object>} Đối tượng chứa tổng công nợ và danh sách hóa đơn.
+   */
+  getSupplierPayables: async (supplier_id) => {
+    try {
+      const totalPayables = await InvoiceModel.getTotalPayablesBySupplierId(
+        supplier_id
+      );
+      const unpaidInvoices =
+        await InvoiceModel.getDebtSupplier(
+          supplier_id
+        );
+
+      return {
+        supplier_id,
+        total_payables: totalPayables,
+        unpaid_purchase_invoices: unpaidInvoices,
+      };
+    } catch (error) {
+      console.error("🚀 ~ InvoiceService: getSupplierPayables - Error:", error);
+      throw error;
+    }
+  },
 };
 
 module.exports = InvoiceService; // Đảm bảo bạn xuất InvoiceService

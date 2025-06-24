@@ -494,6 +494,53 @@ const PurchaseOrderModel = {
       throw error;
     }
   },
+
+  findBySupplierIdWithDetails: async (supplier_id) => {
+    const sql = `
+      SELECT
+        po.po_id,
+        po.supplier_id,
+        s.supplier_name,
+        po.warehouse_id,
+        w.warehouse_name,
+        po.note,
+        po.status,
+        po.posted_at,
+        po.created_at,
+        po.updated_at,
+        po.total_amount,
+        pod.po_detail_id,
+        pod.product_id,
+        pod.quantity,
+        pod.price,
+        p.product_name,
+        p.sku
+      FROM
+        purchase_orders po
+      JOIN
+        suppliers s ON po.supplier_id = s.supplier_id
+      JOIN
+        warehouses w ON po.warehouse_id = w.warehouse_id
+      JOIN
+        purchase_order_details pod ON po.po_id = pod.po_id
+      JOIN
+        products p ON pod.product_id = p.product_id
+      WHERE
+        po.supplier_id = ?
+      ORDER BY
+        po.created_at DESC, pod.created_at ASC;
+    `;
+    try {
+      const [rows] = await db.promise().query(sql, [supplier_id]);
+      return rows;
+    } catch (error) {
+      console.error(
+        "🚀 ~ purchase_order.model.js: findBySupplierIdWithDetails - Error fetching purchase orders by supplier with details:",
+        error
+      );
+      throw error;
+    }
+  },
 };
 
 module.exports = PurchaseOrderModel;

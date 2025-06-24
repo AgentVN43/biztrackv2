@@ -145,7 +145,8 @@
 // };
 const service = require("./purchaseOrder.service");
 const TransactionService = require("../transactions/transaction.service");
-const InvoiceService = require("../invoice/invoice.service"); // ✅ Import InvoiceService
+const InvoiceService = require("../invoice/invoice.service");
+const createResponse = require("../../utils/response");
 
 exports.create = async (req, res, next) => {
   // ✅ Chuyển hàm thành async
@@ -243,17 +244,6 @@ exports.getWithDetailsById = async (req, res, next) => {
   }
 };
 
-// exports.postOrder = async (req, res, next) => {
-//   // ✅ Chuyển hàm thành async
-//   try {
-//     const result = await service.confirmPurchaseOrder(req.params.id); // service.confirmPurchaseOrder cần trả về Promise
-//     res.json({ success: true, data: result });
-//   } catch (err) {
-//     console.error("🚀 ~ purchaseOrder.controller.js: postOrder - Lỗi:", err);
-//     next(err);
-//   }
-// };
-
 exports.postOrder = async (req, res, next) => {
   // Lấy user_id từ req.user (do middleware xác thực cung cấp)
   // Nếu req.user không tồn tại (ví dụ: route không được bảo vệ bằng middleware auth), nó sẽ là null.
@@ -291,5 +281,80 @@ exports.updatePOWithDetails = async (req, res, next) => {
       err
     );
     next(err);
+  }
+};
+
+exports.getSupplierHistory = async (req, res, next) => {
+  const { supplierId } = req.params; // Lấy supplierId từ URL params
+
+  try {
+    const history = await service.getPurchaseHistoryBySupplierId(supplierId);
+    if (!history || history.length === 0) {
+      return createResponse(
+        res,
+        404,
+        false,
+        null,
+        `Không tìm thấy lịch sử đơn mua hàng cho nhà cung cấp ID: ${supplierId}.`
+      );
+    }
+    createResponse(
+      res,
+      200,
+      true,
+      history,
+      "Lịch sử đơn mua hàng của nhà cung cấp đã được tải thành công."
+    );
+  } catch (error) {
+    console.error(
+      "🚀 ~ purchaseOrder.controller.js: getSupplierPurchaseHistory - Lỗi:",
+      error
+    );
+    next(error); // Chuyển lỗi xuống middleware xử lý lỗi
+  }
+};
+
+/**
+ * Xử lý yêu cầu GET để lấy công nợ phải trả của một nhà cung cấp.
+ * GET /api/purchase-orders/supplier/:supplierId/receivables
+ * @param {object} req - Express request object.
+ * @param {object} res - Express response object.
+ * @param {function} next - Express next middleware function.
+ */
+exports.getSupplierReceivables = async (req, res, next) => {
+  const { supplierId } = req.params; // Lấy supplierId từ URL params
+
+  try {
+    // Gọi InvoiceService để lấy tổng công nợ và danh sách các hóa đơn chưa thanh toán
+    const receivablesData = await InvoiceService.getSupplierPayables(
+      supplierId
+    );
+
+    if (
+      !receivablesData ||
+      (receivablesData.total_payables === 0 &&
+        receivablesData.unpaid_purchase_invoices.length === 0)
+    ) {
+      return createResponse(
+        res,
+        404,
+        false,
+        null,
+        `Không tìm thấy công nợ phải trả cho nhà cung cấp ID: ${supplierId}.`
+      );
+    }
+    createResponse(
+      res,
+      200,
+      true,
+      receivablesData,
+      "Công nợ phải trả của nhà cung cấp đã được tải thành công."
+    );
+  } catch (error) {
+    console.error(
+      "🚀 ~ purchaseOrder.controller.js: getSupplierPurchaseReceivables - Lỗi:",
+      error
+    );
+    next(error); // Chuyển lỗi xuống middleware xử lý lỗi
   }
 };
