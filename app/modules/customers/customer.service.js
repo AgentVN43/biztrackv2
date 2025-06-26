@@ -128,3 +128,9 @@ exports.updateOrdersAndStatus = async (customerId) => {
     throw error;
   }
 };
+
+exports.updateDebt = async (customerId, amount, increase = true) => {
+  // amount: số tiền tăng/giảm
+  // increase: true => tăng, false => giảm
+  return await Customer.updateDebt(customerId, amount, increase);
+};

@@ -1,10 +1,22 @@
 const Payment = require('./payments.model');
+const CustomerService = require("../customers/customer.service");
 
 exports.createPayment = (data, callback) => {
-  Payment.create(data, (err, payment) => {
+  Payment.create(data, async (err, payment) => {
     if (err) {
       callback(err);
     } else {
+      // Sau khi ghi nhận thanh toán, giảm debt cho khách hàng
+      if (payment && payment.customer_id) {
+        try {
+          const CustomerModel = require("../customers/customer.model");
+          const debt = await CustomerModel.calculateDebt(payment.customer_id);
+          await CustomerModel.update(payment.customer_id, { debt });
+        } catch (debtErr) {
+          // Ghi log nhưng không làm fail thanh toán
+          console.error("Lỗi khi cập nhật debt cho khách hàng sau thanh toán:", debtErr);
+        }
+      }
       callback(null, payment);
     }
   });

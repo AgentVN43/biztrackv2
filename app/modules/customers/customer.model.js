@@ -108,27 +108,26 @@ const { v4: uuidv4 } = require("uuid");
 
 exports.create = async (data) => {
   const customer_id = uuidv4();
-  const { customer_name, email, phone } = data;
+  const { customer_name, email, phone, debt = 0 } = data;
   try {
     await db.query(
-      "INSERT INTO customers (customer_id, customer_name, email, phone) VALUES (?, ?, ?, ?)",
-      [customer_id, customer_name, email, phone]
+      "INSERT INTO customers (customer_id, customer_name, email, phone, debt) VALUES (?, ?, ?, ?, ?)",
+      [customer_id, customer_name, email, phone, debt]
     );
-    return { customer_id, ...data };
+    return { customer_id, ...data, debt };
   } catch (err) {
     console.error("Lỗi khi tạo khách hàng:", err.message);
     throw err;
   }
 };
 
-// exports.getAll = async (skip, limit) => {
-//   try {
-//     const [results] = await db.query("SELECT * FROM customers");
-//     return results;
-//   } catch (err) {
-//     console.error("Lỗi khi lấy tất cả khách hàng:", err.message);
-//     throw err;
-//   }
+// exports.getAll = (callback) => {
+//   db.query("SELECT * FROM customers", (err, results) => {
+//     if (err) {
+//       return callback(err, null);
+//     }
+//     callback(null, results); // ✅ Trả mảng thẳng, không bọc { results }
+//   });
 // };
 
 // exports.getAll = async (skip, limit, filters = {}) => {
@@ -189,7 +188,7 @@ exports.getAll = async (skip, limit, filters = {}) => {
     );
 
     const total = countResult[0].total;
-    return { customers: results, total: total };
+    return { customers: results.map(c => ({ ...c, debt: Number(c.debt) })), total: total };
   } catch (err) {
     console.error("Lỗi khi lấy tất cả khách hàng:", err.message);
     throw err;
@@ -198,13 +197,11 @@ exports.getAll = async (skip, limit, filters = {}) => {
 
 exports.getById = async (customer_id) => {
   try {
-    const [results] = await db.query(
-      "SELECT * FROM customers WHERE customer_id = ?",
-      [customer_id]
-    );
-    return results[0] || null;
+    const [results] = await db.query("SELECT * FROM customers WHERE customer_id = ?", [customer_id]);
+    if (results.length === 0) return null;
+    return { ...results[0], debt: Number(results[0].debt) };
   } catch (err) {
-    console.error(`Lỗi khi lấy khách hàng với ID ${customer_id}:`, err.message);
+    console.error("Lỗi khi lấy khách hàng theo ID:", err.message);
     throw err;
   }
 };
@@ -241,48 +238,30 @@ exports.getById = async (customer_id) => {
 //   }
 // };
 
-exports.update = async (customer_id, customerData) => {
+exports.update = async (customer_id, data) => {
+  // Lấy thông tin hiện tại
+  const current = await exports.getById(customer_id);
+  if (!current) throw new Error('Customer not found');
+  // Chỉ update các trường được truyền vào, giữ nguyên các trường còn lại
   const fields = [];
   const values = [];
-
-  // Duyệt qua customerData để xây dựng các cặp 'field = ?' và giá trị tương ứng
-  for (const key in customerData) {
-    // Bỏ qua các khóa như customer_id hoặc updated_at nếu không muốn cập nhật trực tiếp
-    // Đảm bảo chỉ cập nhật các trường có trong bảng và có giá trị hợp lệ
-    if (
-      customerData.hasOwnProperty(key) &&
-      key !== "customer_id" &&
-      key !== "created_at"
-    ) {
+  const allowedFields = [
+    'customer_name', 'email', 'phone', 'total_expenditure', 'status', 'total_orders', 'debt', 'updated_at'
+  ];
+  for (const key of allowedFields) {
+    if (key === 'updated_at') continue; // sẽ cập nhật cuối cùng
+    if (data[key] !== undefined) {
       fields.push(`${key} = ?`);
-      values.push(customerData[key]);
+      values.push(data[key]);
     }
   }
-
-  if (fields.length === 0) {
-    throw new Error("Không có trường hợp lệ để cập nhật.");
-  }
-
-  // Luôn cập nhật updated_at
-  fields.push("updated_at = CURRENT_TIMESTAMP");
-  values.push(customer_id); // customer_id là tham số cuối cùng cho mệnh đề WHERE
-
-  const query = `UPDATE customers SET ${fields.join(
-    ", "
-  )} WHERE customer_id = ?`;
-  try {
-    const [result] = await db.query(query, values);
-    if (result.affectedRows === 0) {
-      return null; // Không tìm thấy khách hàng để cập nhật
-    }
-    return { customer_id, ...customerData }; // Trả về ID khách hàng và dữ liệu đã cập nhật
-  } catch (err) {
-    console.error(
-      `🚀 ~ CustomerModel: update - Lỗi khi cập nhật khách hàng với ID ${customer_id}:`,
-      err
-    );
-    throw err;
-  }
+  fields.push('updated_at = CURRENT_TIMESTAMP');
+  values.push(customer_id);
+  if (fields.length === 1) return current; // Không có gì để update ngoài updated_at
+  const sql = `UPDATE customers SET ${fields.join(', ')} WHERE customer_id = ?`;
+  const [result] = await db.query(sql, values);
+  if (result.affectedRows === 0) return null;
+  return await exports.getById(customer_id);
 };
 
 exports.countCompletedOrders = async (customerId) => {
@@ -314,4 +293,46 @@ exports.delete = async (customer_id) => {
     console.error(`Lỗi khi xóa khách hàng với ID ${customer_id}:`, err.message);
     throw err;
   }
+};
+
+// Hàm cập nhật debt cho khách hàng (tăng hoặc giảm)
+exports.updateDebt = async (customer_id, amount, increase = true) => {
+  // amount: số tiền tăng/giảm
+  // increase: true => tăng, false => giảm
+  try {
+    const [result] = await db.query(
+      `UPDATE customers SET debt = debt ${increase ? "+" : "-"} ? WHERE customer_id = ?`,
+      [amount, customer_id]
+    );
+    return result.affectedRows > 0;
+  } catch (err) {
+    console.error("Lỗi khi cập nhật debt cho khách hàng:", err.message);
+    throw err;
+  }
+};
+
+// Hàm tính lại debt dựa trên các hóa đơn chưa thanh toán và đơn hàng chưa có hóa đơn
+exports.calculateDebt = async (customer_id) => {
+  // 1. Lấy tổng công nợ từ các hóa đơn chưa thanh toán (final_amount - amount_paid)
+  const [invoiceRows] = await db.query(`
+    SELECT COALESCE(SUM(final_amount - amount_paid), 0) AS total_receivables
+    FROM invoices
+    WHERE customer_id = ?
+      AND (status = 'pending' OR status = 'partial_paid' OR status = 'overdue')
+  `, [customer_id]);
+  const invoiceDebt = parseFloat(invoiceRows[0].total_receivables || 0);
+
+  // 2. Lấy tổng công nợ từ các đơn hàng chưa có hóa đơn (final_amount - amount_paid)
+  const [orderRows] = await db.query(`
+    SELECT COALESCE(SUM(o.final_amount - o.amount_paid), 0) AS total_orders_debt
+    FROM orders o
+    LEFT JOIN invoices i ON o.order_id = i.order_id
+    WHERE o.customer_id = ?
+      AND o.order_status IN ('Mới', 'Xác nhận')
+      AND i.order_id IS NULL
+  `, [customer_id]);
+  const orderDebt = parseFloat(orderRows[0].total_orders_debt || 0);
+
+  // Tổng công nợ thực tế
+  return invoiceDebt + orderDebt;
 };

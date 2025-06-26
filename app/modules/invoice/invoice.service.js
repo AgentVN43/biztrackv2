@@ -46,6 +46,7 @@
 // invoice.service.js
 const InvoiceModel = require("./invoice.model"); // Đảm bảo đường dẫn đúng tới invoice.model
 const TransactionModel = require("../transactions/transaction.model");
+const CustomerModel = require("../customers/customer.model");
 
 const InvoiceService = {
   // Đổi tên từ 'const create' sang 'const InvoiceService'
@@ -202,8 +203,16 @@ const InvoiceService = {
         invoice_id,
         paymentAmount
       );
+
+      // 4. CẬP NHẬT LẠI DEBT CHO KHÁCH HÀNG
+      if (invoice.customer_id) {
+        const newDebt = await CustomerModel.calculateDebt(invoice.customer_id);
+        await CustomerModel.update(invoice.customer_id, { debt: newDebt });
+        console.log(`🚀 ~ InvoiceService: recordPayment - Đã cập nhật debt mới cho khách hàng ${invoice.customer_id} là: ${newDebt}`);
+      }
+
       console.log(
-        `🚀 ~ InvoiceService: recordPayment - Hóa đơn đã được cập nhật:`,
+        `🚀 ~ InvoiceService: recordPayment - Hóa đơn đã cập nhật:`,
         updatedInvoice
       );
 
@@ -264,6 +273,61 @@ const InvoiceService = {
 
   findByOrderId: async (order_id) => {
     return await InvoiceModel.findByOrderId(order_id);
+  },
+
+  recordBulkPayment: async (payments, initiatedByUserId = null) => {
+    // Lấy thông tin khách hàng từ hóa đơn đầu tiên để kiểm tra
+    const firstInvoice = await InvoiceModel.findById(payments[0].invoice_id);
+    if (!firstInvoice) {
+      throw new Error(`Hóa đơn với ID ${payments[0].invoice_id} không tồn tại.`);
+    }
+    const customerId = firstInvoice.customer_id;
+
+    for (const payment of payments) {
+      // 1. Lấy thông tin hóa đơn để kiểm tra
+      const invoice = await InvoiceModel.findById(payment.invoice_id);
+      if (!invoice) {
+        throw new Error(`Hóa đơn với ID ${payment.invoice_id} không tồn tại.`);
+      }
+      if (invoice.customer_id !== customerId) {
+        throw new Error("Tất cả các hóa đơn phải thuộc về cùng một khách hàng.");
+      }
+      if (invoice.status === 'paid') {
+        console.warn(`Hóa đơn ${invoice.invoice_code} đã được thanh toán đủ. Bỏ qua.`);
+        continue;
+      }
+      if (payment.amount <= 0) {
+        console.warn(`Số tiền thanh toán cho hóa đơn ${invoice.invoice_code} không hợp lệ. Bỏ qua.`);
+        continue;
+      }
+
+      // 2. Tạo giao dịch
+      const transactionData = {
+        transaction_code: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        type: "receipt",
+        amount: payment.amount,
+        description: `Thanh toán cho hóa đơn ${invoice.invoice_code}`,
+        category: "sale_payment",
+        payment_method: payment.method,
+        customer_id: invoice.customer_id,
+        related_type: "invoice",
+        related_id: invoice.invoice_id,
+        initiated_by: initiatedByUserId,
+      };
+      await TransactionModel.createTransaction(transactionData);
+
+      // 3. Cập nhật hóa đơn
+      await InvoiceModel.updateAmountPaidAndStatus(invoice.invoice_id, payment.amount);
+    }
+
+    // 4. Cập nhật lại debt một lần duy nhất
+    if (customerId) {
+      const newDebt = await CustomerModel.calculateDebt(customerId);
+      await CustomerModel.update(customerId, { debt: newDebt });
+      return { customer_id: customerId, new_debt: newDebt, message: "Thanh toán hàng loạt và cập nhật công nợ thành công." };
+    }
+    
+    return { message: "Thanh toán hàng loạt thành công." };
   },
 };
 
