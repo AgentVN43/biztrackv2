@@ -275,7 +275,7 @@ const InvoiceService = {
     return await InvoiceModel.findByOrderId(order_id);
   },
 
-  recordBulkPayment: async (payments, initiatedByUserId = null) => {
+  recordBulkPayment: async (payments, method, initiatedByUserId = null) => {
     // Lấy thông tin khách hàng từ hóa đơn đầu tiên để kiểm tra
     const firstInvoice = await InvoiceModel.findById(payments[0].invoice_id);
     if (!firstInvoice) {
@@ -301,14 +301,14 @@ const InvoiceService = {
         continue;
       }
 
-      // 2. Tạo giao dịch
+      // 2. Tạo giao dịch với method chung
       const transactionData = {
         transaction_code: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         type: "receipt",
         amount: payment.amount,
         description: `Thanh toán cho hóa đơn ${invoice.invoice_code}`,
         category: "sale_payment",
-        payment_method: payment.method,
+        payment_method: method, // Sử dụng method chung
         customer_id: invoice.customer_id,
         related_type: "invoice",
         related_id: invoice.invoice_id,

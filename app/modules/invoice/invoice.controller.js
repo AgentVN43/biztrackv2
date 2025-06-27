@@ -162,15 +162,19 @@ const recordInvoicePayment = async (req, res, next) => {
 };
 
 const recordBulkPayment = async (req, res, next) => {
-  const { payments } = req.body;
+  const { payments, method } = req.body;
   const initiatedByUserId = req.user ? req.user.user_id : null;
 
   if (!Array.isArray(payments) || payments.length === 0) {
-    return createResponse(res, 400, false, null, "Request body phải là một mảng 'payments' và không được rỗng.");
+    return createResponse(res, 400, false, null, "Request body phải có mảng 'payments' và không được rỗng.");
+  }
+
+  if (!method || typeof method !== "string" || method.trim() === "") {
+    return createResponse(res, 400, false, null, "Phương thức thanh toán 'method' là bắt buộc.");
   }
 
   try {
-    const result = await InvoiceService.recordBulkPayment(payments, initiatedByUserId);
+    const result = await InvoiceService.recordBulkPayment(payments, method, initiatedByUserId);
     createResponse(res, 200, true, result, "Thanh toán hàng loạt thành công.");
   } catch (error) {
     console.error("Lỗi trong quá trình thanh toán hàng loạt:", error);
