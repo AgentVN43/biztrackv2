@@ -461,10 +461,10 @@ const CustomerReportService = {
         // Format dữ liệu trả về
         return {
           ma_giao_dich: transaction.transaction_code,
-          ngay_giao_dich: transaction.transaction_date.toLocaleDateString('vi-VN'),
+          ngay_giao_dich: transaction.transaction_date,
           loai: CustomerReportService.getTransactionTypeDisplay(transaction.type),
-          gia_tri: transaction.amount.toLocaleString('vi-VN') + ' VNĐ',
-          du_no: runningBalance.toLocaleString('vi-VN') + ' VNĐ',
+          gia_tri: transaction.amount,
+          du_no: runningBalance,
           mo_ta: transaction.description,
           order_id: transaction.order_id,
           invoice_id: transaction.invoice_id,
