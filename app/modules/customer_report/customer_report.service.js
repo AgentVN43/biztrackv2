@@ -379,12 +379,12 @@ const CustomerReportService = {
       orders.forEach(order => {
         const orderDate = new Date(order.created_at);
         const orderAdvanceAmount = parseFloat(order.amount_paid) || 0;
-        
+
         // Tìm hóa đơn tương ứng với đơn hàng này
         const relatedInvoice = invoices.find(inv => inv.order_id === order.order_id);
-        
+
         // Tìm các giao dịch thanh toán liên quan đến đơn hàng này
-        const relatedTransactions = transactions.filter(trx => 
+        const relatedTransactions = transactions.filter(trx =>
           trx.related_type === 'order' && trx.related_id === order.order_id
         );
 
@@ -443,12 +443,12 @@ const CustomerReportService = {
       transactions.forEach(transaction => {
         // Kiểm tra xem giao dịch này có liên quan đến order nào không
         let isRelatedToOrder = false;
-        
+
         // Kiểm tra trực tiếp với order
         if (transaction.related_type === 'order') {
           isRelatedToOrder = true;
         }
-        
+
         // Kiểm tra thông qua invoice
         if (transaction.related_type === 'invoice') {
           const relatedInvoice = invoices.find(inv => inv.invoice_id === transaction.related_id);
@@ -456,7 +456,7 @@ const CustomerReportService = {
             isRelatedToOrder = true;
           }
         }
-        
+
         // Chỉ thêm những giao dịch KHÔNG liên quan đến order
         if (!isRelatedToOrder) {
           allTransactions.push({
@@ -487,7 +487,7 @@ const CustomerReportService = {
       const reversedTransactions = [...allTransactions].reverse();
       let runningBalance = 0;
       const calculatedBalances = [];
-      
+
       // Tính dư nợ từ cũ đến mới
       reversedTransactions.forEach((transaction, index) => {
         if (transaction.type === 'pending') {
@@ -497,7 +497,7 @@ const CustomerReportService = {
         }
         calculatedBalances.push(runningBalance);
       });
-      
+
       // Đảo ngược lại để hiển thị từ mới đến cũ
       calculatedBalances.reverse();
 
@@ -509,7 +509,8 @@ const CustomerReportService = {
         return {
           ma_giao_dich: transaction.transaction_code,
           ngay_giao_dich: transaction.transaction_date,
-          loai: CustomerReportService.getTransactionTypeDisplay(transaction.type),
+          // loai: CustomerReportService.getTransactionTypeDisplay(transaction.type),
+          loai: transaction.type,
           gia_tri: transaction.amount,
           du_no: calculatedBalances[index],
           mo_ta: transaction.description,
