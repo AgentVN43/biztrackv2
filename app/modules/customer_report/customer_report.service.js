@@ -473,20 +473,37 @@ const CustomerReportService = {
         }
       });
 
-      // 5. Sắp xếp theo thời gian (từ cũ đến mới)
+      // 5. Sắp xếp theo thời gian (từ mới đến cũ)
       allTransactions.sort((a, b) => b.transaction_date - a.transaction_date);
 
-      // 6. Tính toán dư nợ theo logic sổ cái
+      // Debug: In ra thứ tự giao dịch
+      console.log('🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):');
+      allTransactions.forEach((t, index) => {
+        console.log(`${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${t.type} | ${t.amount}`);
+      });
+
+      // 6. Tính toán dư nợ theo logic sổ cái (từ cũ đến mới để tính đúng)
+      // Đảo ngược lại để tính từ cũ đến mới
+      const reversedTransactions = [...allTransactions].reverse();
       let runningBalance = 0;
-      const result = allTransactions.map(transaction => {
-        // Logic tính dư nợ:
-        // - pending: tăng nợ (tạo đơn hàng)
-        // - partial_paid/payment: giảm nợ (thanh toán)
+      const calculatedBalances = [];
+      
+      // Tính dư nợ từ cũ đến mới
+      reversedTransactions.forEach((transaction, index) => {
         if (transaction.type === 'pending') {
           runningBalance += transaction.amount;
         } else if (transaction.type === 'partial_paid' || transaction.type === 'payment') {
           runningBalance -= transaction.amount;
         }
+        calculatedBalances.push(runningBalance);
+      });
+      
+      // Đảo ngược lại để hiển thị từ mới đến cũ
+      calculatedBalances.reverse();
+
+      const result = allTransactions.map((transaction, index) => {
+        // Debug: In ra từng bước tính dư nợ
+        console.log(`💰 ${index + 1}. ${transaction.transaction_code} | ${transaction.type} | ${transaction.amount} | Dư nợ: ${calculatedBalances[index]}`);
 
         // Format dữ liệu trả về
         return {
@@ -494,7 +511,7 @@ const CustomerReportService = {
           ngay_giao_dich: transaction.transaction_date,
           loai: CustomerReportService.getTransactionTypeDisplay(transaction.type),
           gia_tri: transaction.amount,
-          du_no: runningBalance,
+          du_no: calculatedBalances[index],
           mo_ta: transaction.description,
           order_id: transaction.order_id,
           invoice_id: transaction.invoice_id,
