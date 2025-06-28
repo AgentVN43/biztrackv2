@@ -334,7 +334,7 @@ const CustomerReportService = {
    */
   getCustomerTransactionLedger: async (customer_id) => {
     try {
-      // 1. Lấy tất cả đơn hàng của khách hàng (tận dụng logic từ getOrderHistoryWithDetails)
+      // 1. Lấy tất cả đơn hàng của khách hàng
       const ordersSql = `
         SELECT 
           o.order_id,
@@ -351,7 +351,7 @@ const CustomerReportService = {
       `;
       const [orders] = await db.promise().query(ordersSql, [customer_id]);
 
-      // 2. Lấy tất cả hóa đơn của khách hàng (tận dụng logic từ getUnpaidOrPartiallyPaidInvoices)
+      // 2. Lấy tất cả hóa đơn của khách hàng
       const invoicesSql = `
         SELECT 
           invoice_id,
@@ -369,23 +369,33 @@ const CustomerReportService = {
       `;
       const [invoices] = await db.promise().query(invoicesSql, [customer_id]);
 
-      // 3. Lấy tất cả giao dịch thanh toán (tận dụng TransactionModel)
+      // 3. Lấy tất cả giao dịch thanh toán
       const transactions = await TransactionModel.getTransactionsByCustomerId(customer_id);
 
       // 4. Tạo danh sách giao dịch theo thứ tự thời gian
       const allTransactions = [];
 
-      // Thêm các đơn hàng và thanh toán trước
+      // Xử lý từng đơn hàng
       orders.forEach(order => {
         const orderDate = new Date(order.created_at);
+        const orderAdvanceAmount = parseFloat(order.amount_paid) || 0;
         
-        // Nếu đơn hàng có thanh toán trước (amount_paid > 0)
-        if (parseFloat(order.amount_paid) > 0) {
+        // Tìm hóa đơn tương ứng với đơn hàng này
+        const relatedInvoice = invoices.find(inv => inv.order_id === order.order_id);
+        
+        // Tìm các giao dịch thanh toán liên quan đến đơn hàng này
+        const relatedTransactions = transactions.filter(trx => 
+          trx.related_type === 'order' && trx.related_id === order.order_id
+        );
+
+        // Nếu có thanh toán trước và chưa có giao dịch nào được ghi nhận
+        if (orderAdvanceAmount > 0 && relatedTransactions.length === 0) {
+          // Ghi nhận thanh toán trước từ amount_paid của order
           allTransactions.push({
             transaction_code: `${order.order_code}-ADVANCE`,
             transaction_date: orderDate,
             type: 'partial_paid',
-            amount: parseFloat(order.amount_paid),
+            amount: orderAdvanceAmount,
             description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
             order_id: order.order_id,
             invoice_id: null,
@@ -408,39 +418,59 @@ const CustomerReportService = {
           order_code: order.order_code,
           status: order.order_status
         });
-      });
 
-      // Thêm các hóa đơn (nếu có thanh toán)
-      invoices.forEach(invoice => {
-        if (parseFloat(invoice.amount_paid) > 0) {
-          allTransactions.push({
-            transaction_code: `${invoice.invoice_code}-PAID`,
-            transaction_date: new Date(invoice.created_at),
-            type: 'partial_paid',
-            amount: parseFloat(invoice.amount_paid),
-            description: `Thanh toán hóa đơn ${invoice.invoice_code}`,
-            order_id: invoice.order_id,
-            invoice_id: invoice.invoice_id,
-            transaction_id: null,
-            invoice_code: invoice.invoice_code,
-            status: invoice.status
-          });
+        // Nếu có hóa đơn và có thanh toán bổ sung (không phải thanh toán trước)
+        if (relatedInvoice && parseFloat(relatedInvoice.amount_paid) > orderAdvanceAmount) {
+          const additionalPayment = parseFloat(relatedInvoice.amount_paid) - orderAdvanceAmount;
+          if (additionalPayment > 0) {
+            allTransactions.push({
+              transaction_code: `${relatedInvoice.invoice_code}-ADDITIONAL`,
+              transaction_date: new Date(relatedInvoice.created_at),
+              type: 'partial_paid',
+              amount: additionalPayment,
+              description: `Thanh toán bổ sung cho hóa đơn ${relatedInvoice.invoice_code}`,
+              order_id: order.order_id,
+              invoice_id: relatedInvoice.invoice_id,
+              transaction_id: null,
+              invoice_code: relatedInvoice.invoice_code,
+              status: relatedInvoice.status
+            });
+          }
         }
       });
 
-      // Thêm các giao dịch thanh toán riêng lẻ từ bảng transactions
+      // Thêm các giao dịch thanh toán riêng lẻ (không liên quan đến đơn hàng cụ thể)
       transactions.forEach(transaction => {
-        allTransactions.push({
-          transaction_code: transaction.transaction_code,
-          transaction_date: new Date(transaction.created_at),
-          type: 'payment',
-          amount: parseFloat(transaction.amount),
-          description: transaction.description || `Thanh toán ${transaction.transaction_code}`,
-          order_id: transaction.related_type === 'order' ? transaction.related_id : null,
-          invoice_id: transaction.related_type === 'invoice' ? transaction.related_id : null,
-          transaction_id: transaction.transaction_id,
-          status: 'completed'
-        });
+        // Kiểm tra xem giao dịch này có liên quan đến order nào không
+        let isRelatedToOrder = false;
+        
+        // Kiểm tra trực tiếp với order
+        if (transaction.related_type === 'order') {
+          isRelatedToOrder = true;
+        }
+        
+        // Kiểm tra thông qua invoice
+        if (transaction.related_type === 'invoice') {
+          const relatedInvoice = invoices.find(inv => inv.invoice_id === transaction.related_id);
+          if (relatedInvoice && orders.some(order => order.order_id === relatedInvoice.order_id)) {
+            isRelatedToOrder = true;
+          }
+        }
+        
+        // Chỉ thêm những giao dịch KHÔNG liên quan đến order
+        if (!isRelatedToOrder) {
+          allTransactions.push({
+            transaction_code: transaction.transaction_code,
+            transaction_date: new Date(transaction.created_at),
+            type: 'payment',
+            amount: parseFloat(transaction.amount),
+            description: transaction.description || `Thanh toán ${transaction.transaction_code}`,
+            order_id: null,
+            invoice_id: transaction.related_type === 'invoice' ? transaction.related_id : null,
+            transaction_id: transaction.transaction_id,
+            status: 'completed'
+          });
+        }
       });
 
       // 5. Sắp xếp theo thời gian (từ cũ đến mới)
