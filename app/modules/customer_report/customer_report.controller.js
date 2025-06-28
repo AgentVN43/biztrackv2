@@ -1,6 +1,6 @@
-const createResponse = require("../../utils/response");
 const CustomerReportService = require("./customer_report.service");
 const TransactionService = require("../transactions/transaction.service");
+const { createResponse, errorResponse } = require("../../utils/response");
 const CustomerReportController = {
   /**
    * Lấy tổng quan (tổng đơn hàng, tổng chi tiêu) của một khách hàng.
@@ -24,7 +24,7 @@ const CustomerReportController = {
         "🚀 ~ customer_report.controller.js: getCustomerOverview - Lỗi:",
         error
       );
-      next(error);
+      return errorResponse(res, error.message || "Lỗi server", 500);
     }
   },
 
@@ -50,7 +50,7 @@ const CustomerReportController = {
         "🚀 ~ customer_report.controller.js: getCustomerSalesReturnHistory - Lỗi:",
         error
       );
-      next(error);
+      return errorResponse(res, error.message || "Lỗi server", 500);
     }
   },
 
@@ -75,7 +75,7 @@ const CustomerReportController = {
         "🚀 ~ customer_report.controller.js: getCustomerOrderHistory - Lỗi:",
         error
       );
-      next(error);
+      return errorResponse(res, error.message || "Lỗi server", 500);
     }
   },
 
@@ -117,7 +117,7 @@ const CustomerReportController = {
         "🚀 ~ customer_report.controller.js: getCustomerReceivables - Lỗi:",
         error
       );
-      next(error);
+      return errorResponse(res, error.message || "Lỗi server", 500);
     }
   },
 
@@ -148,7 +148,7 @@ const CustomerReportController = {
         "🚀 ~ CustomerReportController: getCustomerTransactions - Lỗi:",
         error
       );
-      next(error); // Chuyển lỗi xuống middleware xử lý lỗi
+      return errorResponse(res, error.message || "Lỗi server", 500);
     }
   },
 
@@ -179,7 +179,45 @@ const CustomerReportController = {
         "🚀 ~ CustomerReportController: getCustomerFinancialLedger - Lỗi:",
         error
       );
-      next(error);
+      return errorResponse(res, error.message || "Lỗi server", 500);
+    }
+  },
+
+  /**
+   * Lấy sổ cái giao dịch chi tiết của khách hàng
+   * Hiển thị tất cả giao dịch theo thứ tự thời gian với dư nợ
+   * GET /api/customers/:id/transaction-ledger
+   */
+  getCustomerTransactionLedger: async (req, res, next) => {
+    const customer_id = req.params.id;
+    try {
+      const ledger = await CustomerReportService.getCustomerTransactionLedger(
+        customer_id
+      );
+      
+      if (ledger.length === 0) {
+        return createResponse(
+          res,
+          404,
+          false,
+          null,
+          `Không tìm thấy lịch sử giao dịch cho khách hàng ID: ${customer_id}.`
+        );
+      }
+
+      createResponse(
+        res,
+        200,
+        true,
+        ledger,
+        "Sổ cái giao dịch của khách hàng đã được tải thành công."
+      );
+    } catch (error) {
+      console.error(
+        "🚀 ~ CustomerReportController: getCustomerTransactionLedger - Lỗi:",
+        error
+      );
+      return errorResponse(res, error.message || "Lỗi server", 500);
     }
   },
 };

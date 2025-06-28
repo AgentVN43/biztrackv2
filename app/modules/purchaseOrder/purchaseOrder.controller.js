@@ -146,7 +146,7 @@
 const service = require("./purchaseOrder.service");
 const TransactionService = require("../transactions/transaction.service");
 const InvoiceService = require("../invoice/invoice.service");
-const createResponse = require("../../utils/response");
+const {createResponse} = require("../../utils/response");
 
 exports.create = async (req, res, next) => {
   // ✅ Chuyển hàm thành async

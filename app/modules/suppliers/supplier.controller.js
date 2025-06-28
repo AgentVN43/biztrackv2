@@ -1,5 +1,5 @@
 const SupplierService = require('./supplier.service'); // Ensure the correct path to your supplier.service.js
-const createResponse = require('../../utils/response'); // Ensure the correct path to your createResponse utility
+const {createResponse} = require('../../utils/response'); // Ensure the correct path to your createResponse utility
 
 const SupplierController = {
   /**

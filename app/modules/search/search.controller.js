@@ -1,5 +1,5 @@
 const SearchService = require("./search.service");
-const createResponse = require("../../utils/response"); // Đảm bảo đường dẫn đúng
+const {createResponse} = require("../../utils/response"); // Đảm bảo đường dẫn đúng
 
 const getPaginationParams = (req) => {
   const page = parseInt(req.query.page) || 1;

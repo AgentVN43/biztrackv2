@@ -324,6 +324,180 @@ const CustomerReportService = {
       throw error;
     }
   },
+
+  /**
+   * Lấy lịch sử giao dịch chi tiết của khách hàng theo format sổ cái
+   * Hiển thị tất cả các giao dịch từ tạo đơn, thanh toán trước, thanh toán sau...
+   * 
+   * @param {string} customer_id - ID của khách hàng
+   * @returns {Promise<Array>} Danh sách giao dịch với dư nợ
+   */
+  getCustomerTransactionLedger: async (customer_id) => {
+    try {
+      // 1. Lấy tất cả đơn hàng của khách hàng (tận dụng logic từ getOrderHistoryWithDetails)
+      const ordersSql = `
+        SELECT 
+          o.order_id,
+          o.order_code,
+          o.order_date,
+          o.order_status,
+          o.final_amount,
+          o.amount_paid,
+          o.created_at,
+          o.updated_at
+        FROM orders o
+        WHERE o.customer_id = ? AND o.is_active = 1
+        ORDER BY o.created_at ASC
+      `;
+      const [orders] = await db.promise().query(ordersSql, [customer_id]);
+
+      // 2. Lấy tất cả hóa đơn của khách hàng (tận dụng logic từ getUnpaidOrPartiallyPaidInvoices)
+      const invoicesSql = `
+        SELECT 
+          invoice_id,
+          invoice_code,
+          order_id,
+          final_amount,
+          amount_paid,
+          status,
+          issued_date,
+          created_at,
+          updated_at
+        FROM invoices 
+        WHERE customer_id = ?
+        ORDER BY created_at ASC
+      `;
+      const [invoices] = await db.promise().query(invoicesSql, [customer_id]);
+
+      // 3. Lấy tất cả giao dịch thanh toán (tận dụng TransactionModel)
+      const transactions = await TransactionModel.getTransactionsByCustomerId(customer_id);
+
+      // 4. Tạo danh sách giao dịch theo thứ tự thời gian
+      const allTransactions = [];
+
+      // Thêm các đơn hàng và thanh toán trước
+      orders.forEach(order => {
+        const orderDate = new Date(order.created_at);
+        
+        // Nếu đơn hàng có thanh toán trước (amount_paid > 0)
+        if (parseFloat(order.amount_paid) > 0) {
+          allTransactions.push({
+            transaction_code: `${order.order_code}-ADVANCE`,
+            transaction_date: orderDate,
+            type: 'partial_paid',
+            amount: parseFloat(order.amount_paid),
+            description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
+            order_id: order.order_id,
+            invoice_id: null,
+            transaction_id: null,
+            order_code: order.order_code,
+            status: 'completed'
+          });
+        }
+
+        // Thêm đơn hàng chính (tạo nợ)
+        allTransactions.push({
+          transaction_code: order.order_code,
+          transaction_date: orderDate,
+          type: 'pending',
+          amount: parseFloat(order.final_amount),
+          description: `Tạo đơn hàng ${order.order_code} - ${order.order_status}`,
+          order_id: order.order_id,
+          invoice_id: null,
+          transaction_id: null,
+          order_code: order.order_code,
+          status: order.order_status
+        });
+      });
+
+      // Thêm các hóa đơn (nếu có thanh toán)
+      invoices.forEach(invoice => {
+        if (parseFloat(invoice.amount_paid) > 0) {
+          allTransactions.push({
+            transaction_code: `${invoice.invoice_code}-PAID`,
+            transaction_date: new Date(invoice.created_at),
+            type: 'partial_paid',
+            amount: parseFloat(invoice.amount_paid),
+            description: `Thanh toán hóa đơn ${invoice.invoice_code}`,
+            order_id: invoice.order_id,
+            invoice_id: invoice.invoice_id,
+            transaction_id: null,
+            invoice_code: invoice.invoice_code,
+            status: invoice.status
+          });
+        }
+      });
+
+      // Thêm các giao dịch thanh toán riêng lẻ từ bảng transactions
+      transactions.forEach(transaction => {
+        allTransactions.push({
+          transaction_code: transaction.transaction_code,
+          transaction_date: new Date(transaction.created_at),
+          type: 'payment',
+          amount: parseFloat(transaction.amount),
+          description: transaction.description || `Thanh toán ${transaction.transaction_code}`,
+          order_id: transaction.related_type === 'order' ? transaction.related_id : null,
+          invoice_id: transaction.related_type === 'invoice' ? transaction.related_id : null,
+          transaction_id: transaction.transaction_id,
+          status: 'completed'
+        });
+      });
+
+      // 5. Sắp xếp theo thời gian (từ cũ đến mới)
+      allTransactions.sort((a, b) => a.transaction_date - b.transaction_date);
+
+      // 6. Tính toán dư nợ theo logic sổ cái
+      let runningBalance = 0;
+      const result = allTransactions.map(transaction => {
+        // Logic tính dư nợ:
+        // - pending: tăng nợ (tạo đơn hàng)
+        // - partial_paid/payment: giảm nợ (thanh toán)
+        if (transaction.type === 'pending') {
+          runningBalance += transaction.amount;
+        } else if (transaction.type === 'partial_paid' || transaction.type === 'payment') {
+          runningBalance -= transaction.amount;
+        }
+
+        // Format dữ liệu trả về
+        return {
+          ma_giao_dich: transaction.transaction_code,
+          ngay_giao_dich: transaction.transaction_date.toLocaleDateString('vi-VN'),
+          loai: CustomerReportService.getTransactionTypeDisplay(transaction.type),
+          gia_tri: transaction.amount.toLocaleString('vi-VN') + ' VNĐ',
+          du_no: runningBalance.toLocaleString('vi-VN') + ' VNĐ',
+          mo_ta: transaction.description,
+          order_id: transaction.order_id,
+          invoice_id: transaction.invoice_id,
+          transaction_id: transaction.transaction_id,
+          order_code: transaction.order_code,
+          invoice_code: transaction.invoice_code,
+          status: transaction.status
+        };
+      });
+
+      return result;
+    } catch (error) {
+      console.error(
+        "🚀 ~ CustomerReportService: getCustomerTransactionLedger - Lỗi:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Hàm helper để chuyển đổi loại giao dịch sang tiếng Việt
+   */
+  getTransactionTypeDisplay: (type) => {
+    const typeMap = {
+      'pending': 'Tạo đơn hàng',
+      'partial_paid': 'Thanh toán một phần',
+      'payment': 'Thanh toán',
+      'completed': 'Hoàn tất',
+      'cancelled': 'Hủy bỏ'
+    };
+    return typeMap[type] || type;
+  },
 };
 
 module.exports = CustomerReportService;

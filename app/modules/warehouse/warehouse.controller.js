@@ -46,8 +46,8 @@
 //     res.json({ success: true, message: 'Warehouse deleted' });
 //   });
 // };
-const createResponse = require("../../utils/response");
 const WarehouseModel = require("./warehouse.model"); // Đảm bảo đường dẫn đúng đến WarehouseModel
+const { createResponse } = require("../../utils/response");
 
 /**
  * Xử lý yêu cầu POST để tạo một kho mới.

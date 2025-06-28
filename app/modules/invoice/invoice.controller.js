@@ -1,4 +1,4 @@
-const createResponse = require("../../utils/response");
+const { createResponse } = require("../../utils/response");
 const InvoiceService = require("./invoice.service");
 
 const getAllInvoices = async (req, res) => {

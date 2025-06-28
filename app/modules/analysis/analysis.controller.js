@@ -1,5 +1,5 @@
 const { getTotalCount } = require("../../utils/dbUtils");
-const createResponse = require("../../utils/response");
+const { createResponse } = require("../../utils/response");
 const AnalysisService = require("./analysis.service");
 
 const AnalysisController = {

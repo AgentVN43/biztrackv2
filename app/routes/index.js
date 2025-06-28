@@ -18,6 +18,7 @@ const transactionRoutes = require("../modules/transactions/transaction.route");
 const productReportRoutes = require("../modules/product_report/product_report.routes");
 const supplierRoutes = require("../modules/suppliers/supplier.routes");
 const customerReportRoutes = require("../modules/customer_report/customer_report.routes");
+const customerReturnRoutes = require("../modules/customer_return/customer_return.routes");
 
 module.exports = (app) => {
   // Register all routes
@@ -40,6 +41,7 @@ module.exports = (app) => {
   app.use("/api/v1/analysis", analysisRoutes);
   app.use("/api/v1/transactions", transactionRoutes);
   app.use("/api/v1/suppliers", supplierRoutes);
+  app.use("/api/v1/customer-returns", customerReturnRoutes);
 
   // Default route for non-existent endpoints
   app.use("*", (req, res) => {

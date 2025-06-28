@@ -1,4 +1,17 @@
 // utils/response.js
+
+/**
+ * Tạo response cơ bản (tương đương successResponse)
+ * @param {Object} res - Express response object
+ * @param {number} statusCode - HTTP status code
+ * @param {boolean} success - Trạng thái thành công
+ * @param {any} data - Dữ liệu trả về
+ * @param {string} message - Thông báo
+ * @param {number} totalItems - Tổng số items (cho pagination)
+ * @param {number} page - Trang hiện tại
+ * @param {number} limit - Số items mỗi trang
+ * @returns {Object} Response object
+ */
 const createResponse = (
   res,
   statusCode,
@@ -30,4 +43,23 @@ const createResponse = (
   return res.status(statusCode).json(response);
 };
 
-module.exports = createResponse;
+/**
+ * Tạo error response
+ * @param {Object} res - Express response object
+ * @param {string} message - Thông báo lỗi
+ * @param {number} statusCode - HTTP status code (mặc định 500)
+ * @returns {Object} Error response
+ */
+const errorResponse = (res, message, statusCode = 500) => {
+  const response = {
+    success: false,
+    message: message
+  };
+
+  return res.status(statusCode).json(response);
+};
+
+module.exports = {
+  createResponse,
+  errorResponse
+};

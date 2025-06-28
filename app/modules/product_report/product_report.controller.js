@@ -1,4 +1,4 @@
-const createResponse = require("../../utils/response");
+const {createResponse} = require("../../utils/response");
 const ProductReportService = require("./product_report.service"); // Đảm bảo đường dẫn đúng
 
 exports.getProductHistory = async (req, res, next) => {

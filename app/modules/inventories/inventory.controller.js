@@ -106,7 +106,7 @@
 //   });
 // };
 
-const createResponse = require("../../utils/response");
+const { createResponse } = require("../../utils/response");
 const service = require("./inventory.service"); // Đảm bảo đường dẫn đúng
 // const { handleResult } = require("../../utils/responseHelper"); // ✅ Không cần thiết nữa vì chúng ta xử lý response trực tiếp
 

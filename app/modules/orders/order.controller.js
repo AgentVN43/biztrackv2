@@ -226,7 +226,7 @@ const OrderDetailService = require("../orderDetails/orderDetail.service"); // C�
 const Inventory = require("../inventories/inventory.service"); // Cần import InventoryService
 const { paginateResponse } = require("../../utils/pagination");
 const { processDateFilters } = require("../../utils/dateUtils");
-const createResponse = require("../../utils/response");
+const { createResponse } = require("../../utils/response");
 
 // Hàm tính toán tổng tiền đơn hàng (được giữ lại trong controller vì được sử dụng trực tiếp ở đây)
 function calculateOrderTotals(orderDetails, orderData = {}) {

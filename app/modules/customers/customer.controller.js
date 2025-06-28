@@ -1,7 +1,8 @@
 const { processDateFilters } = require("../../utils/dateUtils");
-const createResponse = require("../../utils/response");
+
 const CustomerService = require("./customer.service");
 const CustomerReportService = require("../customer_report/customer_report.service");
+const { createResponse, errorResponse } = require("../../utils/response");
 
 exports.create = async (req, res) => {
   const customerData = req.body;
@@ -60,7 +61,7 @@ exports.get = async (req, res) => {
     );
   } catch (err) {
     console.error("Lỗi khi lấy danh sách khách hàng:", err.message);
-    return createResponse(res, 500, false, [], "Lỗi server");
+    return errorResponse(res, 500, false, [], "Lỗi server");
   }
 };
 

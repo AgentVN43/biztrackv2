@@ -1,5 +1,5 @@
 const ProductService = require("./product.service");
-const createResponse = require("../../utils/response"); // Đảm bảo đường dẫn đúng
+const {createResponse} = require("../../utils/response"); // Đảm bảo đường dẫn đúng
 const { paginateResponse } = require("../../utils/pagination"); // Import pagination utilities
 const { processDateFilters } = require("../../utils/dateUtils");
 

@@ -70,7 +70,7 @@
 // };
 
 // transaction.controller.js
-const createResponse = require("../../utils/response");
+const {createResponse} = require("../../utils/response");
 const TransactionService = require("./transaction.service");
 
 const TransactionController = {
