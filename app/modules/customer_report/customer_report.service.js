@@ -474,7 +474,7 @@ const CustomerReportService = {
       });
 
       // 5. Sắp xếp theo thời gian (từ cũ đến mới)
-      allTransactions.sort((a, b) => a.transaction_date - b.transaction_date);
+      allTransactions.sort((a, b) => b.transaction_date - a.transaction_date);
 
       // 6. Tính toán dư nợ theo logic sổ cái
       let runningBalance = 0;
