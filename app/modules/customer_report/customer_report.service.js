@@ -393,7 +393,7 @@ const CustomerReportService = {
           // Ghi nhận thanh toán trước từ amount_paid của order
           allTransactions.push({
             transaction_code: `${order.order_code}-ADVANCE`,
-            transaction_date: orderDate,
+            transaction_date: new Date(orderDate.getTime() + 1000), // Thêm 1 giây để đảm bảo thứ tự
             type: 'partial_paid',
             amount: orderAdvanceAmount,
             description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
