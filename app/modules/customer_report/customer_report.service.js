@@ -377,6 +377,8 @@ const CustomerReportService = {
 
       // Xử lý từng đơn hàng
       orders.forEach(order => {
+        // BỎ QUA ĐƠN HÀNG BỊ HỦY
+        if (order.order_status === 'Huỷ đơn') return;
         const orderDate = new Date(order.created_at);
         const orderAdvanceAmount = parseFloat(order.amount_paid) || 0;
         
@@ -388,14 +390,25 @@ const CustomerReportService = {
           trx.related_type === 'order' && trx.related_id === order.order_id
         );
 
-        // Nếu có thanh toán trước và chưa có giao dịch nào được ghi nhận
-        if (orderAdvanceAmount > 0 && relatedTransactions.length === 0) {
-          // Ghi nhận thanh toán trước từ amount_paid của order
+        // Tìm các giao dịch thanh toán liên quan đến invoice của đơn hàng này
+        const relatedInvoiceTransactions = transactions.filter(trx => {
+          if (trx.related_type === 'invoice' && relatedInvoice) {
+            return trx.related_id === relatedInvoice.invoice_id && trx.type === 'receipt';
+          }
+          return false;
+        });
+
+        // Tổng số tiền đã thanh toán thực tế cho invoice này
+        const totalRealPaidForAdvance = relatedInvoiceTransactions.reduce((sum, trx) => sum + parseFloat(trx.amount), 0);
+
+        // Chỉ ghi nhận advance nếu tổng transaction thực tế < amount_paid
+        if (orderAdvanceAmount > 0 && totalRealPaidForAdvance < orderAdvanceAmount) {
+          const advanceLeft = orderAdvanceAmount - totalRealPaidForAdvance;
           allTransactions.push({
             transaction_code: `${order.order_code}-ADVANCE`,
             transaction_date: new Date(orderDate.getTime() + 1000), // Thêm 1 giây để đảm bảo thứ tự
             type: 'partial_paid',
-            amount: orderAdvanceAmount,
+            amount: advanceLeft,
             description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
             order_id: order.order_id,
             invoice_id: null,
@@ -423,18 +436,25 @@ const CustomerReportService = {
         if (relatedInvoice && parseFloat(relatedInvoice.amount_paid) > orderAdvanceAmount) {
           const additionalPayment = parseFloat(relatedInvoice.amount_paid) - orderAdvanceAmount;
           if (additionalPayment > 0) {
-            allTransactions.push({
-              transaction_code: `${relatedInvoice.invoice_code}-ADDITIONAL`,
-              transaction_date: new Date(relatedInvoice.created_at),
-              type: 'partial_paid',
-              amount: additionalPayment,
-              description: `Thanh toán bổ sung cho hóa đơn ${relatedInvoice.invoice_code}`,
-              order_id: order.order_id,
-              invoice_id: relatedInvoice.invoice_id,
-              transaction_id: null,
-              invoice_code: relatedInvoice.invoice_code,
-              status: relatedInvoice.status
-            });
+            // Kiểm tra xem đã có transaction thực tế cho thanh toán bổ sung chưa
+            const hasRealAdditionalTransaction = relatedInvoiceTransactions.some(trx => 
+              trx.amount === additionalPayment && trx.type === 'receipt'
+            );
+            
+            if (!hasRealAdditionalTransaction) {
+              allTransactions.push({
+                transaction_code: `${relatedInvoice.invoice_code}-ADDITIONAL`,
+                transaction_date: new Date(relatedInvoice.created_at),
+                type: 'partial_paid',
+                amount: additionalPayment,
+                description: `Thanh toán bổ sung cho hóa đơn ${relatedInvoice.invoice_code}`,
+                order_id: order.order_id,
+                invoice_id: relatedInvoice.invoice_id,
+                transaction_id: null,
+                invoice_code: relatedInvoice.invoice_code,
+                status: relatedInvoice.status
+              });
+            }
           }
         }
       });
@@ -443,34 +463,44 @@ const CustomerReportService = {
       transactions.forEach(transaction => {
         // Kiểm tra xem giao dịch này có liên quan đến order nào không
         let isRelatedToOrder = false;
-        
+        let isCancelled = false;
         // Kiểm tra trực tiếp với order
         if (transaction.related_type === 'order') {
+          const relatedOrder = orders.find(order => order.order_id === transaction.related_id);
           isRelatedToOrder = true;
+          if (relatedOrder && relatedOrder.order_status === 'Huỷ đơn') {
+            isCancelled = true;
+          }
         }
-        
         // Kiểm tra thông qua invoice
         if (transaction.related_type === 'invoice') {
           const relatedInvoice = invoices.find(inv => inv.invoice_id === transaction.related_id);
-          if (relatedInvoice && orders.some(order => order.order_id === relatedInvoice.order_id)) {
-            isRelatedToOrder = true;
+          if (relatedInvoice) {
+            if (relatedInvoice.status === 'cancelled') {
+              isCancelled = true;
+            }
+            if (orders.some(order => order.order_id === relatedInvoice.order_id)) {
+              isRelatedToOrder = true;
+            }
           }
         }
-        
-        // Chỉ thêm những giao dịch KHÔNG liên quan đến order
-        if (!isRelatedToOrder) {
-          allTransactions.push({
-            transaction_code: transaction.transaction_code,
-            transaction_date: new Date(transaction.created_at),
-            type: 'payment',
-            amount: parseFloat(transaction.amount),
-            description: transaction.description || `Thanh toán ${transaction.transaction_code}`,
-            order_id: null,
-            invoice_id: transaction.related_type === 'invoice' ? transaction.related_id : null,
-            transaction_id: transaction.transaction_id,
-            status: 'completed'
-          });
-        }
+        // BỎ QUA TRANSACTION LIÊN QUAN ĐẾN ĐƠN HÀNG/HÓA ĐƠN BỊ HỦY
+        if (isCancelled) return;
+        // Thêm tất cả giao dịch thanh toán (bao gồm cả manual payments)
+        // Nhưng đánh dấu rõ ràng loại thanh toán
+        allTransactions.push({
+          transaction_code: transaction.transaction_code,
+          transaction_date: new Date(transaction.created_at),
+          type: 'payment',
+          amount: parseFloat(transaction.amount),
+          description: transaction.description || `Thanh toán ${transaction.transaction_code}`,
+          order_id: transaction.related_type === 'order' ? transaction.related_id : null,
+          invoice_id: transaction.related_type === 'invoice' ? transaction.related_id : null,
+          transaction_id: transaction.transaction_id,
+          status: 'completed',
+          payment_method: transaction.payment_method,
+          is_manual_payment: true // Đánh dấu đây là thanh toán manual
+        });
       });
 
       // 5. Sắp xếp theo thời gian (từ mới đến cũ)
@@ -518,7 +548,9 @@ const CustomerReportService = {
           transaction_id: transaction.transaction_id,
           order_code: transaction.order_code,
           invoice_code: transaction.invoice_code,
-          status: transaction.status
+          status: transaction.status,
+          phuong_thuc_thanh_toan: transaction.payment_method || null,
+          la_thanh_toan_manual: transaction.is_manual_payment || false
         };
       });
 
@@ -539,7 +571,7 @@ const CustomerReportService = {
     const typeMap = {
       'pending': 'Tạo đơn hàng',
       'partial_paid': 'Thanh toán một phần',
-      'payment': 'Thanh toán',
+      'payment': 'Thanh toán thủ công',
       'completed': 'Hoàn tất',
       'cancelled': 'Hủy bỏ'
     };

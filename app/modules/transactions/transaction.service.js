@@ -187,6 +187,45 @@ const TransactionService = {
     }
   },
 
+  /**
+   * Lấy tất cả giao dịch liên quan đến một đối tượng cụ thể (order, invoice, etc.).
+   * @param {string} related_id - ID của đối tượng liên quan.
+   * @param {string} related_type - Loại đối tượng liên quan ('order', 'invoice', etc.).
+   * @returns {Promise<Array<Object>>} Mảng các giao dịch.
+   */
+  getTransactionsByRelatedId: async (related_id, related_type) => {
+    try {
+      const transactions = await TransactionModel.getTransactionsByRelatedId(
+        related_id,
+        related_type
+      );
+      return transactions;
+    } catch (error) {
+      console.error(
+        "🚀 ~ transaction.service.js: getTransactionsByRelatedId - Lỗi:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy tất cả giao dịch.
+   * @returns {Promise<Array<Object>>} Mảng tất cả giao dịch.
+   */
+  getAll: async () => {
+    try {
+      const transactions = await TransactionModel.getAll();
+      return transactions;
+    } catch (error) {
+      console.error(
+        "🚀 ~ transaction.service.js: getAll - Lỗi:",
+        error
+      );
+      throw error;
+    }
+  },
+
   // Các hàm service khác có thể được thêm vào
 };
 

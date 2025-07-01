@@ -45,7 +45,7 @@
 // };
 // invoice.service.js
 const InvoiceModel = require("./invoice.model"); // Đảm bảo đường dẫn đúng tới invoice.model
-const TransactionModel = require("../transactions/transaction.model");
+const TransactionService = require("../transactions/transaction.service");
 const CustomerModel = require("../customers/customer.model");
 
 const InvoiceService = {
@@ -190,7 +190,7 @@ const InvoiceService = {
         related_id: invoice.invoice_id,
         initiated_by: initiatedByUserId,
       };
-      const newTransaction = await TransactionModel.createTransaction(
+      const newTransaction = await TransactionService.createTransaction(
         transactionData
       );
       console.log(
@@ -314,7 +314,7 @@ const InvoiceService = {
         related_id: invoice.invoice_id,
         initiated_by: initiatedByUserId,
       };
-      await TransactionModel.createTransaction(transactionData);
+      await TransactionService.createTransaction(transactionData);
 
       // 3. Cập nhật hóa đơn
       await InvoiceModel.updateAmountPaidAndStatus(invoice.invoice_id, payment.amount);
@@ -328,6 +328,85 @@ const InvoiceService = {
     }
     
     return { message: "Thanh toán hàng loạt thành công." };
+  },
+
+  /**
+   * Lấy tất cả thanh toán một cách rõ ràng và không trùng lặp
+   * @param {string} customer_id - ID khách hàng (optional)
+   * @returns {Promise<Array<Object>>} Danh sách thanh toán
+   */
+  getAllPayments: async (customer_id = null) => {
+    try {
+      // 1. Lấy tất cả hóa đơn
+      const invoices = customer_id 
+        ? await InvoiceModel.getAllByCustomerId(customer_id)
+        : await InvoiceModel.getAll();
+
+      // 2. Lấy tất cả transaction
+      const transactions = customer_id
+        ? await TransactionService.getTransactionsByCustomerId(customer_id)
+        : await TransactionService.getAll();
+
+      // 3. Tạo danh sách thanh toán không trùng lặp
+      const payments = [];
+
+      // Xử lý từng hóa đơn
+      for (const invoice of invoices) {
+        const invoiceTransactions = transactions.filter(trx => 
+          trx.related_type === 'invoice' && trx.related_id === invoice.invoice_id
+        );
+
+        // Nếu có amount_paid từ hóa đơn và chưa có transaction thực tế
+        if (parseFloat(invoice.amount_paid) > 0) {
+          const totalTransactionAmount = invoiceTransactions.reduce((sum, trx) => 
+            sum + parseFloat(trx.amount), 0
+          );
+
+          // Nếu amount_paid > totalTransactionAmount, có nghĩa là có thanh toán ban đầu
+          if (parseFloat(invoice.amount_paid) > totalTransactionAmount) {
+            const advanceAmount = parseFloat(invoice.amount_paid) - totalTransactionAmount;
+            payments.push({
+              payment_id: `ADVANCE-${invoice.invoice_id}`,
+              invoice_id: invoice.invoice_id,
+              invoice_code: invoice.invoice_code,
+              order_id: invoice.order_id,
+              customer_id: invoice.customer_id,
+              amount: advanceAmount,
+              payment_method: 'Thanh toán ban đầu',
+              payment_date: invoice.issued_date,
+              description: `Thanh toán ban đầu cho hóa đơn ${invoice.invoice_code}`,
+              type: 'advance_payment',
+              is_manual: false
+            });
+          }
+        }
+
+        // Thêm các transaction thực tế
+        invoiceTransactions.forEach(trx => {
+          payments.push({
+            payment_id: trx.transaction_id,
+            invoice_id: invoice.invoice_id,
+            invoice_code: invoice.invoice_code,
+            order_id: invoice.order_id,
+            customer_id: invoice.customer_id,
+            amount: parseFloat(trx.amount),
+            payment_method: trx.payment_method || 'Không xác định',
+            payment_date: trx.created_at,
+            description: trx.description,
+            type: 'manual_payment',
+            is_manual: true
+          });
+        });
+      }
+
+      // Sắp xếp theo thời gian (mới nhất trước)
+      payments.sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date));
+
+      return payments;
+    } catch (error) {
+      console.error("🚀 ~ InvoiceService: getAllPayments - Lỗi:", error);
+      throw error;
+    }
   },
 };
 

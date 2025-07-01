@@ -593,31 +593,14 @@ const OrderService = {
             createdInvoice
           );
 
-          // Tạo Transaction cho khoản thanh toán ban đầu nếu có (nếu amount_paid > 0)
+          // ✅ KHÔNG TẠO TRANSACTION KHI ĐƠN HÀNG CHUYỂN SANG "HOÀN TẤT" NẾU ĐÃ CÓ AMOUNT_PAID TỪ TRƯỚC
+          // Transaction sẽ chỉ được tạo khi có thanh toán bổ sung qua API recordPayment
           if (parseFloat(order.amount_paid) > 0) {
             console.log(
-              `🚀 ~ order.service: update - Ghi nhận giao dịch thanh toán ban đầu ${order.amount_paid}.`
-            );
-            const transactionData = {
-              transaction_code: `TRX-${Date.now()}-${String(
-                Math.floor(1000 + Math.random() * 9000)
-              ).padStart(4, "0")}`,
-              type: "receipt", // Loại giao dịch là thu tiền
-              amount: parseFloat(order.amount_paid),
-              description: `Thanh toán ban đầu cho hóa đơn ${createdInvoice.invoice_code} (Đơn hàng ${order.order_code})`,
-              category: "sale_payment",
-              payment_method: order.payment_method || "COD",
-              customer_id: order.customer_id,
-              related_type: "invoice",
-              related_id: createdInvoice.invoice_id, // Liên kết với hóa đơn vừa tạo
-              initiated_by: initiatedByUserId,
-            };
-            const newTransaction = await TransactionService.createTransaction(
-              transactionData
+              `🚀 ~ order.service: update - Đơn hàng có thanh toán ban đầu ${order.amount_paid}. Không tạo transaction trùng lặp khi chuyển sang "Hoàn tất".`
             );
             console.log(
-              `🚀 ~ order.service: update - Giao dịch thanh toán ban đầu đã tạo:`,
-              newTransaction
+              `🚀 ~ order.service: update - Thanh toán ban đầu đã được ghi nhận trong amount_paid của invoice. Transaction sẽ được tạo khi có thanh toán bổ sung.`
             );
           } else {
             console.log(
@@ -739,12 +722,32 @@ const OrderService = {
         console.log(
           "🚀 ~ order.service: update - Giao dịch liên quan đã được hủy thành công."
         );
-        // Tùy chọn: Hủy hóa đơn liên quan nếu có
-        // const invoiceToDelete = await InvoiceService.findByOrderId(order.order_id);
-        // if (invoiceToDelete) {
-        //     await InvoiceModel.updateStatus(invoiceToDelete.invoice_id, 'cancelled'); // Giả định có hàm updateStatus trong InvoiceModel
-        //     console.log(`🚀 ~ Đã hủy hóa đơn ${invoiceToDelete.invoice_code} liên quan đến đơn hàng bị hủy.`);
-        // }
+
+        // ✅ HỦY HÓA ĐƠN LIÊN QUAN NẾU CÓ
+        const invoiceToDelete = await InvoiceService.findByOrderId(order.order_id);
+        if (invoiceToDelete) {
+          console.log(
+            `🚀 ~ order.service: update - Tìm thấy hóa đơn liên quan ${invoiceToDelete.invoice_code}. Đang hủy hóa đơn.`
+          );
+          // Cập nhật trạng thái hóa đơn thành 'cancelled'
+          await InvoiceModel.updateStatus(invoiceToDelete.invoice_id, 'cancelled');
+          console.log(
+            `🚀 ~ order.service: update - Đã hủy hóa đơn ${invoiceToDelete.invoice_code} liên quan đến đơn hàng bị hủy.`
+          );
+        }
+
+        // ✅ CẬP NHẬT LẠI DEBT KHI ĐƠN HÀNG BỊ HỦY
+        if (order.customer_id) {
+          console.log(
+            `🚀 ~ order.service: update - Cập nhật lại debt cho khách hàng ${order.customer_id} sau khi hủy đơn hàng.`
+          );
+          const newDebt = await CustomerModel.calculateDebt(order.customer_id);
+          await CustomerModel.update(order.customer_id, { debt: newDebt });
+          console.log(
+            `🚀 ~ order.service: update - Đã cập nhật debt mới cho khách hàng ${order.customer_id}: ${newDebt}`
+          );
+        }
+
         return updateResult;
       } else {
         console.log(

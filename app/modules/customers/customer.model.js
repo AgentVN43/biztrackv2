@@ -314,21 +314,25 @@ exports.updateDebt = async (customer_id, amount, increase = true) => {
 // Hàm tính lại debt dựa trên các hóa đơn chưa thanh toán và đơn hàng chưa có hóa đơn
 exports.calculateDebt = async (customer_id) => {
   // 1. Lấy tổng công nợ từ các hóa đơn chưa thanh toán (final_amount - amount_paid)
+  // ✅ LOẠI TRỪ CÁC HÓA ĐƠN CÓ TRẠNG THÁI 'cancelled'
   const [invoiceRows] = await db.query(`
     SELECT COALESCE(SUM(final_amount - amount_paid), 0) AS total_receivables
     FROM invoices
     WHERE customer_id = ?
       AND (status = 'pending' OR status = 'partial_paid' OR status = 'overdue')
+      AND status != 'cancelled'
   `, [customer_id]);
   const invoiceDebt = parseFloat(invoiceRows[0].total_receivables || 0);
 
   // 2. Lấy tổng công nợ từ các đơn hàng chưa có hóa đơn (final_amount - amount_paid)
+  // ✅ LOẠI TRỪ CÁC ĐƠN HÀNG CÓ TRẠNG THÁI 'Huỷ đơn'
   const [orderRows] = await db.query(`
     SELECT COALESCE(SUM(o.final_amount - o.amount_paid), 0) AS total_orders_debt
     FROM orders o
     LEFT JOIN invoices i ON o.order_id = i.order_id
     WHERE o.customer_id = ?
       AND o.order_status IN ('Mới', 'Xác nhận')
+      AND o.order_status != 'Huỷ đơn'
       AND i.order_id IS NULL
   `, [customer_id]);
   const orderDebt = parseFloat(orderRows[0].total_orders_debt || 0);

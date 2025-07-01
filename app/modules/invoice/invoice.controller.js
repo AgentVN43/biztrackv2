@@ -185,6 +185,23 @@ const recordBulkPayment = async (req, res, next) => {
   }
 }
 
+/**
+ * API hiển thị đầy đủ tất cả các loại thanh toán, bao gồm cả thanh toán thủ công từ routes invoice payments!
+ * GET /api/invoices/payments/all
+ * Query params: customer_id (optional)
+ */
+const getAllPayments = async (req, res, next) => {
+  const { customer_id } = req.query;
+  
+  try {
+    const payments = await InvoiceService.getAllPayments(customer_id);
+    createResponse(res, 200, true, payments, "Lấy danh sách thanh toán thành công.");
+  } catch (error) {
+    console.error("Lỗi khi lấy danh sách thanh toán:", error);
+    next(error);
+  }
+};
+
 module.exports = {
   getAllInvoices,
   createInvoice,
@@ -195,4 +212,5 @@ module.exports = {
   getInvoiceByInvoiceCode,
   recordInvoicePayment,
   recordBulkPayment,
+  getAllPayments,
 };

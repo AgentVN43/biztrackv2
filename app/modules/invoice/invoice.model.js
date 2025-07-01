@@ -476,6 +476,33 @@ const Invoice = {
       throw error;
     }
   },
+
+  /**
+   * Cập nhật trạng thái của hóa đơn.
+   * @param {string} invoice_id - ID của hóa đơn.
+   * @param {string} status - Trạng thái mới.
+   * @returns {Promise<Object>} Kết quả cập nhật.
+   */
+  updateStatus: async (invoice_id, status) => {
+    const sql = `
+      UPDATE invoices
+      SET status = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE invoice_id = ?
+    `;
+    try {
+      const [result] = await db.promise().query(sql, [status, invoice_id]);
+      if (result.affectedRows === 0) {
+        throw new Error("Invoice not found for status update");
+      }
+      return { invoice_id, status, updated_at: new Date() };
+    } catch (error) {
+      console.error(
+        "🚀 ~ InvoiceModel: updateStatus - Lỗi khi cập nhật trạng thái hóa đơn:",
+        error
+      );
+      throw error;
+    }
+  },
 };
 
 module.exports = Invoice;

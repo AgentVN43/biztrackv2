@@ -16,5 +16,6 @@ router.put("/:id", InvoiceController.updateInvoice);               // Cập nh�
 router.delete("/:id", InvoiceController.deleteInvoice);            // Xóa hóa đơn
 router.post('/:id/payments', InvoiceController.recordInvoicePayment); // Thêm authMiddleware nếu cần
 router.post('/bulk-payment', InvoiceController.recordBulkPayment); // API thanh toán hàng loạt
+router.get('/payments/all', InvoiceController.getAllPayments);
 
 module.exports = router;
