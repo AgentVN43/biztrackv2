@@ -381,12 +381,12 @@ const CustomerReportService = {
         if (order.order_status === 'Huỷ đơn') return;
         const orderDate = new Date(order.created_at);
         const orderAdvanceAmount = parseFloat(order.amount_paid) || 0;
-        
+
         // Tìm hóa đơn tương ứng với đơn hàng này
         const relatedInvoice = invoices.find(inv => inv.order_id === order.order_id);
-        
+
         // Tìm các giao dịch thanh toán liên quan đến đơn hàng này
-        const relatedTransactions = transactions.filter(trx => 
+        const relatedTransactions = transactions.filter(trx =>
           trx.related_type === 'order' && trx.related_id === order.order_id
         );
 
@@ -463,7 +463,11 @@ const CustomerReportService = {
       transactions.forEach(transaction => {
         // Kiểm tra xem giao dịch này có liên quan đến order nào không
         let isRelatedToOrder = false;
+<<<<<<< HEAD
         let isCancelled = false;
+=======
+
+>>>>>>> 38b689c76a6b7df3cfef78d107c97258fc7ac4d7
         // Kiểm tra trực tiếp với order
         if (transaction.related_type === 'order') {
           const relatedOrder = orders.find(order => order.order_id === transaction.related_id);
@@ -472,6 +476,10 @@ const CustomerReportService = {
             isCancelled = true;
           }
         }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 38b689c76a6b7df3cfef78d107c97258fc7ac4d7
         // Kiểm tra thông qua invoice
         if (transaction.related_type === 'invoice') {
           const relatedInvoice = invoices.find(inv => inv.invoice_id === transaction.related_id);
@@ -484,6 +492,7 @@ const CustomerReportService = {
             }
           }
         }
+<<<<<<< HEAD
         // BỎ QUA TRANSACTION LIÊN QUAN ĐẾN ĐƠN HÀNG/HÓA ĐƠN BỊ HỦY
         if (isCancelled) return;
         // Thêm tất cả giao dịch thanh toán (bao gồm cả manual payments)
@@ -501,6 +510,23 @@ const CustomerReportService = {
           payment_method: transaction.payment_method,
           is_manual_payment: true // Đánh dấu đây là thanh toán manual
         });
+=======
+
+        // Chỉ thêm những giao dịch KHÔNG liên quan đến order
+        if (!isRelatedToOrder) {
+          allTransactions.push({
+            transaction_code: transaction.transaction_code,
+            transaction_date: new Date(transaction.created_at),
+            type: 'payment',
+            amount: parseFloat(transaction.amount),
+            description: transaction.description || `Thanh toán ${transaction.transaction_code}`,
+            order_id: null,
+            invoice_id: transaction.related_type === 'invoice' ? transaction.related_id : null,
+            transaction_id: transaction.transaction_id,
+            status: 'completed'
+          });
+        }
+>>>>>>> 38b689c76a6b7df3cfef78d107c97258fc7ac4d7
       });
 
       // 5. Sắp xếp theo thời gian (từ mới đến cũ)
@@ -517,7 +543,7 @@ const CustomerReportService = {
       const reversedTransactions = [...allTransactions].reverse();
       let runningBalance = 0;
       const calculatedBalances = [];
-      
+
       // Tính dư nợ từ cũ đến mới
       reversedTransactions.forEach((transaction, index) => {
         if (transaction.type === 'pending') {
@@ -527,7 +553,7 @@ const CustomerReportService = {
         }
         calculatedBalances.push(runningBalance);
       });
-      
+
       // Đảo ngược lại để hiển thị từ mới đến cũ
       calculatedBalances.reverse();
 
@@ -539,7 +565,8 @@ const CustomerReportService = {
         return {
           ma_giao_dich: transaction.transaction_code,
           ngay_giao_dich: transaction.transaction_date,
-          loai: CustomerReportService.getTransactionTypeDisplay(transaction.type),
+          // loai: CustomerReportService.getTransactionTypeDisplay(transaction.type),
+          loai: transaction.type,
           gia_tri: transaction.amount,
           du_no: calculatedBalances[index],
           mo_ta: transaction.description,
