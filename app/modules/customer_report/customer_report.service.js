@@ -398,15 +398,15 @@ const CustomerReportService = {
           return false;
         });
 
-        // Tổng số tiền đã thanh toán thực tế cho invoice này
-        const totalRealPaidForAdvance = relatedInvoiceTransactions.reduce((sum, trx) => sum + parseFloat(trx.amount), 0);
+        // Tổng số tiền đã thanh toán thực tế cho invoice này (manual payment, type: 'receipt')
+        const totalRealPaidForInvoice = relatedInvoiceTransactions.reduce((sum, trx) => sum + parseFloat(trx.amount), 0);
 
-        // Chỉ ghi nhận advance nếu tổng transaction thực tế < amount_paid
-        if (orderAdvanceAmount > 0 && totalRealPaidForAdvance < orderAdvanceAmount) {
-          const advanceLeft = orderAdvanceAmount - totalRealPaidForAdvance;
+        // Advance payment chỉ ghi nhận phần còn lại chưa được thanh toán thực tế
+        let advanceLeft = orderAdvanceAmount - totalRealPaidForInvoice;
+        if (orderAdvanceAmount > 0 && advanceLeft > 0.0001) { // dùng > 0.0001 để tránh lỗi số thực
           allTransactions.push({
             transaction_code: `${order.order_code}-ADVANCE`,
-            transaction_date: new Date(orderDate.getTime() + 1000), // Thêm 1 giây để đảm bảo thứ tự
+            transaction_date: new Date(orderDate.getTime() + 1000),
             type: 'partial_paid',
             amount: advanceLeft,
             description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
@@ -417,6 +417,7 @@ const CustomerReportService = {
             status: 'completed'
           });
         }
+        // Nếu transaction thực tế lớn hơn advance, phần dư sẽ được ghi nhận ở transaction thực tế (không cộng dồn với advance)
 
         // Thêm đơn hàng chính (tạo nợ)
         allTransactions.push({
@@ -435,26 +436,24 @@ const CustomerReportService = {
         // Nếu có hóa đơn và có thanh toán bổ sung (không phải thanh toán trước)
         if (relatedInvoice && parseFloat(relatedInvoice.amount_paid) > orderAdvanceAmount) {
           const additionalPayment = parseFloat(relatedInvoice.amount_paid) - orderAdvanceAmount;
-          if (additionalPayment > 0) {
-            // Kiểm tra xem đã có transaction thực tế cho thanh toán bổ sung chưa
-            const hasRealAdditionalTransaction = relatedInvoiceTransactions.some(trx => 
-              trx.amount === additionalPayment && trx.type === 'receipt'
-            );
-            
-            if (!hasRealAdditionalTransaction) {
-              allTransactions.push({
-                transaction_code: `${relatedInvoice.invoice_code}-ADDITIONAL`,
-                transaction_date: new Date(relatedInvoice.created_at),
-                type: 'partial_paid',
-                amount: additionalPayment,
-                description: `Thanh toán bổ sung cho hóa đơn ${relatedInvoice.invoice_code}`,
-                order_id: order.order_id,
-                invoice_id: relatedInvoice.invoice_id,
-                transaction_id: null,
-                invoice_code: relatedInvoice.invoice_code,
-                status: relatedInvoice.status
-              });
-            }
+          // Tổng số tiền đã thanh toán thực tế cho invoice này (manual payment, type: 'receipt')
+          const totalRealPaidForInvoice = transactions.filter(trx => trx.related_type === 'invoice' && trx.related_id === relatedInvoice.invoice_id && trx.type === 'receipt')
+            .reduce((sum, trx) => sum + parseFloat(trx.amount), 0);
+          // Số tiền bổ sung còn lại chưa được thanh toán thực tế
+          const additionalLeft = additionalPayment - Math.max(0, totalRealPaidForInvoice - orderAdvanceAmount);
+          if (additionalPayment > 0 && additionalLeft > 0.0001) {
+            allTransactions.push({
+              transaction_code: `${relatedInvoice.invoice_code}-ADDITIONAL`,
+              transaction_date: new Date(relatedInvoice.created_at),
+              type: 'partial_paid',
+              amount: additionalLeft,
+              description: `Thanh toán bổ sung cho hóa đơn ${relatedInvoice.invoice_code}`,
+              order_id: order.order_id,
+              invoice_id: relatedInvoice.invoice_id,
+              transaction_id: null,
+              invoice_code: relatedInvoice.invoice_code,
+              status: relatedInvoice.status
+            });
           }
         }
       });
