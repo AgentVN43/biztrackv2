@@ -73,7 +73,13 @@ const CustomerReturnController = {
         parseInt(limit)
       );
 
-      return createResponse(res, 200, true, result, "Lấy danh sách đơn trả hàng thành công");
+      // Sửa lại response: data là mảng, pagination là object tách riêng
+      return res.status(200).json({
+        success: true,
+        data: result.returns,
+        pagination: result.pagination,
+        message: "Lấy danh sách đơn trả hàng thành công"
+      });
     } catch (error) {
       console.error("Lỗi lấy danh sách đơn trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi lấy danh sách đơn trả hàng", 500);
