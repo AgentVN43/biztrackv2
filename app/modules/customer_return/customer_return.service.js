@@ -244,6 +244,12 @@ const CustomerReturnService = {
         CustomerReturn.count(filters)
       ]);
       
+      // Bổ sung: Tính tổng tiền hoàn cho từng đơn trả hàng
+      for (const ret of returns) {
+        const details = await CustomerReturn.getReturnDetails(ret.return_id);
+        ret.total_refund = Number(details.reduce((sum, d) => sum + (d.refund_amount || 0), 0));
+      }
+      
       return {
         returns,
         pagination: {
