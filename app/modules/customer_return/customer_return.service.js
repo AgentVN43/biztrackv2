@@ -334,22 +334,30 @@ const CustomerReturnService = {
           returnedQuantities[detail.product_id] = (returnedQuantities[detail.product_id] || 0) + detail.quantity;
         }
       }
-      // Kiểm tra còn item nào có thể trả không
-      const canReturnAny = orderDetails.products.some(product => {
-        const returnedQty = returnedQuantities[product.product_id] || 0;
-        return product.quantity > returnedQty;
+      // Bổ sung: trả về thông tin từng sản phẩm về số lượng đã trả, còn lại, số lần tối đa có thể trả
+      const productsWithReturnInfo = orderDetails.products.map(product => {
+        const returned_quantity = returnedQuantities[product.product_id] || 0;
+        const can_return_quantity = product.quantity - returned_quantity;
+        return {
+          ...product,
+          returned_quantity,
+          can_return_quantity,
+          max_return_times: can_return_quantity
+        };
       });
+      // Kiểm tra còn item nào có thể trả không
+      const canReturnAny = productsWithReturnInfo.some(product => product.can_return_quantity > 0);
       if (!canReturnAny) {
         return {
           eligible: false,
-          reason: "All items in this order have already been returned"
+          reason: "All items in this order have already been returned",
+          products: productsWithReturnInfo
         };
       }
       return {
         eligible: true,
         order: order,
-        orderDetails: orderDetails.products,
-        returnedQuantities
+        products: productsWithReturnInfo
       };
     } catch (error) {
       throw error;
