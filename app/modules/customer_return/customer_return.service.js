@@ -204,18 +204,18 @@ const CustomerReturnService = {
       if (!returnInfo) {
         throw new Error("Return order not found");
       }
-      
       if (returnInfo.status !== "pending") {
         throw new Error("Can only approve pending return orders");
       }
-      
       // Cập nhật trạng thái
       await CustomerReturn.updateStatus(return_id, "approved");
-      
+      // Sau khi approve, tự động process toàn bộ nghiệp vụ
+      const processResult = await CustomerReturnService.processReturn(return_id, null); // null: hệ thống xử lý
       return {
         return_id,
-        status: "approved",
-        message: "Return order approved"
+        status: "completed",
+        message: "Return order approved and processed successfully",
+        processResult
       };
     } catch (error) {
       throw error;
