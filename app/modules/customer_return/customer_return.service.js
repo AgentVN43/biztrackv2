@@ -338,8 +338,10 @@ const CustomerReturnService = {
       const productsWithReturnInfo = orderDetails.products.map(product => {
         const returned_quantity = returnedQuantities[product.product_id] || 0;
         const can_return_quantity = product.quantity - returned_quantity;
+        const { price, ...rest } = product;
         return {
-          ...product,
+          ...rest,
+          product_retail_price: price,
           returned_quantity,
           can_return_quantity,
           max_return_times: can_return_quantity
