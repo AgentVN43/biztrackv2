@@ -4,6 +4,7 @@ const CustomerModel = require("../customers/customer.model");
 const Inventory = require("../inventories/inventory.model");
 const Transaction = require("../transactions/transaction.model");
 const db = require("../../config/db.config");
+const OrderDetailService = require("../orderDetails/orderDetail.service");
 
 // Hàm tạo transaction code
 const generateTransactionCode = () => {
@@ -33,9 +34,16 @@ const CustomerReturnService = {
       
       const detailsResults = await Promise.all(detailsPromises);
       
+      // Sau khi tạo xong chi tiết, tính lại total_refund
+      let total_refund = 0;
+      if (Array.isArray(detailsResults)) {
+        total_refund = detailsResults.reduce((sum, d) => sum + (d.refund_amount || 0), 0);
+      }
+      
       return {
         ...returnResult,
-        details: detailsResults
+        details: detailsResults,
+        total_refund: Number(total_refund)
       };
     } catch (error) {
       throw error;
@@ -246,8 +254,9 @@ const CustomerReturnService = {
       
       // Bổ sung: Tính tổng tiền hoàn cho từng đơn trả hàng
       for (const ret of returns) {
-        const details = await CustomerReturn.getReturnDetails(ret.return_id);
-        ret.total_refund = Number(details.reduce((sum, d) => sum + (d.refund_amount || 0), 0));
+        let details = await CustomerReturn.getReturnDetails(ret.return_id);
+        if (!Array.isArray(details)) details = [];
+        ret.total_refund = details.reduce((sum, d) => sum + (Number(d.refund_amount) || 0), 0);
       }
       
       return {
@@ -290,7 +299,6 @@ const CustomerReturnService = {
       if (!order) {
         throw new Error("Order not found");
       }
-      
       // Kiểm tra trạng thái đơn hàng
       if (order.order_status !== "Hoàn tất") {
         return {
@@ -298,31 +306,50 @@ const CustomerReturnService = {
           reason: "Can only return from completed orders"
         };
       }
-      
       // Kiểm tra thời gian trả hàng (ví dụ: trong vòng 30 ngày)
       const orderDate = new Date(order.order_date);
       const currentDate = new Date();
       const daysDiff = (currentDate - orderDate) / (1000 * 60 * 60 * 24);
-      
       if (daysDiff > 30) {
         return {
           eligible: false,
           reason: "Return period expired (30 days)"
         };
       }
-      
-      // Kiểm tra xem đã có đơn trả hàng nào chưa
-      const existingReturns = await CustomerReturn.getByOrder(order_id);
-      if (existingReturns.length > 0) {
+      // Lấy chi tiết đơn hàng
+      const orderDetails = await OrderDetailService.getOrderDetailByOrderId(order_id);
+      if (!orderDetails || !orderDetails.products || orderDetails.products.length === 0) {
         return {
           eligible: false,
-          reason: "Order already has return request"
+          reason: "Order has no items to return"
         };
       }
-      
+      // Lấy tất cả các đơn trả hàng đã tạo cho order này
+      const existingReturns = await CustomerReturn.getByOrder(order_id);
+      // Tính tổng quantity đã trả cho từng product_id
+      const returnedQuantities = {};
+      for (const ret of existingReturns) {
+        const details = await CustomerReturn.getReturnDetails(ret.return_id);
+        for (const detail of details) {
+          returnedQuantities[detail.product_id] = (returnedQuantities[detail.product_id] || 0) + detail.quantity;
+        }
+      }
+      // Kiểm tra còn item nào có thể trả không
+      const canReturnAny = orderDetails.products.some(product => {
+        const returnedQty = returnedQuantities[product.product_id] || 0;
+        return product.quantity > returnedQty;
+      });
+      if (!canReturnAny) {
+        return {
+          eligible: false,
+          reason: "All items in this order have already been returned"
+        };
+      }
       return {
         eligible: true,
-        order: order
+        order: order,
+        orderDetails: orderDetails.products,
+        returnedQuantities
       };
     } catch (error) {
       throw error;
