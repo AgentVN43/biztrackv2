@@ -21,25 +21,43 @@ const CustomerReturnService = {
   // Tạo đơn trả hàng hoàn chỉnh với chi tiết
   createReturnWithDetails: async (returnData, returnDetails) => {
     try {
+      // Nếu có order_id, lấy thông tin sản phẩm và giá từ order gốc
+      let productPriceMap = {};
+      if (returnData.order_id) {
+        const orderDetails = await OrderDetailService.getOrderDetailByOrderId(returnData.order_id);
+        if (orderDetails && Array.isArray(orderDetails.products)) {
+          // Map product_id -> price (có thể cần lấy giá bán thực tế, không phải giá gốc)
+          for (const p of orderDetails.products) {
+            productPriceMap[p.product_id] = p.price;
+          }
+        }
+      }
+
       // Tạo đơn trả hàng
       const returnResult = await CustomerReturn.create(returnData);
-      
-      // Tạo chi tiết trả hàng
+
+      // Tạo chi tiết trả hàng, tự động tính refund_amount nếu chưa có hoặc ép lại cho đúng
       const detailsPromises = returnDetails.map(detail => {
+        let refund_amount = detail.refund_amount;
+        // Nếu có order_id và có product_id, tự động tính lại refund_amount
+        if (detail.product_id && productPriceMap[detail.product_id] !== undefined) {
+          refund_amount = productPriceMap[detail.product_id] * (detail.quantity || 0);
+        }
         return CustomerReturn.createReturnDetail({
           ...detail,
+          refund_amount,
           return_id: returnResult.return_id
         });
       });
-      
+
       const detailsResults = await Promise.all(detailsPromises);
-      
+
       // Sau khi tạo xong chi tiết, tính lại total_refund
       let total_refund = 0;
       if (Array.isArray(detailsResults)) {
         total_refund = detailsResults.reduce((sum, d) => sum + (d.refund_amount || 0), 0);
       }
-      
+
       return {
         ...returnResult,
         details: detailsResults,
