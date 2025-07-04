@@ -227,6 +227,7 @@ const Inventory = require("../inventories/inventory.service"); // Cần import I
 const { paginateResponse } = require("../../utils/pagination");
 const { processDateFilters } = require("../../utils/dateUtils");
 const { createResponse } = require("../../utils/response");
+const Order = require('./order.model');
 
 // Hàm tính toán tổng tiền đơn hàng (được giữ lại trong controller vì được sử dụng trực tiếp ở đây)
 function calculateOrderTotals(orderDetails, orderData = {}) {
@@ -637,6 +638,17 @@ const OrderController = {
     } catch (error) {
       console.error("Controller - getTotalByStatus:", error.message);
       next(error);
+    }
+  },
+  getOrderWithReturnSummary: async (req, res) => {
+    try {
+      const { order_id } = req.params;
+      if (!order_id) return res.status(400).json({ success: false, message: 'Thiếu order_id' });
+      const result = await Order.getOrderWithReturnSummary(order_id);
+      if (!result) return res.status(404).json({ success: false, message: 'Không tìm thấy order' });
+      return res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
     }
   },
 };

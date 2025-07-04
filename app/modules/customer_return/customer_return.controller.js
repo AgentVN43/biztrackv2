@@ -97,7 +97,19 @@ const CustomerReturnController = {
 
       const result = await CustomerReturnService.getReturnWithDetails(return_id);
 
-      return createResponse(res, 200, true, result, "Lấy chi tiết đơn trả hàng thành công");
+      // Nếu có order_id, trả thêm tổng refund và giá trị còn lại của order
+      let orderSummary = null;
+      if (result && result.order_id) {
+        try {
+          const Order = require('../orders/order.model');
+          orderSummary = await Order.getOrderWithReturnSummary(result.order_id);
+        } catch (e) { orderSummary = null; }
+      }
+
+      return createResponse(res, 200, true, {
+        ...result,
+        order_summary: orderSummary
+      }, "Lấy chi tiết đơn trả hàng thành công");
     } catch (error) {
       console.error("Lỗi lấy chi tiết đơn trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi lấy chi tiết đơn trả hàng", 500);
