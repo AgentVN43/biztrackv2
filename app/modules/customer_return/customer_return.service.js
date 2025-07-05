@@ -195,20 +195,20 @@ const CustomerReturnService = {
       }, 0);
       
       // Nếu có hoàn tiền, tạo transaction
-      if (totalRefundAmount > 0) {
-        await Transaction.createTransaction({
-          transaction_code: generateTransactionCode(),
-          type: "refund",
-          amount: totalRefundAmount,
-          description: `Refund for return - ${returnInfo.return_id}`,
-          category: "customer_refund",
-          payment_method: "cash",
-          customer_id: returnInfo.customer_id,
-          related_type: "other",
-          related_id: return_id,
-          initiated_by: null
-        });
-      }
+      // if (totalRefundAmount > 0) {
+      //   await Transaction.createTransaction({
+      //     transaction_code: generateTransactionCode(),
+      //     type: "refund",
+      //     amount: totalRefundAmount,
+      //     description: `Refund for return - ${returnInfo.return_id}`,
+      //     category: "customer_refund",
+      //     payment_method: "cash",
+      //     customer_id: returnInfo.customer_id,
+      //     related_type: "other",
+      //     related_id: return_id,
+      //     initiated_by: null
+      //   });
+      // }
       
       // ✅ LUÔN cập nhật debt của khách hàng sau khi process return_order
       // (dù có hoàn tiền hay không, vì có thể ảnh hưởng đến công nợ từ các đơn hàng liên quan)
