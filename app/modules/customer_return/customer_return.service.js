@@ -23,44 +23,84 @@ const CustomerReturnService = {
     try {
       // Nếu có order_id, lấy thông tin sản phẩm và giá từ order gốc
       let productPriceMap = {};
+      let orderInfo = null;
       if (returnData.order_id) {
         const orderDetails = await OrderDetailService.getOrderDetailByOrderId(returnData.order_id);
         if (orderDetails && Array.isArray(orderDetails.products)) {
-          // Map product_id -> price (có thể cần lấy giá bán thực tế, không phải giá gốc)
           for (const p of orderDetails.products) {
             productPriceMap[p.product_id] = p.price;
+          }
+        }
+        // Lấy thông tin order để kiểm tra amount_paid
+        const OrderModel = require('../orders/order.model');
+        orderInfo = await OrderModel.getOrderWithReturnSummary(returnData.order_id);
+      }
+
+      // Tạo chi tiết trả hàng, tự động tính refund_amount nếu chưa có hoặc ép lại cho đúng
+      const detailsPromises = returnDetails.map(detail => {
+        let refund_amount = detail.refund_amount;
+        if (detail.product_id && productPriceMap[detail.product_id] !== undefined) {
+          refund_amount = productPriceMap[detail.product_id] * (detail.quantity || 0);
+        }
+        return {
+          ...detail,
+          refund_amount
+        };
+      });
+      const detailsResults = await Promise.all(detailsPromises.map(async d => d));
+
+      // Tính tổng số tiền hoàn trả cho lần này
+      let total_refund_this_time = 0;
+      if (Array.isArray(detailsResults)) {
+        total_refund_this_time = detailsResults.reduce((sum, d) => sum + (d.refund_amount || 0), 0);
+      }
+
+      // Nếu có order_id, kiểm tra tổng refund không vượt quá số tiền hợp lệ
+      if (orderInfo) {
+        const total_refund_before = orderInfo.total_refund || 0;
+        const amount_paid = Number(orderInfo.amount_paid || 0);
+        const final_amount = Number(orderInfo.final_amount || 0);
+        
+        // Nếu khách chưa thanh toán (amount_paid = 0), cho phép trả hàng để giảm công nợ
+        if (amount_paid === 0) {
+          // Giới hạn theo quantity của item trong order, không giới hạn theo tiền
+          // Không cần kiểm tra gì thêm
+        } else if (amount_paid > 0 && amount_paid < final_amount) {
+          // Nếu khách đã thanh toán một phần, có thể trả tối đa final_amount
+          // Khi trả hết sẽ hoàn tiền amount_paid cho khách
+          if ((total_refund_before + total_refund_this_time) > final_amount) {
+            throw new Error(`Tổng số tiền hoàn trả vượt quá giá trị đơn hàng (${final_amount.toLocaleString()}đ)!`);
+          }
+        } else {
+          // Nếu đã thanh toán đủ hoặc vượt quá
+          let max_refundable = amount_paid;
+          // Nếu đã thanh toán đủ, cho phép hoàn trả tối đa bằng final_amount
+          if (amount_paid >= final_amount) {
+            max_refundable = final_amount;
+          }
+          if ((total_refund_before + total_refund_this_time) > max_refundable) {
+            throw new Error('Tổng số tiền hoàn trả vượt quá số tiền khách đã thanh toán!');
           }
         }
       }
 
       // Tạo đơn trả hàng
       const returnResult = await CustomerReturn.create(returnData);
-
-      // Tạo chi tiết trả hàng, tự động tính refund_amount nếu chưa có hoặc ép lại cho đúng
-      const detailsPromises = returnDetails.map(detail => {
-        let refund_amount = detail.refund_amount;
-        // Nếu có order_id và có product_id, tự động tính lại refund_amount
-        if (detail.product_id && productPriceMap[detail.product_id] !== undefined) {
-          refund_amount = productPriceMap[detail.product_id] * (detail.quantity || 0);
-        }
-        return CustomerReturn.createReturnDetail({
-          ...detail,
-          refund_amount,
-          return_id: returnResult.return_id
-        });
-      });
-
-      const detailsResults = await Promise.all(detailsPromises);
+      // Lưu chi tiết trả hàng
+      const detailsSaved = await Promise.all(detailsResults.map(detail => CustomerReturn.createReturnDetail({
+        ...detail,
+        return_id: returnResult.return_id
+      })));
 
       // Sau khi tạo xong chi tiết, tính lại total_refund
       let total_refund = 0;
-      if (Array.isArray(detailsResults)) {
-        total_refund = detailsResults.reduce((sum, d) => sum + (d.refund_amount || 0), 0);
+      if (Array.isArray(detailsSaved)) {
+        total_refund = detailsSaved.reduce((sum, d) => sum + (d.refund_amount || 0), 0);
       }
 
       return {
         ...returnResult,
-        details: detailsResults,
+        details: detailsSaved,
         total_refund: Number(total_refund)
       };
     } catch (error) {
@@ -168,10 +208,19 @@ const CustomerReturnService = {
           related_id: return_id,
           initiated_by: null
         });
-        
-        // Cập nhật debt của khách hàng
+      }
+      
+      // ✅ LUÔN cập nhật debt của khách hàng sau khi process return_order
+      // (dù có hoàn tiền hay không, vì có thể ảnh hưởng đến công nợ từ các đơn hàng liên quan)
+      try {
+        console.log(`🔄 Đang cập nhật debt cho customer_id: ${returnInfo.customer_id}`);
         const newDebt = await CustomerModel.calculateDebt(returnInfo.customer_id);
+        console.log(`📊 Debt mới được tính: ${newDebt}`);
         await CustomerModel.update(returnInfo.customer_id, { debt: newDebt });
+        console.log(`✅ Đã cập nhật debt thành công cho customer_id: ${returnInfo.customer_id}`);
+      } catch (debtError) {
+        console.error(`❌ Lỗi khi cập nhật debt:`, debtError);
+        // Không throw error để không ảnh hưởng đến việc process return_order
       }
       
       // Cập nhật trạng thái đơn trả hàng

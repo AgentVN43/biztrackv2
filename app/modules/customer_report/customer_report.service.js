@@ -105,19 +105,19 @@ const CustomerReportService = {
   },
 
   /**
-   * Lấy lịch sử tất cả các đơn hàng của một khách hàng, bao gồm chi tiết từng đơn hàng.
+   * Lấy lịch sử tất cả các đơn hàng và trả hàng của một khách hàng.
+   * Trả về cả đơn hàng và đơn trả hàng như các sự kiện riêng biệt.
    *
    * @param {string} customer_id - ID của khách hàng.
-   * @returns {Promise<Array<Object>>} Promise giải quyết với mảng các đối tượng đơn hàng đã định dạng.
+   * @returns {Promise<Array<Object>>} Promise giải quyết với mảng các sự kiện đã định dạng.
    * @throws {Error} Nếu có lỗi trong quá trình truy vấn database.
    */
   getOrderHistoryWithDetails: async (customer_id) => {
     try {
-      // Giả định OrderModel có hàm để lấy đơn hàng kèm chi tiết sản phẩm cho một customer_id
-      // Nếu không, cần thêm hàm này vào OrderModel hoặc viết truy vấn JOIN phức tạp ở đây.
-      // Dựa trên hàm OrderModel.readById, chúng ta có thể gọi từng đơn hàng.
-      // Tuy nhiên, để tối ưu, tốt hơn là viết một truy vấn JOIN lớn ở model hoặc service.
-      const sql = `
+      const result = [];
+
+      // 1. Lấy tất cả đơn hàng
+      const orderSql = `
         SELECT
           o.order_id,
           o.order_code,
@@ -129,51 +129,86 @@ const CustomerReportService = {
           o.note,
           o.payment_method,
           o.created_at,
-          o.updated_at,
-          od.order_detail_id,
-          od.product_id,
-          p.product_name, -- Giả định có bảng products để JOIN
-          p.sku, -- Giả định có bảng products để JOIN
-          od.quantity,
-          od.price
+          o.updated_at
         FROM orders o
-        JOIN order_details od ON o.order_id = od.order_id
-        LEFT JOIN products p ON od.product_id = p.product_id
         WHERE o.customer_id = ?
-        ORDER BY o.created_at DESC, od.created_at ASC;
+        ORDER BY o.created_at DESC;
       `;
-      const [rows] = await db.promise().query(sql, [customer_id]);
+      const [orders] = await db.promise().query(orderSql, [customer_id]);
 
-      // Nhóm kết quả theo từng đơn hàng
-      const ordersMap = new Map();
-      rows.forEach((row) => {
-        if (!ordersMap.has(row.order_id)) {
-          ordersMap.set(row.order_id, {
-            order_id: row.order_id,
-            order_code: row.order_code,
-            order_date: row.order_date,
-            order_status: row.order_status,
-            total_amount: row.total_amount,
-            final_amount: row.final_amount,
-            discount_amount: row.discount_amount,
-            note: row.note,
-            payment_method: row.payment_method,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-            details: [],
-          });
-        }
-        ordersMap.get(row.order_id).details.push({
-          order_detail_id: row.order_detail_id,
-          product_id: row.product_id,
-          product_name: row.product_name,
-          sku: row.sku,
-          quantity: row.quantity,
-          price: row.price,
+      // 2. Lấy tất cả đơn trả hàng
+      const returnSql = `
+        SELECT
+          ro.return_id,
+          ro.order_id,
+          ro.status as return_status,
+          ro.created_at as return_created_at,
+          ro.note as return_note,
+          SUM(roi.refund_amount) as total_refund_amount,
+          COUNT(roi.return_item_id) as return_item_count,
+          o.order_code as related_order_code
+        FROM return_orders ro
+        JOIN return_order_items roi ON ro.return_id = roi.return_id
+        LEFT JOIN orders o ON ro.order_id = o.order_id
+        WHERE ro.customer_id = ?
+          AND ro.status IN ('approved', 'completed')
+        GROUP BY ro.return_id, ro.order_id, ro.status, ro.created_at, ro.note, o.order_code
+        ORDER BY ro.created_at DESC;
+      `;
+      const [returns] = await db.promise().query(returnSql, [customer_id]);
+
+      // 3. Thêm các đơn hàng vào kết quả
+      orders.forEach(order => {
+        result.push({
+          order_id: order.order_id,
+          order_code: order.order_code,
+          order_date: order.order_date,
+          order_status: order.order_status,
+          total_amount: order.total_amount,
+          final_amount: order.final_amount,
+          discount_amount: order.discount_amount,
+          note: order.note,
+          payment_method: order.payment_method,
+          created_at: order.created_at,
+          updated_at: order.updated_at,
+          // Thông tin bổ sung để phân biệt với return
+          type: 'order',
+          related_order_code: null,
+          return_count: 0,
+          has_returns: false,
+          total_refund: 0,
+          final_amount_after_returns: parseFloat(order.final_amount)
         });
       });
 
-      return Array.from(ordersMap.values());
+      // 4. Thêm các đơn trả hàng vào kết quả
+      returns.forEach(ret => {
+        result.push({
+          order_id: ret.return_id, // Sử dụng return_id làm order_id để tương thích
+          order_code: ret.return_id, // Sử dụng return_id làm order_code
+          order_date: ret.return_created_at, // Sử dụng return_created_at làm order_date
+          order_status: ret.return_status, // Sử dụng return_status làm order_status
+          total_amount: ret.total_refund_amount, // Sử dụng total_refund_amount làm total_amount
+          final_amount: ret.total_refund_amount, // Sử dụng total_refund_amount làm final_amount
+          discount_amount: "0.00", // Giảm giá luôn là 0 cho return
+          note: ret.return_note,
+          payment_method: "refund",
+          created_at: ret.return_created_at,
+          updated_at: ret.return_created_at,
+          // Thông tin bổ sung để phân biệt với order thật
+          type: 'return',
+          related_order_code: ret.related_order_code,
+          return_count: parseInt(ret.return_item_count),
+          has_returns: true,
+          total_refund: parseFloat(ret.total_refund_amount),
+          final_amount_after_returns: 0
+        });
+      });
+
+      // 5. Sắp xếp theo thời gian tạo (mới nhất trước)
+      result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      return result;
     } catch (error) {
       console.error(
         "🚀 ~ CustomerReportService: getOrderHistoryWithDetails - Lỗi:",
@@ -193,15 +228,51 @@ const CustomerReportService = {
    */
   getReceivables: async (customer_id) => {
     try {
-      const sql = `
-        SELECT
-          COALESCE(SUM(final_amount - amount_paid), 0) AS total_receivables
+      // 1. Lấy tổng công nợ từ các hóa đơn chưa thanh toán
+      const invoiceSql = `
+        SELECT COALESCE(SUM(final_amount - amount_paid), 0) AS total_receivables
         FROM invoices
         WHERE customer_id = ?
-          AND (status = 'pending' OR status = 'partial_paid' OR status = 'overdue'); -- Hoặc các trạng thái khác biểu thị chưa thanh toán đủ
+          AND (status = 'pending' OR status = 'partial_paid' OR status = 'overdue')
+          AND status != 'cancelled'
       `;
-      const [rows] = await db.promise().query(sql, [customer_id]);
-      return rows[0].total_receivables;
+      const [invoiceRows] = await db.promise().query(invoiceSql, [customer_id]);
+      const invoiceDebt = parseFloat(invoiceRows[0].total_receivables || 0);
+
+      // 2. Lấy tổng công nợ từ các đơn hàng chưa có hóa đơn
+      const orderSql = `
+        SELECT COALESCE(SUM(o.final_amount - o.amount_paid), 0) AS total_orders_debt
+        FROM orders o
+        LEFT JOIN invoices i ON o.order_id = i.order_id
+        WHERE o.customer_id = ?
+          AND o.order_status IN ('Mới', 'Xác nhận', 'Hoàn tất')
+          AND o.order_status != 'Huỷ đơn'
+          AND i.order_id IS NULL
+      `;
+      const [orderRows] = await db.promise().query(orderSql, [customer_id]);
+      const orderDebt = parseFloat(orderRows[0].total_orders_debt || 0);
+
+      // 3. Lấy tổng số tiền đã trả hàng từ return_orders
+      const returnSql = `
+        SELECT COALESCE(SUM(roi.refund_amount), 0) AS total_refund
+        FROM return_orders ro
+        JOIN return_order_items roi ON ro.return_id = roi.return_id
+        WHERE ro.customer_id = ?
+          AND ro.status IN ('approved', 'completed')
+      `;
+      const [returnRows] = await db.promise().query(returnSql, [customer_id]);
+      const totalRefund = parseFloat(returnRows[0].total_refund || 0);
+
+      // Tổng công nợ = Công nợ invoices + Công nợ orders - Tổng tiền đã trả hàng
+      const totalReceivables = invoiceDebt + orderDebt - totalRefund;
+      
+      console.log(`🔍 getReceivables cho customer ${customer_id}:`);
+      console.log(`  - Invoice debt: ${invoiceDebt}`);
+      console.log(`  - Order debt: ${orderDebt}`);
+      console.log(`  - Total refund: ${totalRefund}`);
+      console.log(`  - Total receivables: ${totalReceivables}`);
+
+      return Math.max(0, totalReceivables);
     } catch (error) {
       console.error("🚀 ~ CustomerReportService: getReceivables - Lỗi:", error);
       throw error;
@@ -372,6 +443,25 @@ const CustomerReportService = {
       // 3. Lấy tất cả giao dịch thanh toán
       const transactions = await TransactionModel.getTransactionsByCustomerId(customer_id);
 
+      // 3.5. ✅ Lấy tất cả return_orders đã approved/completed
+      const returnOrdersSql = `
+        SELECT 
+          ro.return_id,
+          ro.order_id,
+          ro.status,
+          ro.created_at,
+          SUM(roi.refund_amount) as total_refund,
+          o.order_code
+        FROM return_orders ro
+        JOIN return_order_items roi ON ro.return_id = roi.return_id
+        LEFT JOIN orders o ON ro.order_id = o.order_id
+        WHERE ro.customer_id = ?
+          AND ro.status IN ('approved', 'completed')
+        GROUP BY ro.return_id, ro.order_id, ro.status, ro.created_at, o.order_code
+        ORDER BY ro.created_at ASC
+      `;
+      const [returnOrders] = await db.promise().query(returnOrdersSql, [customer_id]);
+
       // 4. Tạo danh sách giao dịch theo thứ tự thời gian
       const allTransactions = [];
 
@@ -458,6 +548,27 @@ const CustomerReportService = {
         }
       });
 
+      // ✅ Xử lý return_orders (ghi nhận giảm công nợ)
+      returnOrders.forEach(returnOrder => {
+        const returnDate = new Date(returnOrder.created_at);
+        const refundAmount = parseFloat(returnOrder.total_refund || 0);
+        
+        if (refundAmount > 0) {
+          allTransactions.push({
+            transaction_code: `RETURN-${returnOrder.return_id}`,
+            transaction_date: returnDate,
+            type: 'return',
+            amount: refundAmount,
+            description: `Trả hàng cho đơn hàng ${returnOrder.order_code || returnOrder.order_id} - ${returnOrder.status}`,
+            order_id: returnOrder.order_id,
+            invoice_id: null,
+            transaction_id: null,
+            return_id: returnOrder.return_id,
+            status: returnOrder.status
+          });
+        }
+      });
+
       // Thêm các giao dịch thanh toán riêng lẻ (không liên quan đến đơn hàng cụ thể)
       transactions.forEach(transaction => {
         // Kiểm tra xem giao dịch này có liên quan đến order nào không
@@ -522,6 +633,9 @@ const CustomerReportService = {
         if (transaction.type === 'pending') {
           runningBalance += transaction.amount;
         } else if (transaction.type === 'partial_paid' || transaction.type === 'payment') {
+          runningBalance -= transaction.amount;
+        } else if (transaction.type === 'return') {
+          // ✅ Xử lý trả hàng - giảm dư nợ
           runningBalance -= transaction.amount;
         }
         calculatedBalances.push(runningBalance);
