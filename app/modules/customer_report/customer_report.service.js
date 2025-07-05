@@ -549,7 +549,6 @@ const CustomerReportService = {
         }
       });
 
-<<<<<<< HEAD
       // ✅ Xử lý return_orders (ghi nhận giảm công nợ)
       returnOrders.forEach(returnOrder => {
         const returnDate = new Date(returnOrder.created_at);
@@ -570,10 +569,6 @@ const CustomerReportService = {
           });
         }
       });
-
-=======
-      console.log("🚀 ~ getCustomerTransactionLedger: ~ transactions:", transactions)
->>>>>>> 8f5d681bece9bb265e74e3110989cf529253bc3e
       // Thêm các giao dịch thanh toán riêng lẻ (không liên quan đến đơn hàng cụ thể)
       transactions.forEach(transaction => {
         // Kiểm tra xem giao dịch này có liên quan đến order nào không
