@@ -371,6 +371,7 @@ const CustomerReportService = {
 
       // 3. Lấy tất cả giao dịch thanh toán
       const transactions = await TransactionModel.getTransactionsByCustomerId(customer_id);
+      console.log("🚀 ~ getCustomerTransactionLedger: ~ transactions:", transactions)
 
       // 4. Tạo danh sách giao dịch theo thứ tự thời gian
       const allTransactions = [];
@@ -458,6 +459,7 @@ const CustomerReportService = {
         }
       });
 
+      console.log("🚀 ~ getCustomerTransactionLedger: ~ transactions:", transactions)
       // Thêm các giao dịch thanh toán riêng lẻ (không liên quan đến đơn hàng cụ thể)
       transactions.forEach(transaction => {
         // Kiểm tra xem giao dịch này có liên quan đến order nào không
@@ -490,7 +492,7 @@ const CustomerReportService = {
         allTransactions.push({
           transaction_code: transaction.transaction_code,
           transaction_date: new Date(transaction.created_at),
-          type: 'payment',
+          type: transaction.type,
           amount: parseFloat(transaction.amount),
           description: transaction.description || `Thanh toán ${transaction.transaction_code}`,
           order_id: transaction.related_type === 'order' ? transaction.related_id : null,
@@ -521,7 +523,7 @@ const CustomerReportService = {
       reversedTransactions.forEach((transaction, index) => {
         if (transaction.type === 'pending') {
           runningBalance += transaction.amount;
-        } else if (transaction.type === 'partial_paid' || transaction.type === 'payment') {
+        } else if (transaction.type === 'partial_paid' || transaction.type === 'payment' || transaction.type === 'receipt' || transaction.type === 'refund') {
           runningBalance -= transaction.amount;
         }
         calculatedBalances.push(runningBalance);
@@ -567,16 +569,16 @@ const CustomerReportService = {
   /**
    * Hàm helper để chuyển đổi loại giao dịch sang tiếng Việt
    */
-  getTransactionTypeDisplay: (type) => {
-    const typeMap = {
-      'pending': 'Tạo đơn hàng',
-      'partial_paid': 'Thanh toán một phần',
-      'payment': 'Thanh toán thủ công',
-      'completed': 'Hoàn tất',
-      'cancelled': 'Hủy bỏ'
-    };
-    return typeMap[type] || type;
-  },
+  // getTransactionTypeDisplay: (type) => {
+  //   const typeMap = {
+  //     'pending': 'Tạo đơn hàng',
+  //     'partial_paid': 'Thanh toán một phần',
+  //     'payment': 'Thanh toán thủ công',
+  //     'completed': 'Hoàn tất',
+  //     'cancelled': 'Hủy bỏ'
+  //   };
+  //   return typeMap[type] || type;
+  // },
 };
 
 module.exports = CustomerReportService;
