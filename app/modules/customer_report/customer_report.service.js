@@ -16,15 +16,40 @@ const CustomerReportService = {
    */
   getTotalOrdersAndExpenditure: async (customer_id) => {
     try {
-      const sql = `
+      // 1. Lấy tổng số đơn hàng và tổng chi tiêu từ orders
+      const orderSql = `
         SELECT
           COUNT(order_id) AS total_orders,
           COALESCE(SUM(final_amount), 0) AS total_expenditure
         FROM orders
         WHERE customer_id = ? AND order_status = 'Hoàn tất';
       `;
-      const [rows] = await db.promise().query(sql, [customer_id]);
-      return rows[0];
+      const [orderRows] = await db.promise().query(orderSql, [customer_id]);
+      
+      // 2. Lấy tổng số tiền đã trả hàng từ return_orders
+      const returnSql = `
+        SELECT COALESCE(SUM(roi.refund_amount), 0) AS total_refund
+        FROM return_orders ro
+        JOIN return_order_items roi ON ro.return_id = roi.return_id
+        WHERE ro.customer_id = ?
+          AND ro.status IN ('approved', 'completed')
+      `;
+      const [returnRows] = await db.promise().query(returnSql, [customer_id]);
+      
+      const totalExpenditure = parseFloat(orderRows[0].total_expenditure || 0);
+      const totalRefund = parseFloat(returnRows[0].total_refund || 0);
+      const netExpenditure = Math.max(0, totalExpenditure - totalRefund);
+      
+      console.log(`🔍 getTotalOrdersAndExpenditure cho customer ${customer_id}:`);
+      console.log(`  - Total orders: ${orderRows[0].total_orders}`);
+      console.log(`  - Total expenditure (before returns): ${totalExpenditure}`);
+      console.log(`  - Total refund: ${totalRefund}`);
+      console.log(`  - Net expenditure: ${netExpenditure}`);
+      
+      return {
+        total_orders: orderRows[0].total_orders,
+        total_expenditure: netExpenditure
+      };
     } catch (error) {
       console.error(
         "🚀 ~ CustomerReportService: getTotalOrdersAndExpenditure - Lỗi:",
