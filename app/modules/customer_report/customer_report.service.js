@@ -660,8 +660,10 @@ const CustomerReportService = {
         } else if (transaction.type === 'partial_paid' || transaction.type === 'payment' || transaction.type === 'receipt' || transaction.type === 'refund') {
           runningBalance -= transaction.amount;
         } else if (transaction.type === 'return') {
-          // ✅ Xử lý trả hàng - giảm dư nợ
           runningBalance -= transaction.amount;
+        } else {
+          // Log các type lạ để debug
+          console.warn('⚠️ Transaction type lạ:', transaction.type, transaction);
         }
         calculatedBalances.push(runningBalance);
       });
