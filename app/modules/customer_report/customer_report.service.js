@@ -210,7 +210,7 @@ const CustomerReportService = {
       returns.forEach(ret => {
         result.push({
           order_id: ret.return_id, // Sử dụng return_id làm order_id để tương thích
-          order_code: `TH${ret.related_order_code}`, // Sử dụng return_id làm order_code
+          order_code: `TH-${ret.related_order_code}`, // Sử dụng return_id làm order_code
           order_date: ret.return_created_at, // Sử dụng return_created_at làm order_date
           order_status: ret.return_status, // Sử dụng return_status làm order_status
           total_amount: ret.total_refund_amount, // Sử dụng total_refund_amount làm total_amount
@@ -582,7 +582,7 @@ const CustomerReportService = {
 
         if (refundAmount > 0) {
           allTransactions.push({
-            transaction_code: `TH-${returnOrder.return_id}`,
+            transaction_code: `TH-${returnOrder.order_code}`,
             transaction_date: returnDate,
             type: 'return',
             amount: refundAmount,
