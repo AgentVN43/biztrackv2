@@ -4,6 +4,7 @@ const Order = require("../orders/order.model");
 const CustomerModel = require("../customers/customer.model");
 const Inventory = require("../inventories/inventory.model");
 const Transaction = require("../transactions/transaction.model");
+const CustomerReportService = require("../customer_report/customer_report.service");
 const db = require("../../config/db.config");
 const OrderDetailService = require("../orderDetails/orderDetail.service");
 
@@ -50,36 +51,59 @@ const CustomerReturnService = {
       });
       const detailsResults = await Promise.all(detailsPromises.map(async d => d));
 
-      // Tính tổng số tiền hoàn trả cho lần này
+      // Tính tổng số lượng trả lại lần này
+      const total_return_quantity = detailsResults.reduce((sum, d) => sum + (d.quantity || 0), 0);
+
+      // Nếu có order_id, lấy tổng quantity và order_amount từ order gốc
+      let total_order_quantity = 0;
+      let order_amount = 0;
+      let final_amount = 0;
+      if (orderInfo) {
+        // Lấy tổng quantity của order gốc
+        const orderDetails = await OrderDetailService.getOrderDetailByOrderId(returnData.order_id);
+        if (orderDetails && Array.isArray(orderDetails.products)) {
+          total_order_quantity = orderDetails.products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+        }
+        order_amount = Number(orderInfo.order_amount || 0);
+        final_amount = Number(orderInfo.final_amount || 0);
+      }
+
+      // Tính tổng số tiền hoàn trả cho lần này (trước khi phân bổ giảm giá trên đơn)
       let total_refund_this_time = 0;
       if (Array.isArray(detailsResults)) {
         total_refund_this_time = detailsResults.reduce((sum, d) => sum + (d.refund_amount || 0), 0);
       }
 
+      // Phân bổ giảm giá trên đơn cho lần trả này
+      let allocated_order_discount = 0;
+      if (order_amount > 0 && total_order_quantity > 0 && total_return_quantity > 0) {
+        allocated_order_discount = order_amount * (total_return_quantity / total_order_quantity);
+      }
+
+      // Tổng hoàn trả thực tế cho lần này
+      let net_refund_this_time = total_refund_this_time - allocated_order_discount;
+      if (net_refund_this_time < 0) net_refund_this_time = 0;
+
       // Nếu có order_id, kiểm tra tổng refund không vượt quá số tiền hợp lệ
       if (orderInfo) {
         const total_refund_before = orderInfo.total_refund || 0;
         const amount_paid = Number(orderInfo.amount_paid || 0);
-        const final_amount = Number(orderInfo.final_amount || 0);
-
         // Nếu khách chưa thanh toán (amount_paid = 0), cho phép trả hàng để giảm công nợ
         if (amount_paid === 0) {
-          // Giới hạn theo quantity của item trong order, không giới hạn theo tiền
           // Không cần kiểm tra gì thêm
         } else if (amount_paid > 0 && amount_paid < final_amount) {
-          // Nếu khách đã thanh toán một phần, có thể trả tối đa final_amount
-          // Khi trả hết sẽ hoàn tiền amount_paid cho khách
-          if ((total_refund_before + total_refund_this_time) > final_amount) {
+          if ((total_refund_before + net_refund_this_time) > final_amount) {
             throw new Error(`Tổng số tiền hoàn trả vượt quá giá trị đơn hàng (${final_amount.toLocaleString()}đ)!`);
           }
         } else {
-          // Nếu đã thanh toán đủ hoặc vượt quá
           let max_refundable = amount_paid;
-          // Nếu đã thanh toán đủ, cho phép hoàn trả tối đa bằng final_amount
           if (amount_paid >= final_amount) {
             max_refundable = final_amount;
           }
-          if ((total_refund_before + total_refund_this_time) > max_refundable) {
+          // Làm tròn khi so sánh để tránh lỗi số lẻ
+          const totalRefundSoFar = Math.round((total_refund_before + net_refund_this_time) * 100) / 100;
+          const maxRefundableRounded = Math.round(max_refundable * 100) / 100;
+          if (totalRefundSoFar > maxRefundableRounded) {
             throw new Error('Tổng số tiền hoàn trả vượt quá số tiền khách đã thanh toán!');
           }
         }
@@ -93,11 +117,8 @@ const CustomerReturnService = {
         return_id: returnResult.return_id
       })));
 
-      // Sau khi tạo xong chi tiết, tính lại total_refund
-      let total_refund = 0;
-      if (Array.isArray(detailsSaved)) {
-        total_refund = detailsSaved.reduce((sum, d) => sum + (d.refund_amount || 0), 0);
-      }
+      // Sau khi tạo xong chi tiết, tính lại total_refund (theo đúng logic mới)
+      let total_refund = net_refund_this_time;
 
       return {
         ...returnResult,
@@ -224,6 +245,31 @@ const CustomerReturnService = {
         // Không throw error để không ảnh hưởng đến việc process return_order
       }
 
+      // ✅ Cập nhật total_expenditure và total_orders sau khi process return_order
+      try {
+        console.log(`🔄 Đang cập nhật total_expenditure và total_orders cho customer_id: ${returnInfo.customer_id}`);
+        
+        // Lấy thông tin cập nhật từ CustomerReportService
+        const customerOverview = await CustomerReportService.getTotalOrdersAndExpenditure(returnInfo.customer_id);
+        
+        const newTotalOrders = customerOverview.total_orders;
+        const newTotalExpenditure = parseFloat(customerOverview.total_expenditure || 0);
+        
+        console.log(`📊 Total orders mới: ${newTotalOrders}`);
+        console.log(`📊 Total expenditure mới: ${newTotalExpenditure}`);
+        
+        // Cập nhật customer với thông tin mới
+        await CustomerModel.update(returnInfo.customer_id, {
+          total_expenditure: newTotalExpenditure,
+          total_orders: newTotalOrders
+        });
+        
+        console.log(`✅ Đã cập nhật total_expenditure và total_orders thành công cho customer_id: ${returnInfo.customer_id}`);
+      } catch (reportError) {
+        console.error(`❌ Lỗi khi cập nhật total_expenditure và total_orders:`, reportError);
+        // Không throw error để không ảnh hưởng đến việc process return_order
+      }
+      
       // Cập nhật trạng thái đơn trả hàng
       await CustomerReturn.updateStatus(return_id, "completed");
 
@@ -331,11 +377,33 @@ const CustomerReturnService = {
         CustomerReturn.count(filters)
       ]);
 
-      // Bổ sung: Tính tổng tiền hoàn cho từng đơn trả hàng
+      // Bổ sung: Tính tổng tiền hoàn cho từng đơn trả hàng (chuẩn: trừ discount trên đơn theo tỷ lệ)
       for (const ret of returns) {
         let details = await CustomerReturn.getReturnDetails(ret.return_id);
         if (!Array.isArray(details)) details = [];
-        ret.total_refund = details.reduce((sum, d) => sum + (Number(d.refund_amount) || 0), 0);
+        // Tổng giá trị sản phẩm trả lại (đã trừ discount trên sản phẩm)
+        let totalProductRefund = details.reduce((sum, d) => sum + (Number(d.refund_amount) || 0), 0);
+
+        // Lấy order gốc để lấy order_amount và tổng quantity
+        let orderInfo = null;
+        let orderLevelDiscountAllocated = 0;
+        if (ret.order_id) {
+          // Lấy order_amount và tổng quantity
+          const Order = require('../orders/order.model');
+          orderInfo = await Order.readById(ret.order_id);
+          if (orderInfo) {
+            const order_amount = Number(orderInfo.order_amount || 0);
+            const OrderDetailService = require('../orderDetails/orderDetail.service');
+            const orderDetails = await OrderDetailService.getOrderDetailByOrderId(ret.order_id);
+            const totalOrderQuantity = orderDetails.products.reduce((sum, p) => sum + (p.quantity || 0), 0);
+            const totalReturnQuantity = details.reduce((sum, d) => sum + (d.quantity || 0), 0);
+            // Phân bổ giảm giá trên đơn cho số lượng trả lại
+            orderLevelDiscountAllocated = order_amount * (totalReturnQuantity / totalOrderQuantity);
+          }
+        }
+        // Tổng hoàn trả thực tế
+        ret.total_refund = totalProductRefund - orderLevelDiscountAllocated;
+        if (ret.total_refund < 0) ret.total_refund = 0;
       }
 
       return {

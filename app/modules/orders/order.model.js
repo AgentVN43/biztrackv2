@@ -426,18 +426,56 @@ const OrderModel = {
     });
     if (!orderRows || !orderRows[0]) return null;
     const order = orderRows[0];
-    const [refundRows] = await new Promise((resolve, reject) => {
-      db.query(`SELECT SUM(roi.refund_amount) as total_refund
-                FROM return_orders ro
-                JOIN return_order_items roi ON ro.return_id = roi.return_id
-                WHERE ro.order_id = ?`, [order_id], (err, rows) => {
+
+    // Lấy tất cả return_orders của order này (đã approved/completed)
+    const [returnRows] = await new Promise((resolve, reject) => {
+      db.query(`SELECT ro.return_id FROM return_orders ro WHERE ro.order_id = ? AND ro.status IN ('approved', 'completed')`, [order_id], (err, rows) => {
         if (err) return reject(err);
         resolve([rows]);
       });
     });
-    const total_refund = refundRows && refundRows[0] && refundRows[0].total_refund ? Number(refundRows[0].total_refund) : 0;
+
+    // Lấy tổng quantity của order gốc
+    let total_order_quantity = 0;
+    const [orderDetailRows] = await new Promise((resolve, reject) => {
+      db.query(`SELECT * FROM order_details WHERE order_id = ?`, [order_id], (err, rows) => {
+        if (err) return reject(err);
+        resolve([rows]);
+      });
+    });
+    if (orderDetailRows && Array.isArray(orderDetailRows)) {
+      total_order_quantity = orderDetailRows.reduce((sum, p) => sum + (p.quantity || 0), 0);
+    }
+    const order_amount = Number(order.order_amount || 0);
     const final_amount = Number(order.final_amount || 0);
-    const remaining_value = final_amount - total_refund;
+
+    // Tính tổng hoàn trả thực tế (chuẩn: phân bổ order_amount cho từng lần trả)
+    let total_refund = 0;
+    for (const ret of returnRows) {
+      // Lấy chi tiết trả hàng
+      const [returnDetailRows] = await new Promise((resolve, reject) => {
+        db.query(`SELECT * FROM return_order_items WHERE return_id = ?`, [ret.return_id], (err, rows) => {
+          if (err) return reject(err);
+          resolve([rows]);
+        });
+      });
+      // Tổng giá trị sản phẩm trả lại (đã trừ discount trên sản phẩm)
+      let totalProductRefund = returnDetailRows.reduce((sum, d) => sum + (Number(d.refund_amount) || 0), 0);
+      // Tổng quantity trả lại lần này
+      let totalReturnQuantity = returnDetailRows.reduce((sum, d) => sum + (d.quantity || 0), 0);
+      // Phân bổ giảm giá trên đơn cho số lượng trả lại
+      let orderLevelDiscountAllocated = 0;
+      if (order_amount > 0 && total_order_quantity > 0 && totalReturnQuantity > 0) {
+        orderLevelDiscountAllocated = order_amount * (totalReturnQuantity / total_order_quantity);
+      }
+      // Tổng hoàn trả thực tế cho lần này
+      let net_refund_this_time = totalProductRefund - orderLevelDiscountAllocated;
+      if (net_refund_this_time < 0) net_refund_this_time = 0;
+      total_refund += net_refund_this_time;
+    }
+    // Làm tròn 2 số lẻ
+    total_refund = Math.round(total_refund * 100) / 100;
+    const remaining_value = Math.max(0, final_amount - total_refund);
     return {
       ...order,
       total_refund,
