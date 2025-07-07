@@ -1,4 +1,5 @@
 const CustomerReturn = require("./customer_return.model");
+const InvoiceModel = require("../invoice/invoice.model");
 const Order = require("../orders/order.model");
 const CustomerModel = require("../customers/customer.model");
 const Inventory = require("../inventories/inventory.model");
@@ -14,7 +15,7 @@ const generateTransactionCode = () => {
   const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
   const timeStr = `${String(today.getHours()).padStart(2, "0")}${String(today.getMinutes()).padStart(2, "0")}${String(today.getSeconds()).padStart(2, "0")}`;
   const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
-  
+
   return `${prefix}-${dateStr}-${timeStr}-${randomStr}`;
 };
 
@@ -173,14 +174,14 @@ const CustomerReturnService = {
       if (!returnInfo) {
         throw new Error("Return order not found");
       }
-      
+
       if (returnInfo.status === "completed") {
         throw new Error("Return order already processed");
       }
-      
+
       // Lấy chi tiết trả hàng
       const returnDetails = await CustomerReturn.getReturnDetails(return_id);
-      
+
       // Cập nhật inventory (thêm hàng trả về kho)
       for (const detail of returnDetails) {
         // Cần xác định warehouse_id từ order hoặc po
@@ -189,7 +190,7 @@ const CustomerReturnService = {
           const order = await Order.readById(returnInfo.order_id);
           warehouse_id = order?.warehouse_id;
         }
-        
+
         if (warehouse_id) {
           // Tăng số lượng tồn kho khi nhận hàng trả
           await Inventory.updateQuantitySimple(
@@ -197,7 +198,7 @@ const CustomerReturnService = {
             warehouse_id,
             detail.quantity
           );
-          
+
           // Ghi lại lịch sử điều chỉnh tồn kho
           await Inventory.recordAdjustment({
             product_id: detail.product_id,
@@ -209,12 +210,12 @@ const CustomerReturnService = {
           });
         }
       }
-      
+
       // Tính tổng số tiền hoàn trả
       const totalRefundAmount = returnDetails.reduce((sum, detail) => {
         return sum + (detail.refund_amount || 0);
       }, 0);
-      
+
       // Nếu có hoàn tiền, tạo transaction
       // if (totalRefundAmount > 0) {
       //   await Transaction.createTransaction({
@@ -230,7 +231,7 @@ const CustomerReturnService = {
       //     initiated_by: null
       //   });
       // }
-      
+
       // ✅ LUÔN cập nhật debt của khách hàng sau khi process return_order
       // (dù có hoàn tiền hay không, vì có thể ảnh hưởng đến công nợ từ các đơn hàng liên quan)
       try {
@@ -271,7 +272,7 @@ const CustomerReturnService = {
       
       // Cập nhật trạng thái đơn trả hàng
       await CustomerReturn.updateStatus(return_id, "completed");
-      
+
       return {
         return_id,
         status: "completed",
@@ -289,17 +290,17 @@ const CustomerReturnService = {
       if (!returnInfo) {
         throw new Error("Return order not found");
       }
-      
+
       if (returnInfo.status === "completed") {
         throw new Error("Cannot reject already processed return order");
       }
-      
+
       // Cập nhật trạng thái và lý do từ chối
       await CustomerReturn.update(return_id, {
         status: "rejected",
         note: rejection_reason
       });
-      
+
       return {
         return_id,
         status: "rejected",
@@ -322,6 +323,17 @@ const CustomerReturnService = {
       }
       // Cập nhật trạng thái
       await CustomerReturn.updateStatus(return_id, "approved");
+
+      // Cập nhật amout_paid của hóa đơn
+      const invoice = await InvoiceModel.findByOrderId(returnInfo.order_id)
+      console.log("🚀 ~ approveReturn: ~ invoice:", invoice)
+
+      let returnDetails = await CustomerReturn.getReturnDetails(return_id);
+      if (!Array.isArray(returnDetails)) returnDetails = [];
+      const total_refund = returnDetails.reduce((sum, d) => sum + (Number(d.refund_amount) || 0), 0);
+
+      await InvoiceModel.updateAmountPaidAndStatus(invoice.invoice_id, total_refund);
+
       // Sau khi approve, tự động process toàn bộ nghiệp vụ
       const processResult = await CustomerReturnService.processReturn(return_id, null); // null: hệ thống xử lý
       return {
@@ -342,9 +354,9 @@ const CustomerReturnService = {
       if (!returnInfo) {
         throw new Error("Return order not found");
       }
-      
+
       const returnDetails = await CustomerReturn.getReturnDetails(return_id);
-      
+
       return {
         ...returnInfo,
         details: returnDetails
@@ -359,12 +371,12 @@ const CustomerReturnService = {
     try {
       const offset = (page - 1) * limit;
       const pagination = { limit, offset };
-      
+
       const [returns, total] = await Promise.all([
         CustomerReturn.getAll(filters, pagination),
         CustomerReturn.count(filters)
       ]);
-      
+
       // Bổ sung: Tính tổng tiền hoàn cho từng đơn trả hàng (chuẩn: trừ discount trên đơn theo tỷ lệ)
       for (const ret of returns) {
         let details = await CustomerReturn.getReturnDetails(ret.return_id);
@@ -393,7 +405,7 @@ const CustomerReturnService = {
         ret.total_refund = totalProductRefund - orderLevelDiscountAllocated;
         if (ret.total_refund < 0) ret.total_refund = 0;
       }
-      
+
       return {
         returns,
         pagination: {
@@ -412,12 +424,12 @@ const CustomerReturnService = {
   getReturnStatistics: async (filters = {}) => {
     try {
       const statistics = await CustomerReturn.getStatistics(filters);
-      
+
       // Tính tỷ lệ trả hàng
-      const returnRate = statistics.total_returns > 0 
+      const returnRate = statistics.total_returns > 0
         ? ((statistics.total_returns / (statistics.total_returns + 1000)) * 100).toFixed(2) // Giả sử có 1000 đơn hàng
         : 0;
-      
+
       return {
         ...statistics,
         return_rate: returnRate
@@ -505,12 +517,12 @@ const CustomerReturnService = {
   calculateRefundAmount: async (return_id) => {
     try {
       const returnDetails = await CustomerReturn.getReturnDetails(return_id);
-      
+
       let totalRefund = 0;
       for (const detail of returnDetails) {
         totalRefund += detail.refund_amount || 0;
       }
-      
+
       return totalRefund;
     } catch (error) {
       throw error;
@@ -546,10 +558,10 @@ const CustomerReturnService = {
         created_at_from: dateFrom,
         created_at_to: dateTo
       };
-      
+
       const returns = await CustomerReturn.getAll(filters);
       const statistics = await CustomerReturn.getStatistics(filters);
-      
+
       // Nhóm theo trạng thái
       const statusGroups = {};
       returns.forEach(ret => {
@@ -561,7 +573,7 @@ const CustomerReturnService = {
           };
         }
         statusGroups[status].count++;
-        
+
         // Tính tổng refund từ details
         if (ret.details) {
           const totalRefund = ret.details.reduce((sum, detail) => {
@@ -570,7 +582,7 @@ const CustomerReturnService = {
           statusGroups[status].total_refund += totalRefund;
         }
       });
-      
+
       return {
         returns,
         statistics,
