@@ -474,32 +474,33 @@ const CustomerReportService = {
         const orderAdvanceAmount = parseFloat(order.amount_paid) || 0;
 
         // Tìm hóa đơn tương ứng với đơn hàng này
-        const relatedInvoice = invoices.find(inv => inv.order_id === order.order_id);
+        // const relatedInvoice = invoices.find(inv => inv.order_id === order.order_id);
 
         // Tìm các giao dịch thanh toán liên quan đến đơn hàng này
-        const relatedTransactions = transactions.filter(trx =>
-          trx.related_type === 'order' && trx.related_id === order.order_id
-        );
+        // const relatedTransactions = transactions.filter(trx =>
+        //   trx.related_type === 'order' && trx.related_id === order.order_id
+        // );
 
         // Tìm các giao dịch thanh toán liên quan đến invoice của đơn hàng này
-        const relatedInvoiceTransactions = transactions.filter(trx => {
-          if (trx.related_type === 'invoice' && relatedInvoice) {
-            return trx.related_id === relatedInvoice.invoice_id && trx.type === 'receipt';
-          }
-          return false;
-        });
+        // const relatedInvoiceTransactions = transactions.filter(trx => {
+        //   if (trx.related_type === 'invoice' && relatedInvoice) {
+        //     return trx.related_id === relatedInvoice.invoice_id && trx.type === 'receipt';
+        //   }
+        //   return false;
+        // });
 
         // Tổng số tiền đã thanh toán thực tế cho invoice này (manual payment, type: 'receipt')
-        const totalRealPaidForInvoice = relatedInvoiceTransactions.reduce((sum, trx) => sum + parseFloat(trx.amount), 0);
+        // const totalRealPaidForInvoice = relatedInvoiceTransactions.reduce((sum, trx) => sum + parseFloat(trx.amount), 0);
 
         // Advance payment chỉ ghi nhận phần còn lại chưa được thanh toán thực tế
-        let advanceLeft = orderAdvanceAmount - totalRealPaidForInvoice;
-        if (orderAdvanceAmount > 0 && advanceLeft > 0.0001) { // dùng > 0.0001 để tránh lỗi số thực
+        // let advanceLeft = orderAdvanceAmount - totalRealPaidForInvoice;
+        // if (orderAdvanceAmount > 0 && advanceLeft > 0.0001)
+        if (orderAdvanceAmount > 0) { // dùng > 0.0001 để tránh lỗi số thực
           allTransactions.push({
-            transaction_code: `${order.order_code}-ADVANCE`,
+            transaction_code: `TTDH-${order.order_code}`,
             transaction_date: new Date(orderDate.getTime() + 1000),
             type: 'partial_paid',
-            amount: advanceLeft,
+            amount: orderAdvanceAmount,
             description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
             order_id: order.order_id,
             invoice_id: null,
@@ -525,38 +526,38 @@ const CustomerReportService = {
         });
 
         // Nếu có hóa đơn và có thanh toán bổ sung (không phải thanh toán trước)
-        if (relatedInvoice && parseFloat(relatedInvoice.amount_paid) > orderAdvanceAmount) {
-          const additionalPayment = parseFloat(relatedInvoice.amount_paid) - orderAdvanceAmount;
-          // Tổng số tiền đã thanh toán thực tế cho invoice này (manual payment, type: 'receipt')
-          const totalRealPaidForInvoice = transactions.filter(trx => trx.related_type === 'invoice' && trx.related_id === relatedInvoice.invoice_id && trx.type === 'receipt')
-            .reduce((sum, trx) => sum + parseFloat(trx.amount), 0);
-          // Số tiền bổ sung còn lại chưa được thanh toán thực tế
-          const additionalLeft = additionalPayment - Math.max(0, totalRealPaidForInvoice - orderAdvanceAmount);
-          if (additionalPayment > 0 && additionalLeft > 0.0001) {
-            allTransactions.push({
-              transaction_code: `${relatedInvoice.invoice_code}-ADDITIONAL`,
-              transaction_date: new Date(relatedInvoice.created_at),
-              type: 'partial_paid',
-              amount: additionalLeft,
-              description: `Thanh toán bổ sung cho hóa đơn ${relatedInvoice.invoice_code}`,
-              order_id: order.order_id,
-              invoice_id: relatedInvoice.invoice_id,
-              transaction_id: null,
-              invoice_code: relatedInvoice.invoice_code,
-              status: relatedInvoice.status
-            });
-          }
-        }
+        // if (relatedInvoice && parseFloat(relatedInvoice.amount_paid) > orderAdvanceAmount) {
+        //   const additionalPayment = parseFloat(relatedInvoice.amount_paid) - orderAdvanceAmount;
+        //   // Tổng số tiền đã thanh toán thực tế cho invoice này (manual payment, type: 'receipt')
+        //   const totalRealPaidForInvoice = transactions.filter(trx => trx.related_type === 'invoice' && trx.related_id === relatedInvoice.invoice_id && trx.type === 'receipt')
+        //     .reduce((sum, trx) => sum + parseFloat(trx.amount), 0);
+        //   // Số tiền bổ sung còn lại chưa được thanh toán thực tế
+        //   const additionalLeft = additionalPayment - Math.max(0, totalRealPaidForInvoice - orderAdvanceAmount);
+        //   if (additionalPayment > 0 && additionalLeft > 0.0001) {
+        //     allTransactions.push({
+        //       transaction_code: `${relatedInvoice.invoice_code}-ADDITIONAL`,
+        //       transaction_date: new Date(relatedInvoice.created_at),
+        //       type: 'partial_paid',
+        //       amount: additionalLeft,
+        //       description: `Thanh toán bổ sung cho hóa đơn ${relatedInvoice.invoice_code}`,
+        //       order_id: order.order_id,
+        //       invoice_id: relatedInvoice.invoice_id,
+        //       transaction_id: null,
+        //       invoice_code: relatedInvoice.invoice_code,
+        //       status: relatedInvoice.status
+        //     });
+        //   }
+        // }
       });
 
       // ✅ Xử lý return_orders (ghi nhận giảm công nợ)
       returnOrders.forEach(returnOrder => {
         const returnDate = new Date(returnOrder.created_at);
         const refundAmount = parseFloat(returnOrder.total_refund || 0);
-        
+
         if (refundAmount > 0) {
           allTransactions.push({
-            transaction_code: `RETURN-${returnOrder.return_id}`,
+            transaction_code: `TH-${returnOrder.return_id}`,
             transaction_date: returnDate,
             type: 'return',
             amount: refundAmount,

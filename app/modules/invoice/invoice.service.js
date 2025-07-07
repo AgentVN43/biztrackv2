@@ -177,7 +177,7 @@ const InvoiceService = {
       // 2. Tạo một giao dịch thanh toán (Transaction)
       // Đây là bằng chứng của dòng tiền
       const transactionData = {
-        transaction_code: `TRX-${Date.now()}-${Math.floor(
+        transaction_code: `TT-${Date.now()}-${Math.floor(
           Math.random() * 1000
         )}`,
         type: "receipt", // Loại giao dịch là thu tiền
@@ -303,7 +303,7 @@ const InvoiceService = {
 
       // 2. Tạo giao dịch với method chung
       const transactionData = {
-        transaction_code: `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        transaction_code: `TT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         type: "receipt",
         amount: payment.amount,
         description: `Thanh toán cho hóa đơn ${invoice.invoice_code}`,
