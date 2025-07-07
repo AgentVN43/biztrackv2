@@ -12,6 +12,8 @@ const CustomerReturnController = {
         supplier_id,
         type = "customer_return",
         note,
+        shipping_fee,
+        order_amount,
         return_details
       } = req.body;
 
@@ -35,7 +37,9 @@ const CustomerReturnController = {
         supplier_id,
         type,
         status: "pending",
-        note
+        note,
+        shipping_fee,
+        order_amount
       };
 
       const result = await CustomerReturnService.createReturnWithDetails(returnData, return_details);

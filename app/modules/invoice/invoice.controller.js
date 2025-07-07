@@ -1,5 +1,7 @@
 const { createResponse } = require("../../utils/response");
 const InvoiceService = require("./invoice.service");
+const CustomerModel = require("../customers/customer.model");
+const { paginateResponse } = require("../../utils/pagination");
 
 const getAllInvoices = async (req, res) => {
   try {
@@ -21,8 +23,43 @@ const getPaidInvoices = async (req, res) => {
 
 const getUnPaidInvoices = async (req, res) => {
   try {
-    const invoices = await InvoiceService.getUnPaid();
-    return res.status(200).json(invoices);
+    // 1. Lấy params phân trang
+    const page = parseInt(req.query.page) > 0 ? parseInt(req.query.page) : 1;
+    const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 10;
+    const offset = (page - 1) * limit;
+
+    // 2. Lấy tất cả hóa đơn chưa thanh toán
+    const allInvoices = await InvoiceService.getUnPaid();
+    const total = allInvoices.length;
+    const paginatedInvoices = allInvoices.slice(offset, offset + limit);
+
+    // 3. Lấy thông tin khách hàng cho từng hóa đơn (song song)
+    const customerIds = [...new Set(paginatedInvoices.map(inv => inv.customer_id).filter(Boolean))];
+    const customerMap = {};
+    await Promise.all(customerIds.map(async (cid) => {
+      const customer = await CustomerModel.getById(cid);
+      if (customer) {
+        customerMap[cid] = {
+          customer_id: customer.customer_id,
+          customer_name: customer.customer_name,
+          email: customer.email,
+          phone: customer.phone,
+          debt: customer.debt
+        };
+      }
+    }));
+
+    // 4. Thay thế customer_id bằng object customer
+    const invoicesWithCustomer = paginatedInvoices.map(inv => {
+      const { customer_id, ...rest } = inv;
+      return {
+        ...rest,
+        customer: customerMap[customer_id] || null
+      };
+    });
+
+    // 5. Trả về response phân trang
+    return res.json(paginateResponse(invoicesWithCustomer, total, page, limit));
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

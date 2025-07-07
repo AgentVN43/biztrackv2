@@ -449,9 +449,11 @@ const OrderModel = {
     const order_amount = Number(order.order_amount || 0);
     const final_amount = Number(order.final_amount || 0);
 
-    // Tính tổng hoàn trả thực tế (chuẩn: phân bổ order_amount cho từng lần trả)
+    // Tính tổng hoàn trả thực tế (chuẩn: phân bổ order_amount cho từng lần trả, lần cuối hoàn nốt số còn lại)
     let total_refund = 0;
-    for (const ret of returnRows) {
+    let total_quantity_returned = 0;
+    for (let i = 0; i < returnRows.length; i++) {
+      const ret = returnRows[i];
       // Lấy chi tiết trả hàng
       const [returnDetailRows] = await new Promise((resolve, reject) => {
         db.query(`SELECT * FROM return_order_items WHERE return_id = ?`, [ret.return_id], (err, rows) => {
@@ -463,15 +465,25 @@ const OrderModel = {
       let totalProductRefund = returnDetailRows.reduce((sum, d) => sum + (Number(d.refund_amount) || 0), 0);
       // Tổng quantity trả lại lần này
       let totalReturnQuantity = returnDetailRows.reduce((sum, d) => sum + (d.quantity || 0), 0);
-      // Phân bổ giảm giá trên đơn cho số lượng trả lại
-      let orderLevelDiscountAllocated = 0;
-      if (order_amount > 0 && total_order_quantity > 0 && totalReturnQuantity > 0) {
-        orderLevelDiscountAllocated = order_amount * (totalReturnQuantity / total_order_quantity);
+      total_quantity_returned += totalReturnQuantity;
+      // Nếu là lần trả cuối cùng (sau khi trả xong lần này, tổng quantity đã trả >= tổng quantity đã mua)
+      let isFinalReturn = (total_quantity_returned >= total_order_quantity && total_order_quantity > 0 && i === returnRows.length - 1);
+      if (isFinalReturn) {
+        // Lần trả cuối cùng: hoàn nốt số còn lại
+        let refundThisTime = final_amount - total_refund;
+        if (refundThisTime < 0) refundThisTime = 0;
+        total_refund += refundThisTime;
+      } else {
+        // Các lần trước: phân bổ discount như cũ
+        let orderLevelDiscountAllocated = 0;
+        if (order_amount > 0 && total_order_quantity > 0 && totalReturnQuantity > 0) {
+          orderLevelDiscountAllocated = order_amount * (totalReturnQuantity / total_order_quantity);
+        }
+        // Tổng hoàn trả thực tế cho lần này
+        let net_refund_this_time = totalProductRefund - orderLevelDiscountAllocated;
+        if (net_refund_this_time < 0) net_refund_this_time = 0;
+        total_refund += net_refund_this_time;
       }
-      // Tổng hoàn trả thực tế cho lần này
-      let net_refund_this_time = totalProductRefund - orderLevelDiscountAllocated;
-      if (net_refund_this_time < 0) net_refund_this_time = 0;
-      total_refund += net_refund_this_time;
     }
     // Làm tròn 2 số lẻ
     total_refund = Math.round(total_refund * 100) / 100;
