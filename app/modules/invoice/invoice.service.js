@@ -310,6 +310,7 @@ const InvoiceService = {
         category: "sale_payment",
         payment_method: method, // Sử dụng method chung
         customer_id: invoice.customer_id,
+        order_id: invoice.order_id,
         related_type: "invoice",
         related_id: invoice.invoice_id,
         initiated_by: initiatedByUserId,
@@ -326,7 +327,7 @@ const InvoiceService = {
       await CustomerModel.update(customerId, { debt: newDebt });
       return { customer_id: customerId, new_debt: newDebt, message: "Thanh toán hàng loạt và cập nhật công nợ thành công." };
     }
-    
+
     return { message: "Thanh toán hàng loạt thành công." };
   },
 
@@ -338,7 +339,7 @@ const InvoiceService = {
   getAllPayments: async (customer_id = null) => {
     try {
       // 1. Lấy tất cả hóa đơn
-      const invoices = customer_id 
+      const invoices = customer_id
         ? await InvoiceModel.getAllByCustomerId(customer_id)
         : await InvoiceModel.getAll();
 
@@ -352,13 +353,13 @@ const InvoiceService = {
 
       // Xử lý từng hóa đơn
       for (const invoice of invoices) {
-        const invoiceTransactions = transactions.filter(trx => 
+        const invoiceTransactions = transactions.filter(trx =>
           trx.related_type === 'invoice' && trx.related_id === invoice.invoice_id
         );
 
         // Nếu có amount_paid từ hóa đơn và chưa có transaction thực tế
         if (parseFloat(invoice.amount_paid) > 0) {
-          const totalTransactionAmount = invoiceTransactions.reduce((sum, trx) => 
+          const totalTransactionAmount = invoiceTransactions.reduce((sum, trx) =>
             sum + parseFloat(trx.amount), 0
           );
 

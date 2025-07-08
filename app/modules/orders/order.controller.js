@@ -226,7 +226,7 @@ const OrderDetailService = require("../orderDetails/orderDetail.service"); // C�
 const Inventory = require("../inventories/inventory.service"); // Cần import InventoryService
 const { paginateResponse } = require("../../utils/pagination");
 const { processDateFilters } = require("../../utils/dateUtils");
-const { createResponse } = require("../../utils/response");
+const { createResponse, errorResponse } = require("../../utils/response");
 const Order = require('./order.model');
 
 // Hàm tính toán tổng tiền đơn hàng (được giữ lại trong controller vì được sử dụng trực tiếp ở đây)
@@ -649,6 +649,39 @@ const OrderController = {
       return res.status(200).json({ success: true, data: result });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  getOrderTransactionLedger: async (req, res, next) => {
+    const order_id = req.params.id;
+    try {
+      const ledger = await OrderService.getOrderTransactionLedger(
+        order_id
+      );
+
+      // if (ledger.length === 0) {
+      //   return createResponse(
+      //     res,
+      //     404,
+      //     false,
+      //     null,
+      //     `Không tìm thấy lịch sử giao dịch cho đơn hàng ID: ${order_id}.`
+      //   );
+      // }
+
+      createResponse(
+        res,
+        200,
+        true,
+        ledger,
+        "Sổ cái giao dịch của đơn hàng đã được tải thành công."
+      );
+    } catch (error) {
+      console.error(
+        "🚀 ~ OrderController: getOrderTransactionLedger - Lỗi:",
+        error
+      );
+      return errorResponse(res, error.message || "Lỗi server", 500);
     }
   },
 };

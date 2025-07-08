@@ -32,6 +32,7 @@ const TransactionModel = {
     related_type = null,
     related_id = null,
     initiated_by = null,
+    order_id = null,
   }) => {
     return new Promise((resolve, reject) => {
       const transaction_id = uuidv4();
@@ -40,8 +41,8 @@ const TransactionModel = {
         INSERT INTO transactions (
           transaction_id, transaction_code, type, amount, description, category,
           payment_method, customer_id, supplier_id, related_type, related_id,
-          created_at, updated_at, initiated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
+          order_id, created_at, updated_at, initiated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?)
       `;
 
       const values = [
@@ -56,6 +57,7 @@ const TransactionModel = {
         supplier_id, // ✅ Giá trị supplier_id
         related_type,
         related_id,
+        order_id,
         initiated_by,
       ];
 
@@ -114,6 +116,19 @@ const TransactionModel = {
           return reject(err);
         }
         resolve(result);
+      });
+    });
+  },
+
+  getTransactionsByOrderId: (order_id) => {
+    return new Promise((resolve, reject) => {
+      const sql = `SELECT * FROM transactions WHERE order_id = ?`;
+      db.query(sql, [order_id], (err, results) => {
+        if (err) {
+          console.error("🚀 ~ Error fetching transactions by order_id:", err);
+          return reject(err);
+        }
+        resolve(results);
       });
     });
   },
