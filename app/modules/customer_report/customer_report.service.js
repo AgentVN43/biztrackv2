@@ -171,7 +171,7 @@ const CustomerReportService = {
       `;
       const [orders] = await db.promise().query(orderSql, [customer_id]);
 
-      // 2. Lấy tất cả đơn trả hàng
+      // 2. Lấy tất cả đơn trả hàng (không group theo order_id)
       const returnSql = `
         SELECT
           ro.return_id,
@@ -184,34 +184,20 @@ const CustomerReportService = {
         LEFT JOIN orders o ON ro.order_id = o.order_id
         WHERE ro.customer_id = ?
           AND ro.status IN ('approved', 'completed')
-        ORDER BY ro.created_at DESC;
+        ORDER BY ro.created_at ASC;
       `;
       const [returns] = await db.promise().query(returnSql, [customer_id]);
 
-      // Tính lại total_refund cho từng return theo logic chuẩn
+      // Tính lại refund cho từng lần trả
+      const refundMap = {};
       for (const ret of returns) {
         if (!ret.order_id) {
-          ret.total_refund = 0;
-          ret.total_amount = 0;
-          ret.final_amount = 0;
+          refundMap[ret.return_id] = 0;
         } else {
-          ret.total_refund = await calculateOrderTotalRefund(ret.order_id);
-          ret.total_amount = ret.total_refund;
-          ret.final_amount = ret.total_refund;
+          const arr = await calculateRefundForEachReturn(ret.order_id);
+          const found = arr.find(r => r.return_id === ret.return_id);
+          refundMap[ret.return_id] = found ? found.refund_amount : 0;
         }
-        // Gán lại các trường cho order-history
-        ret.discount_amount = "0.00";
-        ret.payment_method = "refund";
-        ret.return_count = 0;
-        ret.has_returns = true;
-        ret.type = "return";
-        ret.final_amount_after_returns = 0;
-        ret.order_code = `TH-${ret.related_order_code}`;
-        ret.order_date = ret.return_created_at;
-        ret.order_status = ret.return_status;
-        ret.note = ret.return_note;
-        ret.created_at = ret.return_created_at;
-        ret.updated_at = ret.return_created_at;
       }
 
       // 3. Thêm các đơn hàng vào kết quả
@@ -238,27 +224,27 @@ const CustomerReportService = {
         });
       });
 
-      // 4. Thêm các đơn trả hàng vào kết quả
+      // 4. Thêm các đơn trả hàng vào kết quả (mỗi lần trả là 1 record riêng biệt)
       returns.forEach(ret => {
         result.push({
           order_id: ret.return_id, // Sử dụng return_id làm order_id để tương thích
-          order_code: ret.order_code,
-          order_date: ret.order_date,
-          order_status: ret.order_status,
-          total_amount: ret.total_amount,
-          final_amount: ret.final_amount,
-          discount_amount: ret.discount_amount,
-          note: ret.note,
-          payment_method: ret.payment_method,
-          created_at: ret.created_at,
-          updated_at: ret.updated_at,
+          order_code: `TH-${ret.related_order_code}`,
+          order_date: ret.return_created_at,
+          order_status: ret.return_status,
+          total_amount: refundMap[ret.return_id],
+          final_amount: refundMap[ret.return_id],
+          discount_amount: "0.00",
+          note: ret.return_note,
+          payment_method: "refund",
+          created_at: ret.return_created_at,
+          updated_at: ret.return_created_at,
           // Thông tin bổ sung để phân biệt với order thật
           type: 'return',
           related_order_code: ret.related_order_code,
-          return_count: ret.return_count,
-          has_returns: ret.has_returns,
-          total_refund: ret.total_refund,
-          final_amount_after_returns: ret.final_amount_after_returns
+          return_count: 0,
+          has_returns: true,
+          total_refund: refundMap[ret.return_id],
+          final_amount_after_returns: 0
         });
       });
 
@@ -611,47 +597,17 @@ const CustomerReportService = {
         // }
       });
 
-      // ✅ Xử lý return_orders (ghi nhận giảm công nợ)
-      const CustomerReturn = require("../customer_return/customer_return.model");
-      const OrderDetailService = require("../orderDetails/orderDetail.service");
-      const Order = require("../orders/order.model");
+      // Xử lý return_orders: mỗi lần trả là 1 record riêng biệt
       for (const returnOrder of returnOrders) {
-        const details = await CustomerReturn.getReturnDetails(returnOrder.return_id);
-        // Lấy order gốc để lấy giá, discount sản phẩm, order-level discount
-        let orderInfo = null;
-        let orderDetails = null;
-        let productPriceMap = {};
-        let productDiscountMap = {};
-        let total_order_gross = 0;
-        if (returnOrder.order_id) {
-          orderInfo = await Order.readById(returnOrder.order_id);
-          orderDetails = await OrderDetailService.getOrderDetailByOrderId(returnOrder.order_id);
-          if (orderDetails && Array.isArray(orderDetails.products)) {
-            for (const p of orderDetails.products) {
-              productPriceMap[p.product_id] = p.price;
-              productDiscountMap[p.product_id] = p.discount || 0;
-            }
-            total_order_gross = orderDetails.products.reduce((sum, p) => sum + (p.price * (p.quantity || 0)), 0);
-          }
-        }
-        // Tổng giá trị gốc hàng trả lại (chưa trừ discount sản phẩm)
-        let total_return_gross = details.reduce((sum, d) => sum + ((productPriceMap[d.product_id] || 0) * (d.quantity || 0)), 0);
-        // Tổng discount sản phẩm cho hàng trả lại
-        let total_return_product_discount = details.reduce((sum, d) => sum + ((productDiscountMap[d.product_id] || 0) * (d.quantity || 0)), 0);
-        // Phân bổ order-level discount (discount_amount hoặc order_amount)
-        let order_level_discount = Number(orderInfo?.order_amount || orderInfo?.discount_amount || 0);
-        let allocated_order_discount = 0;
-        if (order_level_discount > 0 && total_order_gross > 0 && total_return_gross > 0) {
-          allocated_order_discount = order_level_discount * (total_return_gross / total_order_gross);
-        }
-        // Tổng hoàn trả thực tế
-        const refundAmount = (total_return_gross - total_return_product_discount) - allocated_order_discount;
-        if (refundAmount > 0) {
+        // Tính số tiền refund đúng cho lần này
+        const refundArr = await calculateRefundForEachReturn(returnOrder.order_id);
+        const found = refundArr.find(r => r.return_id === returnOrder.return_id);
+        if (found && found.refund_amount > 0) {
           allTransactions.push({
             transaction_code: `TH-${returnOrder.order_code}`,
             transaction_date: new Date(returnOrder.created_at),
             type: 'return',
-            amount: refundAmount,
+            amount: found.refund_amount,
             description: `Trả hàng cho đơn hàng ${returnOrder.order_code || returnOrder.order_id} - ${returnOrder.status}`,
             order_id: returnOrder.order_id,
             invoice_id: null,
@@ -661,6 +617,7 @@ const CustomerReportService = {
           });
         }
       }
+
       // Thêm các giao dịch thanh toán riêng lẻ (không liên quan đến đơn hàng cụ thể)
       transactions.forEach(transaction => {
         // Kiểm tra xem giao dịch này có liên quan đến order nào không
@@ -875,6 +832,98 @@ async function calculateOrderTotalRefund(order_id) {
   // Làm tròn 2 số lẻ
   totalRefund = Math.round(totalRefund * 100) / 100;
   return totalRefund;
+}
+
+// Helper: Tính refund cho từng lần trả của 1 order
+async function calculateRefundForEachReturn(order_id) {
+  const db = require("../../config/db.config");
+  const OrderModel = require("../orders/order.model");
+  const CustomerReturn = require("../customer_return/customer_return.model");
+  const OrderDetailService = require("../orderDetails/orderDetail.service");
+
+  // 1. Lấy order gốc
+  const order = await OrderModel.readById(order_id);
+  if (!order) return [];
+  const final_amount = Number(order.final_amount || 0);
+  const order_amount = Number(order.order_amount || order.discount_amount || 0);
+
+  // 2. Lấy chi tiết sản phẩm của order
+  const orderDetails = await OrderDetailService.getOrderDetailByOrderId(order_id);
+  const orderProducts = orderDetails && Array.isArray(orderDetails.products) ? orderDetails.products : [];
+  const orderProductMap = {};
+  for (const p of orderProducts) {
+    orderProductMap[p.product_id] = p.quantity || 0;
+  }
+  // 3. Lấy tất cả return của order này, sắp xếp theo thời gian tạo
+  const [returnRows] = await db.promise().query(
+    `SELECT * FROM return_orders WHERE order_id = ? AND status IN ('approved', 'completed') ORDER BY created_at ASC, return_id ASC`,
+    [order_id]
+  );
+  if (!returnRows || returnRows.length === 0) return [];
+
+  // 4. Duyệt qua từng return, xác định lần cuối cùng, phân bổ lại số tiền hoàn
+  let totalRefund = 0;
+  let returnedQuantityMap = {};
+  for (const pid in orderProductMap) returnedQuantityMap[pid] = 0;
+  const result = [];
+  for (let i = 0; i < returnRows.length; i++) {
+    const ret = returnRows[i];
+    // Lấy chi tiết trả hàng
+    const details = await CustomerReturn.getReturnDetails(ret.return_id);
+    // Tính giá trị hàng trả lại (sau discount sản phẩm)
+    let total_return_gross = 0;
+    let total_return_product_discount = 0;
+    let productPriceMap = {};
+    let productDiscountMap = {};
+    for (const p of orderProducts) {
+      productPriceMap[p.product_id] = p.price;
+      productDiscountMap[p.product_id] = p.discount || 0;
+    }
+    for (const d of details) {
+      total_return_gross += (productPriceMap[d.product_id] || 0) * (d.quantity || 0);
+      total_return_product_discount += (productDiscountMap[d.product_id] || 0) * (d.quantity || 0);
+      // Cộng dồn quantity đã trả
+      returnedQuantityMap[d.product_id] = (returnedQuantityMap[d.product_id] || 0) + (d.quantity || 0);
+    }
+    // Tổng giá trị hàng trả lại (sau discount sản phẩm)
+    const total_return_value = total_return_gross - total_return_product_discount;
+    // Tổng giá trị hàng gốc (sau discount sản phẩm)
+    const total_order_value = orderProducts.reduce((sum, p) => sum + ((p.price - (p.discount || 0)) * (p.quantity || 0)), 0);
+    // Phân bổ discount đơn
+    let allocated_order_discount = 0;
+    if (order_amount > 0 && total_order_value > 0 && total_return_value > 0) {
+      allocated_order_discount = order_amount * (total_return_value / total_order_value);
+    }
+    // Kiểm tra nếu là lần trả cuối cùng (tất cả sản phẩm đã trả đủ quantity đã mua)
+    let isFinalReturn = true;
+    for (const pid in orderProductMap) {
+      if ((returnedQuantityMap[pid] || 0) < orderProductMap[pid]) {
+        isFinalReturn = false;
+        break;
+      }
+    }
+    let refundThisTime = 0;
+    if (isFinalReturn && i === returnRows.length - 1) {
+      // Lần trả cuối cùng: hoàn nốt số còn lại
+      refundThisTime = final_amount - totalRefund;
+      if (refundThisTime < 0) refundThisTime = 0;
+    } else {
+      // Các lần trước: phân bổ discount như cũ
+      refundThisTime = total_return_value - allocated_order_discount;
+      if (refundThisTime < 0) refundThisTime = 0;
+    }
+    refundThisTime = Math.round(refundThisTime * 100) / 100;
+    totalRefund += refundThisTime;
+    result.push({
+      return_id: ret.return_id,
+      refund_amount: refundThisTime,
+      created_at: ret.created_at,
+      order_id: ret.order_id,
+      order_code: order.order_code,
+      status: ret.status
+    });
+  }
+  return result;
 }
 
 module.exports = CustomerReportService;
