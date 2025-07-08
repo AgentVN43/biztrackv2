@@ -341,55 +341,23 @@ exports.calculateDebt = async (customer_id) => {
     const orderDebt = parseFloat(orderRows[0].total_orders_debt || 0);
     console.log(`📊 Order debt: ${orderDebt}`);
 
-    // 3. Lấy tất cả đơn trả hàng đã approved/completed
+    // 3. Lấy tất cả order_id đã có return (approved/completed)
     const returnSql = `
-      SELECT
-        ro.return_id,
-        ro.order_id
+      SELECT DISTINCT ro.order_id
       FROM return_orders ro
       WHERE ro.customer_id = ?
         AND ro.status IN ('approved', 'completed')
+        AND ro.order_id IS NOT NULL
     `;
     const [returnRows] = await db.query(returnSql, [customer_id]);
 
-    // Tính lại tổng refund đúng chuẩn cho tất cả return_orders
-    const CustomerReturn = require("../customer_return/customer_return.model");
-    const OrderDetailService = require("../orderDetails/orderDetail.service");
-    const Order = require("../orders/order.model");
+    // Tính lại tổng refund đúng chuẩn cho từng order (dùng calculateOrderTotalRefund)
     let totalRefund = 0;
-    for (const ret of returnRows) {
-      // Lấy chi tiết trả hàng
-      const details = await CustomerReturn.getReturnDetails(ret.return_id);
-      // Lấy order gốc để lấy giá, discount sản phẩm, order-level discount
-      let orderInfo = null;
-      let orderDetails = null;
-      let productPriceMap = {};
-      let productDiscountMap = {};
-      let total_order_gross = 0;
-      if (ret.order_id) {
-        orderInfo = await Order.readById(ret.order_id);
-        orderDetails = await OrderDetailService.getOrderDetailByOrderId(ret.order_id);
-        if (orderDetails && Array.isArray(orderDetails.products)) {
-          for (const p of orderDetails.products) {
-            productPriceMap[p.product_id] = p.price;
-            productDiscountMap[p.product_id] = p.discount || 0;
-          }
-          total_order_gross = orderDetails.products.reduce((sum, p) => sum + (p.price * (p.quantity || 0)), 0);
-        }
+    const { calculateOrderTotalRefund } = require("../customer_report/customer_report.service");
+    for (const row of returnRows) {
+      if (row.order_id) {
+        totalRefund += await calculateOrderTotalRefund(row.order_id);
       }
-      // Tổng giá trị gốc hàng trả lại (chưa trừ discount sản phẩm)
-      let total_return_gross = details.reduce((sum, d) => sum + ((productPriceMap[d.product_id] || 0) * (d.quantity || 0)), 0);
-      // Tổng discount sản phẩm cho hàng trả lại
-      let total_return_product_discount = details.reduce((sum, d) => sum + ((productDiscountMap[d.product_id] || 0) * (d.quantity || 0)), 0);
-      // Phân bổ order-level discount (discount_amount hoặc order_amount)
-      let order_level_discount = Number(orderInfo?.order_amount || orderInfo?.discount_amount || 0);
-      let allocated_order_discount = 0;
-      if (order_level_discount > 0 && total_order_gross > 0 && total_return_gross > 0) {
-        allocated_order_discount = order_level_discount * (total_return_gross / total_order_gross);
-      }
-      // Tổng hoàn trả thực tế
-      const refundAmount = (total_return_gross - total_return_product_discount) - allocated_order_discount;
-      if (refundAmount > 0) totalRefund += refundAmount;
     }
 
     // Tổng công nợ = Công nợ invoices + Công nợ orders - Tổng tiền đã trả hàng
@@ -397,6 +365,7 @@ exports.calculateDebt = async (customer_id) => {
     console.log(`🔍 Kết quả tính debt cho customer ${customer_id}:`);
     console.log(`  - Invoice debt: ${invoiceDebt}`);
     console.log(`  - Order debt: ${orderDebt}`);
+    console.log(`  - Total refund: ${totalRefund}`);
     console.log(`  - Final debt: ${totalDebt}`);
     return Math.max(0, totalDebt);
   } catch (error) {

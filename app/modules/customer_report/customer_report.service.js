@@ -926,4 +926,5 @@ async function calculateRefundForEachReturn(order_id) {
   return result;
 }
 
+CustomerReportService.calculateOrderTotalRefund = calculateOrderTotalRefund;
 module.exports = CustomerReportService;
