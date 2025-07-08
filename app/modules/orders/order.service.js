@@ -1,3 +1,4 @@
+const db = require("../../config/db.config"); // Import trực tiếp db instance
 const OrderModel = require("./order.model");
 const InventoryService = require("../inventories/inventory.service");
 const TransactionService = require("../transactions/transaction.service");
@@ -9,6 +10,7 @@ const InventoryModel = require("../inventories/inventory.model");
 const CustomerReportService = require("../customer_report/customer_report.service");
 const InvoiceModel = require("../invoice/invoice.model");
 const CustomerService = require("../customers/customer.service");
+const TransactionModel = require("../transactions/transaction.model"); // Để tính công nợ
 
 const { v4: uuidv4 } = require("uuid");
 
@@ -538,9 +540,8 @@ const OrderService = {
             current_stock_after: current_stock_after_at_warehouse,
             reference_id: order.order_id,
             reference_type: "ORDER",
-            description: `Sản phẩm ${
-              item.product_name || item.product_id
-            } được bán trong đơn hàng ${order.order_code}.`,
+            description: `Sản phẩm ${item.product_name || item.product_id
+              } được bán trong đơn hàng ${order.order_code}.`,
             initiated_by: initiatedByUserId,
           });
           console.log(
@@ -708,9 +709,8 @@ const OrderService = {
             current_stock_after: current_stock_after_at_warehouse,
             reference_id: order.order_id,
             reference_type: "ORDER",
-            description: `Đơn hàng ${order.order_code} bị hủy - Sản phẩm ${
-              item.product_name || item.product_id
-            } tồn kho được giải phóng.`,
+            description: `Đơn hàng ${order.order_code} bị hủy - Sản phẩm ${item.product_name || item.product_id
+              } tồn kho được giải phóng.`,
             initiated_by: initiatedByUserId,
           });
           console.log(
@@ -875,6 +875,160 @@ const OrderService = {
       return results;
     } catch (error) {
       console.error("Service - getTotalByStatus:", error.message);
+      throw error;
+    }
+  },
+
+  getOrderTransactionLedger: async (order_id) => {
+    try {
+      // 1. Lấy thông tin đơn hàng 
+      const order = await OrderModel.readById(order_id);
+      // 2. Lấy tất cả hóa đơn của đơn hàng
+      const invoicesSql = `
+        SELECT 
+          invoice_id,
+          invoice_code,
+          order_id,
+          final_amount,
+          amount_paid,
+          status,
+          issued_date,
+          created_at,
+          updated_at
+        FROM invoices 
+        WHERE customer_id = ?
+        ORDER BY created_at ASC
+      `;
+      const [invoices] = await db.promise().query(invoicesSql, [order_id]);
+
+      // 3. Lấy tất cả giao dịch thanh toán
+      const transactions = await TransactionModel.getTransactionsByOrderId(order_id);
+      console.log("🚀 ~ getCustomerTransactionLedger: ~ transactions:", transactions)
+
+      // 4. Tạo danh sách giao dịch theo thứ tự thời gian
+      const allTransactions = [];
+
+      // Xử lý  đơn hàng
+      // BỎ QUA ĐƠN HÀNG BỊ HỦY
+      if (order.order_status === 'Huỷ đơn') return;
+      const orderDate = new Date(order.created_at);
+      const orderAdvanceAmount = parseFloat(order.amount_paid) || 0;
+
+      if (orderAdvanceAmount > 0) { // dùng > 0.0001 để tránh lỗi số thực
+        allTransactions.push({
+          transaction_code: `TTDH-${order.order_code}`,
+          transaction_date: new Date(orderDate.getTime() + 1000),
+          type: 'partial_paid',
+          amount: orderAdvanceAmount,
+          description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
+          order_id: order.order_id,
+          invoice_id: null,
+          transaction_id: null,
+          order_code: order.order_code,
+          status: 'completed'
+        });
+      }
+
+      // Thêm các giao dịch thanh toán riêng lẻ (không liên quan đến đơn hàng cụ thể)
+      transactions.forEach(transaction => {
+        // Kiểm tra xem giao dịch này có liên quan đến order nào không
+        let isCancelled = false;
+
+        // Kiểm tra thông qua invoice
+        if (transaction.related_type === 'invoice') {
+          const relatedInvoice = invoices.find(inv => inv.invoice_id === transaction.related_id);
+          if (relatedInvoice) {
+            if (relatedInvoice.status === 'cancelled') {
+              isCancelled = true;
+            }
+          }
+        }
+        // BỎ QUA TRANSACTION LIÊN QUAN ĐẾN ĐƠN HÀNG/HÓA ĐƠN BỊ HỦY
+        if (isCancelled) return;
+        // Thêm tất cả giao dịch thanh toán (bao gồm cả manual payments)
+        // Nhưng đánh dấu rõ ràng loại thanh toán
+        allTransactions.push({
+          transaction_code: transaction.transaction_code,
+          transaction_date: new Date(transaction.created_at),
+          type: transaction.type,
+          amount: parseFloat(transaction.amount),
+          description: transaction.description || `Thanh toán ${transaction.transaction_code}`,
+          order_id: transaction.related_type === 'order' ? transaction.related_id : null,
+          invoice_id: transaction.related_type === 'invoice' ? transaction.related_id : null,
+          transaction_id: transaction.transaction_id,
+          status: 'completed',
+          payment_method: transaction.payment_method,
+          is_manual_payment: true // Đánh dấu đây là thanh toán manual
+        });
+      });
+
+      // 5. Sắp xếp theo thời gian (từ mới đến cũ)
+      allTransactions.sort((a, b) => b.transaction_date - a.transaction_date);
+
+      // Debug: In ra thứ tự giao dịch
+      console.log('🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):');
+      allTransactions.forEach((t, index) => {
+        console.log(`${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${t.type} | ${t.amount}`);
+      });
+
+      // Lọc bỏ transaction có type === 'refund' khỏi allTransactions trước khi mapping
+      const allTransactionsNoRefund = allTransactions.filter(txn => txn.type !== 'refund');
+
+      // 6. Tính toán dư nợ theo logic sổ cái (từ cũ đến mới để tính đúng)
+      // Đảo ngược lại để tính từ cũ đến mới
+      const reversedTransactions = [...allTransactionsNoRefund].reverse();
+      let runningBalance = 0;
+      const calculatedBalances = [];
+
+      // Tính dư nợ từ cũ đến mới
+      reversedTransactions.forEach((transaction, index) => {
+        if (transaction.type === 'pending') {
+          runningBalance += transaction.amount;
+        } else if (transaction.type === 'partial_paid' || transaction.type === 'payment' || transaction.type === 'receipt') {
+          runningBalance -= transaction.amount;
+        } else if (transaction.type === 'return') {
+          runningBalance -= transaction.amount;
+        } else {
+          // Log các type lạ để debug
+          console.warn('⚠️ Transaction type lạ:', transaction.type, transaction);
+        }
+        calculatedBalances.push(runningBalance);
+      });
+
+      // Đảo ngược lại để hiển thị từ mới đến cũ
+      calculatedBalances.reverse();
+
+      const result = allTransactionsNoRefund.map((transaction, index) => {
+        // Debug: In ra từng bước tính dư nợ
+        console.log(`💰 ${index + 1}. ${transaction.transaction_code} | ${transaction.type} | ${transaction.amount} | Dư nợ: ${calculatedBalances[index]}`);
+
+        // Format dữ liệu trả về
+        return {
+          transaction_code: transaction.transaction_code,
+          transaction_date: transaction.transaction_date,
+          type: transaction.type,
+          amount: transaction.amount,
+          mo_ta: transaction.description,
+          order_id: transaction.order_id,
+          invoice_id: transaction.invoice_id,
+          transaction_id: transaction.transaction_id,
+          order_code: transaction.order_code,
+          status: transaction.status,
+          payment_method: transaction.payment_method || null,
+          la_thanh_toan_manual: transaction.is_manual_payment || false
+        };
+      });
+
+      // Lọc lại theo loai === 'refund' để đảm bảo tuyệt đối
+      const filteredTransactions = result.filter(txn => txn.loai !== 'refund');
+      // Sắp xếp lại theo thời gian (mới nhất lên trên)
+      filteredTransactions.sort((a, b) => new Date(b.ngay_giao_dich) - new Date(a.ngay_giao_dich));
+      return filteredTransactions;
+    } catch (error) {
+      console.error(
+        "🚀 ~ CustomerReportService: getCustomerTransactionLedger - Lỗi:",
+        error
+      );
       throw error;
     }
   },

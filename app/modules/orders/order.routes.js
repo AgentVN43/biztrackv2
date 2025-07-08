@@ -11,5 +11,6 @@ router.delete("/:id", OrderController.delete);
 router.post('/with-details', OrderController.createOrderWithDetails);
 router.put("/:id/with-details", OrderController.updateOrderWithDetails);
 router.get("/summary/status", OrderController.getTotalByStatus);
+router.get('/:id/transaction-ledger', OrderController.getOrderTransactionLedger);
 
 module.exports = router;
