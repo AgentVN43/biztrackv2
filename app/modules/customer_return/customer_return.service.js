@@ -326,28 +326,28 @@ const CustomerReturnService = {
       // ✅ Cập nhật total_expenditure và total_orders sau khi process return_order
       try {
         console.log(`🔄 Đang cập nhật total_expenditure và total_orders cho customer_id: ${returnInfo.customer_id}`);
-        
+
         // Lấy thông tin cập nhật từ CustomerReportService
         const customerOverview = await CustomerReportService.getTotalOrdersAndExpenditure(returnInfo.customer_id);
-        
+
         const newTotalOrders = customerOverview.total_orders;
         const newTotalExpenditure = parseFloat(customerOverview.total_expenditure || 0);
-        
+
         console.log(`📊 Total orders mới: ${newTotalOrders}`);
         console.log(`📊 Total expenditure mới: ${newTotalExpenditure}`);
-        
+
         // Cập nhật customer với thông tin mới
         await CustomerModel.update(returnInfo.customer_id, {
           total_expenditure: newTotalExpenditure,
           total_orders: newTotalOrders
         });
-        
+
         console.log(`✅ Đã cập nhật total_expenditure và total_orders thành công cho customer_id: ${returnInfo.customer_id}`);
       } catch (reportError) {
         console.error(`❌ Lỗi khi cập nhật total_expenditure và total_orders:`, reportError);
         // Không throw error để không ảnh hưởng đến việc process return_order
       }
-      
+
       // Cập nhật trạng thái đơn trả hàng
       await CustomerReturn.updateStatus(return_id, "completed");
 
@@ -401,6 +401,16 @@ const CustomerReturnService = {
       }
       // Cập nhật trạng thái
       await CustomerReturn.updateStatus(return_id, "approved");
+
+      // Cập nhật amout_paid của hóa đơn
+      const invoice = await InvoiceModel.findByOrderId(returnInfo.order_id)
+      console.log("🚀 ~ approveReturn: ~ invoice:", invoice)
+
+      let returnDetails = await CustomerReturn.getReturnDetails(return_id);
+      if (!Array.isArray(returnDetails)) returnDetails = [];
+      const total_refund = returnDetails.reduce((sum, d) => sum + (Number(d.refund_amount) || 0), 0);
+
+      await InvoiceModel.updateAmountPaidAndStatus(invoice.invoice_id, total_refund);
 
       // Sau khi approve, tự động process toàn bộ nghiệp vụ
       const processResult = await CustomerReturnService.processReturn(return_id, null); // null: hệ thống xử lý
