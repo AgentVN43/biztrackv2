@@ -1,5 +1,6 @@
 // Test logic tính toán refund với ví dụ của user
 const CustomerReturnService = require("./customer_return.service");
+const { calculateRefund } = require("../../utils/refundUtils");
 
 // Ví dụ từ user:
 // Item 1: 3.750.000
@@ -80,16 +81,17 @@ async function testRefundCalculation() {
   console.log(`  - Discount được phân bổ: ${allocated_order_discount.toLocaleString()}`);
   console.log(`  - Discount sau làm tròn: ${allocated_order_discount_rounded.toLocaleString()}\n`);
 
-  // Tính refund cho từng item
-  const total_return_product_discount = 0; // Giả sử không có product discount
-  const net_refund = (total_return_gross - total_return_product_discount) - allocated_order_discount_rounded;
-  const net_refund_rounded = Math.round(net_refund * 100) / 100;
+  // Thay thế logic tính refund bằng hàm calculateRefund
+  const net_refund_rounded = calculateRefund({
+    order: mockOrderData,
+    returnDetails: mockReturnDetails,
+  });
 
   console.log("💸 Tính refund:");
   console.log(`  - Tổng giá trị hàng trả: ${total_return_gross.toLocaleString()}`);
   console.log(`  - Product discount: ${total_return_product_discount.toLocaleString()}`);
   console.log(`  - Order discount phân bổ: ${allocated_order_discount_rounded.toLocaleString()}`);
-  console.log(`  - Net refund: ${net_refund.toLocaleString()}`);
+  console.log(`  - Net refund: ${net_refund_rounded.toLocaleString()}`);
   console.log(`  - Net refund sau làm tròn: ${net_refund_rounded.toLocaleString()}\n`);
 
   // Phân bổ refund cho từng item theo tỷ lệ giá trị

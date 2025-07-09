@@ -3,6 +3,7 @@ const OrderModel = require("../orders/order.model"); // Để lấy chi tiết �
 const ProductEventModel = require("../product_report/product_event.model"); // Để lấy lịch sử bán/trả sản phẩm
 const InvoiceModel = require("../invoice/invoice.model"); // Để tính công nợ
 const TransactionModel = require("../transactions/transaction.model"); // Để tính công nợ
+const { calculateRefund } = require("../../utils/refundUtils");
 
 const CustomerReportService = {
   /**
@@ -766,9 +767,11 @@ async function calculateOrderTotalRefund(order_id) {
   // 2. Lấy chi tiết sản phẩm của order
   const orderDetails = await OrderDetailService.getOrderDetailByOrderId(order_id);
   const orderProducts = orderDetails && Array.isArray(orderDetails.products) ? orderDetails.products : [];
-  const orderProductMap = {};
+  let productPriceMap = {};
+  let productDiscountMap = {};
   for (const p of orderProducts) {
-    orderProductMap[p.product_id] = p.quantity || 0;
+    productPriceMap[p.product_id] = p.price;
+    productDiscountMap[p.product_id] = p.discount || 0;
   }
   // 3. Lấy tất cả return của order này, sắp xếp theo thời gian tạo
   const [returnRows] = await db.promise().query(
@@ -780,56 +783,45 @@ async function calculateOrderTotalRefund(order_id) {
   // 4. Duyệt qua từng return, xác định lần cuối cùng, phân bổ lại số tiền hoàn
   let totalRefund = 0;
   let returnedQuantityMap = {};
-  for (const pid in orderProductMap) returnedQuantityMap[pid] = 0;
+  for (const p of orderProducts) returnedQuantityMap[p.product_id] = 0;
   for (let i = 0; i < returnRows.length; i++) {
     const ret = returnRows[i];
-    // Lấy chi tiết trả hàng
     const details = await CustomerReturn.getReturnDetails(ret.return_id);
-    // Tính giá trị hàng trả lại (sau discount sản phẩm)
-    let total_return_gross = 0;
-    let total_return_product_discount = 0;
-    let productPriceMap = {};
-    let productDiscountMap = {};
-    for (const p of orderProducts) {
-      productPriceMap[p.product_id] = p.price;
-      productDiscountMap[p.product_id] = p.discount || 0;
-    }
     for (const d of details) {
-      total_return_gross += (productPriceMap[d.product_id] || 0) * (d.quantity || 0);
-      total_return_product_discount += (productDiscountMap[d.product_id] || 0) * (d.quantity || 0);
-      // Cộng dồn quantity đã trả
       returnedQuantityMap[d.product_id] = (returnedQuantityMap[d.product_id] || 0) + (d.quantity || 0);
     }
-    // Tổng giá trị hàng trả lại (sau discount sản phẩm)
-    const total_return_value = total_return_gross - total_return_product_discount;
-    // Tổng giá trị hàng gốc (sau discount sản phẩm)
-    const total_order_value = orderProducts.reduce((sum, p) => sum + ((p.price - (p.discount || 0)) * (p.quantity || 0)), 0);
-    // Phân bổ discount đơn
-    let allocated_order_discount = 0;
-    if (order_amount > 0 && total_order_value > 0 && total_return_value > 0) {
-      allocated_order_discount = order_amount * (total_return_value / total_order_value);
-    }
-    // Kiểm tra nếu là lần trả cuối cùng (tất cả sản phẩm đã trả đủ quantity đã mua)
     let isFinalReturn = true;
-    for (const pid in orderProductMap) {
-      if ((returnedQuantityMap[pid] || 0) < orderProductMap[pid]) {
+    for (const p of orderProducts) {
+      if ((returnedQuantityMap[p.product_id] || 0) < (p.quantity || 0)) {
         isFinalReturn = false;
         break;
       }
     }
     let refundThisTime = 0;
     if (isFinalReturn && i === returnRows.length - 1) {
-      // Lần trả cuối cùng: hoàn nốt số còn lại
-      refundThisTime = final_amount - totalRefund;
+      refundThisTime = Number(order.final_amount || 0) - totalRefund;
       if (refundThisTime < 0) refundThisTime = 0;
     } else {
-      // Các lần trước: phân bổ discount như cũ
-      refundThisTime = total_return_value - allocated_order_discount;
-      if (refundThisTime < 0) refundThisTime = 0;
+      refundThisTime = calculateRefund({
+        order,
+        returnDetails: details,
+        productPriceMap,
+        productDiscountMap,
+      });
     }
+    refundThisTime = Math.round(refundThisTime * 100) / 100;
+    // LOG DEBUG CHI TIẾT
+    console.log('--- Debug Refund ---');
+    console.log('Order:', order.order_id, order.order_code);
+    console.log('Return:', ret.return_id, ret.created_at);
+    console.log('Order Products:', orderProducts);
+    console.log('Returned Quantity Map:', returnedQuantityMap);
+    console.log('Return Details:', details);
+    console.log('Is Final Return:', isFinalReturn);
+    console.log('Refund This Time:', refundThisTime);
+    console.log('Total Refund So Far:', totalRefund + refundThisTime);
     totalRefund += refundThisTime;
   }
-  // Làm tròn 2 số lẻ
   totalRefund = Math.round(totalRefund * 100) / 100;
   return totalRefund;
 }
@@ -850,9 +842,11 @@ async function calculateRefundForEachReturn(order_id) {
   // 2. Lấy chi tiết sản phẩm của order
   const orderDetails = await OrderDetailService.getOrderDetailByOrderId(order_id);
   const orderProducts = orderDetails && Array.isArray(orderDetails.products) ? orderDetails.products : [];
-  const orderProductMap = {};
+  let productPriceMap = {};
+  let productDiscountMap = {};
   for (const p of orderProducts) {
-    orderProductMap[p.product_id] = p.quantity || 0;
+    productPriceMap[p.product_id] = p.price;
+    productDiscountMap[p.product_id] = p.discount || 0;
   }
   // 3. Lấy tất cả return của order này, sắp xếp theo thời gian tạo
   const [returnRows] = await db.promise().query(
@@ -864,55 +858,44 @@ async function calculateRefundForEachReturn(order_id) {
   // 4. Duyệt qua từng return, xác định lần cuối cùng, phân bổ lại số tiền hoàn
   let totalRefund = 0;
   let returnedQuantityMap = {};
-  for (const pid in orderProductMap) returnedQuantityMap[pid] = 0;
+  for (const p of orderProducts) returnedQuantityMap[p.product_id] = 0;
   const result = [];
   for (let i = 0; i < returnRows.length; i++) {
     const ret = returnRows[i];
-    // Lấy chi tiết trả hàng
     const details = await CustomerReturn.getReturnDetails(ret.return_id);
-    // Tính giá trị hàng trả lại (sau discount sản phẩm)
-    let total_return_gross = 0;
-    let total_return_product_discount = 0;
-    let productPriceMap = {};
-    let productDiscountMap = {};
-    for (const p of orderProducts) {
-      productPriceMap[p.product_id] = p.price;
-      productDiscountMap[p.product_id] = p.discount || 0;
-    }
     for (const d of details) {
-      total_return_gross += (productPriceMap[d.product_id] || 0) * (d.quantity || 0);
-      total_return_product_discount += (productDiscountMap[d.product_id] || 0) * (d.quantity || 0);
-      // Cộng dồn quantity đã trả
       returnedQuantityMap[d.product_id] = (returnedQuantityMap[d.product_id] || 0) + (d.quantity || 0);
     }
-    // Tổng giá trị hàng trả lại (sau discount sản phẩm)
-    const total_return_value = total_return_gross - total_return_product_discount;
-    // Tổng giá trị hàng gốc (sau discount sản phẩm)
-    const total_order_value = orderProducts.reduce((sum, p) => sum + ((p.price - (p.discount || 0)) * (p.quantity || 0)), 0);
-    // Phân bổ discount đơn
-    let allocated_order_discount = 0;
-    if (order_amount > 0 && total_order_value > 0 && total_return_value > 0) {
-      allocated_order_discount = order_amount * (total_return_value / total_order_value);
-    }
-    // Kiểm tra nếu là lần trả cuối cùng (tất cả sản phẩm đã trả đủ quantity đã mua)
     let isFinalReturn = true;
-    for (const pid in orderProductMap) {
-      if ((returnedQuantityMap[pid] || 0) < orderProductMap[pid]) {
+    for (const p of orderProducts) {
+      if ((returnedQuantityMap[p.product_id] || 0) < (p.quantity || 0)) {
         isFinalReturn = false;
         break;
       }
     }
     let refundThisTime = 0;
     if (isFinalReturn && i === returnRows.length - 1) {
-      // Lần trả cuối cùng: hoàn nốt số còn lại
-      refundThisTime = final_amount - totalRefund;
+      refundThisTime = Number(order.final_amount || 0) - totalRefund;
       if (refundThisTime < 0) refundThisTime = 0;
     } else {
-      // Các lần trước: phân bổ discount như cũ
-      refundThisTime = total_return_value - allocated_order_discount;
-      if (refundThisTime < 0) refundThisTime = 0;
+      refundThisTime = calculateRefund({
+        order,
+        returnDetails: details,
+        productPriceMap,
+        productDiscountMap,
+      });
     }
     refundThisTime = Math.round(refundThisTime * 100) / 100;
+    // LOG DEBUG CHI TIẾT
+    console.log('--- Debug Refund (Each Return) ---');
+    console.log('Order:', order.order_id, order.order_code);
+    console.log('Return:', ret.return_id, ret.created_at);
+    console.log('Order Products:', orderProducts);
+    console.log('Returned Quantity Map:', returnedQuantityMap);
+    console.log('Return Details:', details);
+    console.log('Is Final Return:', isFinalReturn);
+    console.log('Refund This Time:', refundThisTime);
+    console.log('Total Refund So Far:', totalRefund + refundThisTime);
     totalRefund += refundThisTime;
     result.push({
       return_id: ret.return_id,
