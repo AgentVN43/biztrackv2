@@ -47,7 +47,7 @@ const mockOrderDetails = {
 };
 
 // Mock các service
-jest.mock('../orders/order.model', () => ({
+jest.mock('../orders/order.service', () => ({
   getOrderWithReturnSummary: jest.fn().mockResolvedValue(mockOrderData)
 }));
 

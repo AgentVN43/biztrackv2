@@ -903,7 +903,6 @@ const OrderService = {
 
       // 3. Lấy tất cả giao dịch thanh toán
       const transactions = await TransactionModel.getTransactionsByOrderId(order_id);
-      console.log("🚀 ~ getCustomerTransactionLedger: ~ transactions:", transactions)
 
       // 4. Tạo danh sách giao dịch theo thứ tự thời gian
       const allTransactions = [];
@@ -1020,9 +1019,9 @@ const OrderService = {
       });
 
       // Lọc lại theo loai === 'refund' để đảm bảo tuyệt đối
-      const filteredTransactions = result.filter(txn => txn.loai !== 'refund');
+      const filteredTransactions = result.filter(txn => txn.type !== 'refund');
       // Sắp xếp lại theo thời gian (mới nhất lên trên)
-      filteredTransactions.sort((a, b) => new Date(b.ngay_giao_dich) - new Date(a.ngay_giao_dich));
+      filteredTransactions.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
       return filteredTransactions;
     } catch (error) {
       console.error(
@@ -1031,6 +1030,95 @@ const OrderService = {
       );
       throw error;
     }
+  },
+
+  getOrderWithReturnSummary: async (order_id) => {
+    const [orderRows] = await new Promise((resolve, reject) => {
+      db.query('SELECT * FROM orders WHERE order_id = ?', [order_id], (err, rows) => {
+        if (err) return reject(err);
+        resolve([rows]);
+      });
+    });
+    if (!orderRows || !orderRows[0]) return null;
+    const order = orderRows[0];
+
+    // Lấy tất cả return_orders của order này (đã approved/completed)
+    const [returnRows] = await new Promise((resolve, reject) => {
+      db.query(`SELECT ro.return_id FROM return_orders ro WHERE ro.order_id = ? AND ro.status IN ('approved', 'completed')`, [order_id], (err, rows) => {
+        if (err) return reject(err);
+        resolve([rows]);
+      });
+    });
+
+    // Tính tổng tiền đã thanh toán
+    const transactions = await TransactionModel.getTransactionsByOrderId(order_id);
+    console.log("🚀 ~ getOrderWithReturnSummary: ~ transactions:", transactions)
+    let amoutPayment = transactions
+      .filter(t => t.type === 'receipt')
+      .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+    console.log("🚀 ~ getOrderWithReturnSummary: ~ amoutPayment:", amoutPayment)
+
+    // Lấy tổng quantity của order gốc
+    let total_order_quantity = 0;
+    const [orderDetailRows] = await new Promise((resolve, reject) => {
+      db.query(`SELECT * FROM order_details WHERE order_id = ?`, [order_id], (err, rows) => {
+        if (err) return reject(err);
+        resolve([rows]);
+      });
+    });
+    if (orderDetailRows && Array.isArray(orderDetailRows)) {
+      total_order_quantity = orderDetailRows.reduce((sum, p) => sum + (p.quantity || 0), 0);
+    }
+    const order_amount = Number(order.order_amount || 0);
+    const final_amount = Number(order.final_amount || 0);
+
+    // Tính tổng hoàn trả thực tế (chuẩn: phân bổ order_amount cho từng lần trả, lần cuối hoàn nốt số còn lại)
+    let total_refund = 0;
+    let total_quantity_returned = 0;
+
+
+    for (let i = 0; i < returnRows.length; i++) {
+      const ret = returnRows[i];
+      // Lấy chi tiết trả hàng
+      const [returnDetailRows] = await new Promise((resolve, reject) => {
+        db.query(`SELECT * FROM return_order_items WHERE return_id = ?`, [ret.return_id], (err, rows) => {
+          if (err) return reject(err);
+          resolve([rows]);
+        });
+      });
+      // Tổng giá trị sản phẩm trả lại (đã trừ discount trên sản phẩm)
+      let totalProductRefund = returnDetailRows.reduce((sum, d) => sum + (Number(d.refund_amount) || 0), 0);
+      // Tổng quantity trả lại lần này
+      let totalReturnQuantity = returnDetailRows.reduce((sum, d) => sum + (d.quantity || 0), 0);
+      total_quantity_returned += totalReturnQuantity;
+      // Nếu là lần trả cuối cùng (sau khi trả xong lần này, tổng quantity đã trả >= tổng quantity đã mua)
+      let isFinalReturn = (total_quantity_returned >= total_order_quantity && total_order_quantity > 0 && i === returnRows.length - 1);
+      if (isFinalReturn) {
+        // Lần trả cuối cùng: hoàn nốt số còn lại
+        let refundThisTime = final_amount - total_refund;
+        if (refundThisTime < 0) refundThisTime = 0;
+        total_refund += refundThisTime;
+      } else {
+        // Các lần trước: phân bổ discount như cũ
+        let orderLevelDiscountAllocated = 0;
+        if (order_amount > 0 && total_order_quantity > 0 && totalReturnQuantity > 0) {
+          orderLevelDiscountAllocated = order_amount * (totalReturnQuantity / total_order_quantity);
+        }
+        // Tổng hoàn trả thực tế cho lần này
+        let net_refund_this_time = totalProductRefund - orderLevelDiscountAllocated;
+        if (net_refund_this_time < 0) net_refund_this_time = 0;
+        total_refund += net_refund_this_time;
+      }
+    }
+    // Làm tròn 2 số lẻ
+    total_refund = Math.round(total_refund * 100) / 100 + amoutPayment;
+    const remaining_value = Math.max(0, final_amount - total_refund);
+    return {
+      ...order,
+      total_refund,
+      remaining_value
+    };
   },
 };
 

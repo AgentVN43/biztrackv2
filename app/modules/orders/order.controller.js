@@ -644,7 +644,7 @@ const OrderController = {
     try {
       const { order_id } = req.params;
       if (!order_id) return res.status(400).json({ success: false, message: 'Thiếu order_id' });
-      const result = await Order.getOrderWithReturnSummary(order_id);
+      const result = await OrderService.getOrderWithReturnSummary(order_id);
       if (!result) return res.status(404).json({ success: false, message: 'Không tìm thấy order' });
       return res.status(200).json({ success: true, data: result });
     } catch (error) {

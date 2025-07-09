@@ -105,7 +105,7 @@ const CustomerReturnController = {
       let orderSummary = null;
       if (result && result.order_id) {
         try {
-          const Order = require('../orders/order.model');
+          const Order = require('../orders/order.service');
           orderSummary = await Order.getOrderWithReturnSummary(result.order_id);
         } catch (e) { orderSummary = null; }
       }

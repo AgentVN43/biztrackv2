@@ -43,7 +43,7 @@ const CustomerReturnService = {
           }
         }
         // Lấy thông tin order để kiểm tra amount_paid
-        const OrderModel = require("../orders/order.model");
+        const OrderModel = require("../orders/order.service");
         orderInfo = await OrderModel.getOrderWithReturnSummary(
           returnData.order_id
         );
