@@ -1,6 +1,7 @@
 const db = require("../../config/db.config");
 const { v4: uuidv4 } = require("uuid");
-const TransactionModel = require("../transactions/transaction.model")
+const TransactionModel = require("../transactions/transaction.model");
+const InvoiceModel = require("../invoice/invoice.model"); // ✅ Import InvoiceModel để đồng bộ
 
 /**
  * Hàm tạo mã đơn hàng tự động.
@@ -275,6 +276,108 @@ const OrderModel = {
     }
   },
 
+  /**
+   * Cập nhật chỉ amount_paid của order và tự động đồng bộ với invoice
+   * @param {string} orderId - ID của đơn hàng
+   * @param {number} amountPaid - Số tiền đã thanh toán mới
+   * @param {boolean} syncWithInvoice - Có đồng bộ với invoice không (mặc định: true)
+   * @returns {Promise<Object>} Kết quả cập nhật
+   */
+  updateAmountPaid: async (orderId, amountPaid, syncWithInvoice = true) => {
+    try {
+      // 1. Lấy thông tin order hiện tại
+      const [orderResults] = await db.promise().query(
+        "SELECT amount_paid, final_amount FROM orders WHERE order_id = ?",
+        [orderId]
+      );
+      
+      if (orderResults.length === 0) {
+        throw new Error("Order not found");
+      }
+
+      const currentOrder = orderResults[0];
+      const newAmountPaid = parseFloat(amountPaid || 0);
+      const previousAmountPaid = parseFloat(currentOrder.amount_paid || 0);
+
+      // 2. Cập nhật amount_paid trong order
+      const updateOrderSql = `
+        UPDATE orders 
+        SET amount_paid = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE order_id = ?
+      `;
+      await db.promise().query(updateOrderSql, [newAmountPaid, orderId]);
+
+      console.log(`🚀 ~ OrderModel: updateAmountPaid - Updated order ${orderId}: amount_paid=${previousAmountPaid} -> ${newAmountPaid}`);
+
+      // 3. Đồng bộ với invoice nếu được yêu cầu
+      let syncResult = null;
+      if (syncWithInvoice) {
+        syncResult = await OrderModel.syncAmountPaidWithInvoice(orderId, newAmountPaid);
+      }
+
+      return {
+        order_id: orderId,
+        amount_paid: newAmountPaid,
+        previous_amount_paid: previousAmountPaid,
+        final_amount: parseFloat(currentOrder.final_amount || 0),
+        sync_with_invoice: syncWithInvoice,
+        sync_result: syncResult
+      };
+    } catch (error) {
+      console.error("🚀 ~ OrderModel: updateAmountPaid - Lỗi khi cập nhật amount_paid:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Đồng bộ amount_paid giữa order và invoice liên quan
+   * @param {string} orderId - ID của đơn hàng
+   * @param {number} amountPaid - Số tiền đã thanh toán
+   * @returns {Promise<Object>} Kết quả đồng bộ
+   */
+  syncAmountPaidWithInvoice: async (orderId, amountPaid) => {
+    try {
+      // 1. Cập nhật amount_paid trong order
+      const updateOrderSql = `
+        UPDATE orders 
+        SET amount_paid = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE order_id = ?
+      `;
+      await db.promise().query(updateOrderSql, [parseFloat(amountPaid || 0), orderId]);
+
+      // 2. Tìm và cập nhật invoice liên quan (nếu có)
+      const [invoiceResults] = await db.promise().query(
+        "SELECT invoice_id, invoice_code FROM invoices WHERE order_id = ? AND invoice_type = 'sale_invoice'",
+        [orderId]
+      );
+
+      if (invoiceResults.length > 0) {
+        const invoice = invoiceResults[0];
+        console.log(`🚀 ~ OrderModel: syncAmountPaidWithInvoice - Found invoice ${invoice.invoice_code} for order ${orderId}`);
+        
+        // Sử dụng InvoiceModel để đồng bộ amount_paid và status
+        await InvoiceModel.syncAmountPaidAndStatus(invoice.invoice_id, amountPaid);
+        
+        return {
+          order_updated: true,
+          invoice_updated: true,
+          invoice_id: invoice.invoice_id,
+          invoice_code: invoice.invoice_code,
+          amount_paid: parseFloat(amountPaid || 0)
+        };
+      }
+
+      return {
+        order_updated: true,
+        invoice_updated: false,
+        amount_paid: parseFloat(amountPaid || 0)
+      };
+    } catch (error) {
+      console.error("🚀 ~ OrderModel: syncAmountPaidWithInvoice - Lỗi khi đồng bộ amount_paid:", error);
+      throw error;
+    }
+  },
+
   updateOrderWithDetails: async (orderId, orderData, orderDetails) => {
     const connection = await db.promise().getConnection();
     try {
@@ -291,6 +394,7 @@ const OrderModel = {
         "total_amount",
         "discount_amount",
         "final_amount",
+        "amount_paid", // ✅ Thêm amount_paid vào danh sách cho phép
         "shipping_address",
         "payment_method",
         "note",
@@ -302,7 +406,12 @@ const OrderModel = {
       allowedOrderFields.forEach((field) => {
         if (orderData[field] !== undefined) {
           updateFields.push(`${field} = ?`);
-          updateValues.push(orderData[field]);
+          // ✅ Xử lý đặc biệt cho amount_paid để đảm bảo kiểu dữ liệu
+          if (field === "amount_paid") {
+            updateValues.push(parseFloat(orderData[field] || 0));
+          } else {
+            updateValues.push(orderData[field]);
+          }
         }
       });
 
@@ -322,10 +431,15 @@ const OrderModel = {
       `;
       updateValues.push(orderId);
 
-      console.log("Executing updateOrderQuery:", updateOrderQuery);
-      console.log("With parameters:", updateValues);
+      console.log("🚀 ~ OrderModel: updateOrderWithDetails - Executing updateOrderQuery:", updateOrderQuery);
+      console.log("🚀 ~ OrderModel: updateOrderWithDetails - With parameters:", updateValues);
 
       await connection.query(updateOrderQuery, updateValues);
+
+      // ✅ Log thông tin về amount_paid nếu có cập nhật
+      if (orderData.amount_paid !== undefined) {
+        console.log(`🚀 ~ OrderModel: updateOrderWithDetails - Updated amount_paid for order ${orderId}: ${orderData.amount_paid}`);
+      }
 
       const deleteDetailsQuery = `DELETE FROM order_details WHERE order_id = ?`;
       await connection.query(deleteDetailsQuery, [orderId]);
@@ -334,6 +448,8 @@ const OrderModel = {
         await connection.commit();
         return {
           message: "Cập nhật đơn hàng thành công (không có sản phẩm chi tiết)",
+          updated_fields: updateFields.filter(field => field !== "updated_at = NOW()"),
+          amount_paid_updated: orderData.amount_paid !== undefined
         };
       }
 
@@ -356,9 +472,14 @@ const OrderModel = {
       await connection.query(insertDetailQuery, [detailValues]);
 
       await connection.commit();
-      return { message: "Cập nhật đơn hàng và chi tiết thành công" };
+      return { 
+        message: "Cập nhật đơn hàng và chi tiết thành công",
+        updated_fields: updateFields.filter(field => field !== "updated_at = NOW()"),
+        amount_paid_updated: orderData.amount_paid !== undefined,
+        details_count: orderDetails.length
+      };
     } catch (error) {
-      console.error("Lỗi trong updateOrderWithDetails transaction:", error);
+      console.error("🚀 ~ OrderModel: updateOrderWithDetails - Lỗi trong transaction:", error);
       await connection.rollback();
       throw error;
     } finally {
@@ -414,6 +535,123 @@ const OrderModel = {
       return completeResults;
     } catch (error) {
       console.error("Model - getTotalByStatus:", error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Kiểm tra và sửa chữa các order có amount_paid không đồng bộ với invoice
+   * @returns {Promise<Object>} Kết quả sửa chữa
+   */
+  fixInconsistentAmountPaid: async () => {
+    try {
+      // 1. Tìm các order có invoice nhưng amount_paid không đồng bộ
+      const sql = `
+        SELECT 
+          o.order_id,
+          o.order_code,
+          o.amount_paid AS order_amount_paid,
+          i.invoice_id,
+          i.invoice_code,
+          i.amount_paid AS invoice_amount_paid,
+          i.final_amount AS invoice_final_amount
+        FROM orders o
+        INNER JOIN invoices i ON o.order_id = i.order_id
+        WHERE i.invoice_type = 'sale_invoice'
+          AND ABS(COALESCE(o.amount_paid, 0) - COALESCE(i.amount_paid, 0)) > 0.01
+      `;
+      
+      const [inconsistentOrders] = await db.promise().query(sql);
+      
+      if (inconsistentOrders.length === 0) {
+        console.log("🚀 ~ OrderModel: fixInconsistentAmountPaid - Không có order nào cần sửa chữa");
+        return { 
+          fixed_count: 0, 
+          total_checked: 0,
+          inconsistent_orders: []
+        };
+      }
+
+      console.log(`🚀 ~ OrderModel: fixInconsistentAmountPaid - Tìm thấy ${inconsistentOrders.length} order cần sửa chữa`);
+
+      // 2. Sửa chữa từng order
+      const fixedResults = [];
+      for (const order of inconsistentOrders) {
+        const orderAmountPaid = parseFloat(order.order_amount_paid || 0);
+        const invoiceAmountPaid = parseFloat(order.invoice_amount_paid || 0);
+        
+        // Sử dụng amount_paid từ invoice làm chuẩn
+        await OrderModel.updateAmountPaid(order.order_id, invoiceAmountPaid, false);
+        
+        fixedResults.push({
+          order_id: order.order_id,
+          order_code: order.order_code,
+          invoice_id: order.invoice_id,
+          invoice_code: order.invoice_code,
+          old_order_amount_paid: orderAmountPaid,
+          new_order_amount_paid: invoiceAmountPaid,
+          invoice_amount_paid: invoiceAmountPaid
+        });
+        
+        console.log(`🚀 ~ OrderModel: fixInconsistentAmountPaid - Fixed order ${order.order_code}: ${orderAmountPaid} -> ${invoiceAmountPaid}`);
+      }
+
+      console.log(`🚀 ~ OrderModel: fixInconsistentAmountPaid - Đã sửa chữa ${fixedResults.length} order`);
+      return {
+        fixed_count: fixedResults.length,
+        total_checked: inconsistentOrders.length,
+        inconsistent_orders: fixedResults
+      };
+    } catch (error) {
+      console.error(
+        "🚀 ~ OrderModel: fixInconsistentAmountPaid - Lỗi khi sửa chữa amount_paid không đồng bộ:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách các order có amount_paid không đồng bộ với invoice
+   * @returns {Promise<Array>} Danh sách order không đồng bộ
+   */
+  getInconsistentAmountPaidOrders: async () => {
+    try {
+      const sql = `
+        SELECT 
+          o.order_id,
+          o.order_code,
+          o.amount_paid AS order_amount_paid,
+          o.final_amount AS order_final_amount,
+          o.order_date,
+          i.invoice_id,
+          i.invoice_code,
+          i.amount_paid AS invoice_amount_paid,
+          i.final_amount AS invoice_final_amount,
+          i.status AS invoice_status,
+          ABS(COALESCE(o.amount_paid, 0) - COALESCE(i.amount_paid, 0)) AS difference
+        FROM orders o
+        INNER JOIN invoices i ON o.order_id = i.order_id
+        WHERE i.invoice_type = 'sale_invoice'
+          AND ABS(COALESCE(o.amount_paid, 0) - COALESCE(i.amount_paid, 0)) > 0.01
+        ORDER BY o.order_date DESC
+      `;
+      
+      const [inconsistentOrders] = await db.promise().query(sql);
+      
+      return inconsistentOrders.map(order => ({
+        ...order,
+        order_amount_paid: parseFloat(order.order_amount_paid || 0),
+        order_final_amount: parseFloat(order.order_final_amount || 0),
+        invoice_amount_paid: parseFloat(order.invoice_amount_paid || 0),
+        invoice_final_amount: parseFloat(order.invoice_final_amount || 0),
+        difference: parseFloat(order.difference || 0)
+      }));
+    } catch (error) {
+      console.error(
+        "🚀 ~ OrderModel: getInconsistentAmountPaidOrders - Lỗi khi lấy danh sách order không đồng bộ:",
+        error
+      );
       throw error;
     }
   },

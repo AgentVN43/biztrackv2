@@ -187,9 +187,10 @@ const CustomerReturnService = {
           }
           // Làm tròn khi so sánh để tránh lỗi số lẻ
           const totalRefundSoFar =
-            Math.round((total_refund_before + net_refund_this_time) * 100) /
-            100;
-          const maxRefundableRounded = Math.round(max_refundable * 100) / 100;
+            // Math.round((total_refund_before + net_refund_this_time) * 100) /
+            // 100;
+            Math.round(total_refund_before + net_refund_this_time);
+          const maxRefundableRounded = Math.round(max_refundable);
           if (totalRefundSoFar > maxRefundableRounded) {
             throw new Error(
               "Tổng số tiền hoàn trả vượt quá số tiền khách đã thanh toán!"
@@ -242,16 +243,17 @@ const CustomerReturnService = {
         const final_amount = Number(orderInfo.final_amount || 0);
         total_refund_final = final_amount - total_refund_before;
         if (total_refund_final < 0) total_refund_final = 0;
-
-        // Làm tròn 2 chữ số thập phân
-        total_refund_final = Math.round(total_refund_final * 100) / 100;
+        // Làm tròn xuống 2 chữ số thập phân
+        total_refund_final = Math.floor(total_refund_final * 100) / 100;
 
         console.log(`🎯 Lần trả cuối cùng:`);
         console.log(
           `  - Tổng refund trước đó: ${total_refund_before.toLocaleString()}`
         );
         console.log(`  - Final amount: ${final_amount.toLocaleString()}`);
-        console.log(`  - Refund lần này: ${total_refund_final.toLocaleString()}`);
+        console.log(
+          `  - Refund lần này: ${total_refund_final.toLocaleString()}`
+        );
         console.log(
           `  - Tổng refund sau lần này: ${(
             total_refund_before + total_refund_final
@@ -259,6 +261,7 @@ const CustomerReturnService = {
         );
 
         // Phân bổ lại refund_amount cho từng item theo tỷ lệ giá trị (sau discount sản phẩm)
+        // Sử dụng logic đơn giản như calculateRefund để tránh sai số làm tròn
         const total_item_net = detailsResults.reduce(
           (sum, d) => sum + (d._item_gross - d._item_discount),
           0
@@ -268,19 +271,27 @@ const CustomerReturnService = {
           for (let i = 0; i < detailsResults.length; i++) {
             const d = detailsResults[i];
             let item_net = d._item_gross - d._item_discount;
-            // Lần cuối: phân bổ lại để tổng cộng đúng bằng total_refund
-            let item_refund = Math.round(
-              (item_net / total_item_net) * total_refund_final
-            );
+
+            let item_refund = 0;
             if (i === detailsResults.length - 1) {
-              // Đảm bảo tổng cộng lại đúng bằng total_refund (bù sai số làm tròn)
+              // Item cuối cùng: bù sai số làm tròn để tổng cộng đúng bằng total_refund_final
               item_refund = total_refund_final - sumAllocated;
+            } else {
+              // Các item khác: tính theo tỷ lệ (không làm tròn ngay)
+              item_refund = (item_net / total_item_net) * total_refund_final;
             }
+
+            // Làm tròn 2 chữ số thập phân
+            item_refund = Math.round(item_refund * 100) / 100;
+            if (item_refund < 0) item_refund = 0;
+
             detailsResults[i].refund_amount = item_refund;
             sumAllocated += item_refund;
           }
 
-          console.log(`📋 Phân bổ lại refund_amount cho từng item:`);
+          console.log(
+            `📋 Phân bổ lại refund_amount cho từng item (logic chuẩn):`
+          );
           detailsResults.forEach((d, index) => {
             console.log(
               `  - Item ${index + 1}: ${d.refund_amount.toLocaleString()}`
@@ -288,14 +299,53 @@ const CustomerReturnService = {
           });
         }
       } else {
-        // Các lần trả trước: làm tròn 2 chữ số
-        total_refund_final = Math.round(total_refund_final * 100) / 100;
+        // Các lần trả trước: làm tròn 2 chữ số (logic chuẩn)
+        total_refund_final = Math.floor(total_refund_final * 100) / 100;
+
+        // Phân bổ refund cho từng item theo tỷ lệ (không phải lần cuối)
+        const total_item_net = detailsResults.reduce(
+          (sum, d) => sum + (d._item_gross - d._item_discount),
+          0
+        );
+        if (total_item_net > 0) {
+          let sumAllocated = 0;
+          for (let i = 0; i < detailsResults.length; i++) {
+            const d = detailsResults[i];
+            let item_net = d._item_gross - d._item_discount;
+
+            let item_refund = 0;
+            if (i === detailsResults.length - 1) {
+              // Item cuối cùng: bù sai số làm tròn
+              item_refund = total_refund_final - sumAllocated;
+            } else {
+              // Các item khác: tính theo tỷ lệ
+              item_refund = (item_net / total_item_net) * total_refund_final;
+            }
+
+            // Làm tròn 2 chữ số thập phân
+            item_refund = Math.round(item_refund * 100) / 100;
+            if (item_refund < 0) item_refund = 0;
+
+            detailsResults[i].refund_amount = item_refund;
+            sumAllocated += item_refund;
+          }
+
+          console.log(
+            `📋 Phân bổ refund_amount cho từng item (lần trả thường):`
+          );
+          detailsResults.forEach((d, index) => {
+            console.log(
+              `  - Item ${index + 1}: ${d.refund_amount.toLocaleString()}`
+            );
+          });
+        }
       }
 
       // Đảm bảo tổng hoàn trả không vượt quá final_amount
       if (orderInfo) {
         const final_amount = Number(orderInfo.final_amount || 0);
-        if (total_refund_final > final_amount) total_refund_final = final_amount;
+        if (total_refund_final > final_amount)
+          total_refund_final = final_amount;
       }
 
       // Tạo đơn trả hàng
@@ -723,10 +773,12 @@ const CustomerReturnService = {
         // Lấy tất cả return của order này (đã approved/completed)
         let allReturns = [];
         if (ret.order_id) {
-          const [returnRows] = await db.promise().query(
-            `SELECT * FROM return_orders WHERE order_id = ? AND status IN ('approved', 'completed') ORDER BY created_at ASC, return_id ASC`,
-            [ret.order_id]
-          );
+          const [returnRows] = await db
+            .promise()
+            .query(
+              `SELECT * FROM return_orders WHERE order_id = ? AND status IN ('approved', 'completed') ORDER BY created_at ASC, return_id ASC`,
+              [ret.order_id]
+            );
           allReturns = returnRows || [];
         }
         // Cập nhật returnedQuantityMap cho đến từng lần trả
@@ -735,7 +787,8 @@ const CustomerReturnService = {
           const r = allReturns[i];
           const rDetails = await CustomerReturn.getReturnDetails(r.return_id);
           for (const d of rDetails) {
-            returnedQuantityMap[d.product_id] = (returnedQuantityMap[d.product_id] || 0) + (d.quantity || 0);
+            returnedQuantityMap[d.product_id] =
+              (returnedQuantityMap[d.product_id] || 0) + (d.quantity || 0);
           }
         }
         // Kiểm tra đã trả hết đơn hay chưa
@@ -747,21 +800,27 @@ const CustomerReturnService = {
           }
         }
         // Tính refund cho chính lần trả này
-        const refundThisReturn = require("../../utils/refundUtils").calculateRefund({
-          order: orderInfo,
-          returnDetails: details,
-          productPriceMap,
-          productDiscountMap,
-        });
+        const refundThisReturn =
+          require("../../utils/refundUtils").calculateRefund({
+            order: orderInfo,
+            returnDetails: details,
+            productPriceMap,
+            productDiscountMap,
+          });
         // Nếu là lần trả cuối cùng (trả hết hàng) và là lần trả cuối cùng theo thứ tự
         if (
-          isFullyReturned && orderInfo && allReturns.length > 0 && allReturns[allReturns.length - 1].return_id === ret.return_id
+          isFullyReturned &&
+          orderInfo &&
+          allReturns.length > 0 &&
+          allReturns[allReturns.length - 1].return_id === ret.return_id
         ) {
           // Lần trả cuối cùng: hoàn nốt số còn lại để tổng = final_amount
           // Tính tổng refund các lần trước (trừ lần này)
           let totalRefundBefore = 0;
           for (let i = 0; i < allReturns.length - 1; i++) {
-            const rDetails = await CustomerReturn.getReturnDetails(allReturns[i].return_id);
+            const rDetails = await CustomerReturn.getReturnDetails(
+              allReturns[i].return_id
+            );
             const refund = require("../../utils/refundUtils").calculateRefund({
               order: orderInfo,
               returnDetails: rDetails,
@@ -770,7 +829,8 @@ const CustomerReturnService = {
             });
             totalRefundBefore += Math.round(refund * 100) / 100;
           }
-          ret.total_refund = Number(orderInfo.final_amount || 0) - totalRefundBefore;
+          ret.total_refund =
+            Number(orderInfo.final_amount || 0) - totalRefundBefore;
           ret.total_refund = Math.round(ret.total_refund * 100) / 100;
           if (ret.total_refund < 0) ret.total_refund = 0;
         } else {

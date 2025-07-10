@@ -103,6 +103,7 @@ function filterValidOrderFields(data) {
     "warehouse_id",
     "order_amount",
     "shipping_fee",
+    "amount_paid", // ✅ Thêm amount_paid vào danh sách fields được phép cập nhật
   ];
 
   const result = {};
@@ -817,7 +818,6 @@ const OrderService = {
    * @returns {Promise<Object>} Promise giải quyết với thông báo thành công.
    */
   updateOrderWithDetails: async (orderId, data) => {
-    // ✅ Chuyển sang async
     const { order, orderDetails = [] } = data;
 
     console.log(
@@ -828,12 +828,24 @@ const OrderService = {
       "🚀 ~ order.service: updateOrderWithDetails - FE send OrderDetails:",
       orderDetails
     );
+    console.log(
+      "🚀 ~ order.service: updateOrderWithDetails - amount_paid từ client:",
+      order?.amount_paid
+    );
 
     if (!order || !Array.isArray(orderDetails)) {
       throw new Error("Missing 'order' or 'orderDetails'");
     }
 
     const validOrderData = filterValidOrderFields(order);
+    console.log(
+      "🚀 ~ order.service: updateOrderWithDetails - validOrderData sau khi filter:",
+      validOrderData
+    );
+    console.log(
+      "🚀 ~ order.service: updateOrderWithDetails - amount_paid trong validOrderData:",
+      validOrderData.amount_paid
+    );
 
     const orderDetailsData = orderDetails.map((product) => ({
       ...product,
@@ -852,6 +864,10 @@ const OrderService = {
       "🚀 ~ order.service: updateOrderWithDetails - This is updatedOrder:",
       updatedOrder
     );
+    console.log(
+      "🚀 ~ order.service: updateOrderWithDetails - amount_paid trong updatedOrder:",
+      updatedOrder.amount_paid
+    );
 
     try {
       // ✅ Gọi OrderModel.updateOrderWithDetails (đã là async)
@@ -860,6 +876,26 @@ const OrderService = {
         updatedOrder,
         orderDetailsData
       );
+
+      // ✅ Đồng bộ amount_paid với invoices nếu có cập nhật
+      if (updatedOrder.amount_paid !== undefined) {
+        console.log(
+          "🚀 ~ order.service: updateOrderWithDetails - Đồng bộ amount_paid với invoices..."
+        );
+        try {
+          await OrderModel.syncAmountPaidWithInvoices(orderId, updatedOrder.amount_paid);
+          console.log(
+            "🚀 ~ order.service: updateOrderWithDetails - Đồng bộ amount_paid thành công"
+          );
+        } catch (syncError) {
+          console.warn(
+            "🚀 ~ order.service: updateOrderWithDetails - Lỗi đồng bộ amount_paid với invoices:",
+            syncError.message
+          );
+          // Không throw error vì đây không phải lỗi nghiêm trọng
+        }
+      }
+
       return result;
     } catch (error) {
       console.error(

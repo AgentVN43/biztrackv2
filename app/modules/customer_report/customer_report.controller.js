@@ -92,6 +92,7 @@ const CustomerReportController = {
       const totalReceivables = await CustomerReportService.getReceivables(
         customer_id
       );
+
       // Lấy danh sách hóa đơn chưa thanh toán đủ
       const unpaidInvoices =
         await CustomerReportService.getUnpaidOrPartiallyPaidInvoices(

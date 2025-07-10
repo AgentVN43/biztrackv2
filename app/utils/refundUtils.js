@@ -29,12 +29,12 @@ function calculateRefund({ order, returnDetails, productPriceMap = {}, productDi
   if (order_level_discount > 0 && total_order_gross > 0 && total_return_gross > 0) {
     const return_ratio = total_return_gross / total_order_gross;
     allocated_order_discount = order_level_discount * return_ratio;
-    allocated_order_discount = Math.round(allocated_order_discount * 100) / 100;
+    allocated_order_discount = Math.round(allocated_order_discount);
   }
 
-  // Tổng hoàn trả thực tế (làm tròn 2 chữ số)
+  // Tổng hoàn trả thực tế (làm tròn 2 số lẻ)
   let total_refund = total_return_gross - total_return_product_discount - allocated_order_discount;
-  total_refund = Math.round(total_refund * 100) / 100;
+  total_refund = Math.round(total_refund);
   if (total_refund < 0) total_refund = 0;
   return total_refund;
 }

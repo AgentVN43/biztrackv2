@@ -317,6 +317,7 @@ const CustomerReportService = {
       console.log(`🔍 getReceivables cho customer ${customer_id}:`);
       console.log(`  - Invoice debt: ${invoiceDebt}`);
       console.log(`  - Order debt: ${orderDebt}`);
+
       console.log(`  - Total refund: ${totalRefund}`);
       console.log(`  - Total receivables: ${totalReceivables}`);
 
@@ -814,10 +815,10 @@ async function calculateOrderTotalRefund(order_id) {
     console.log('--- Debug Refund ---');
     console.log('Order:', order.order_id, order.order_code);
     console.log('Return:', ret.return_id, ret.created_at);
-    console.log('Order Products:', orderProducts);
-    console.log('Returned Quantity Map:', returnedQuantityMap);
-    console.log('Return Details:', details);
-    console.log('Is Final Return:', isFinalReturn);
+          console.log('Order Products:', orderProducts);
+      console.log('Returned Quantity Map:', returnedQuantityMap);
+      // console.log('Return Details:', details);
+      console.log('Is Final Return:', isFinalReturn);
     console.log('Refund This Time:', refundThisTime);
     console.log('Total Refund So Far:', totalRefund + refundThisTime);
     totalRefund += refundThisTime;
@@ -892,7 +893,7 @@ async function calculateRefundForEachReturn(order_id) {
     console.log('Return:', ret.return_id, ret.created_at);
     console.log('Order Products:', orderProducts);
     console.log('Returned Quantity Map:', returnedQuantityMap);
-    console.log('Return Details:', details);
+    // console.log('Return Details:', details);
     console.log('Is Final Return:', isFinalReturn);
     console.log('Refund This Time:', refundThisTime);
     console.log('Total Refund So Far:', totalRefund + refundThisTime);

@@ -605,10 +605,58 @@ const OrderController = {
    * @param {Function} next - Hàm middleware tiếp theo.
    */
   updateOrderWithDetails: async (req, res, next) => {
-    // ✅ Chuyển sang async
     const { id } = req.params;
+    const { order, orderDetails } = req.body;
+
+    console.log(
+      "🚀 ~ order.controller.js: updateOrderWithDetails - REQ.BODY (dữ liệu thô từ client):",
+      req.body
+    );
+    console.log(
+      "🚀 ~ order.controller.js: updateOrderWithDetails - orderData (từ req.body.order):",
+      order
+    );
+    console.log(
+      "🚀 ~ order.controller.js: updateOrderWithDetails - amount_paid từ client:",
+      order?.amount_paid
+    );
+
+    // ✅ Validation cơ bản
+    if (!order) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu dữ liệu đơn hàng (order)"
+      });
+    }
+
+    if (!Array.isArray(orderDetails)) {
+      return res.status(400).json({
+        success: false,
+        message: "orderDetails phải là một mảng"
+      });
+    }
+
+    // ✅ Validation amount_paid
+    if (order.amount_paid !== undefined && order.amount_paid !== null) {
+      const amountPaid = parseFloat(order.amount_paid);
+      if (isNaN(amountPaid) || amountPaid < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "amount_paid phải là số không âm"
+        });
+      }
+      console.log(
+        "🚀 ~ order.controller.js: updateOrderWithDetails - amount_paid đã được validate:",
+        amountPaid
+      );
+    }
+
     try {
-      const result = await OrderService.updateOrderWithDetails(id, req.body); // ✅ Sử dụng await
+      const result = await OrderService.updateOrderWithDetails(id, req.body);
+      console.log(
+        "🚀 ~ order.controller.js: updateOrderWithDetails - Cập nhật thành công:",
+        result
+      );
       res
         .status(200)
         .json({ success: true, message: result.message, data: result });

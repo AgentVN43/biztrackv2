@@ -46,3 +46,56 @@ exports.validateUser = (req, res, next) => {
     // If validation passes, proceed to the next middleware/controller
     next();
   };
+
+/**
+ * Validation middleware for order-related requests
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ * @param {function} next - Express next middleware function
+ */
+exports.validateOrderUpdate = (req, res, next) => {
+    const { order, orderDetails } = req.body;
+    const errors = [];
+    
+    // Validate order object
+    if (!order || typeof order !== 'object') {
+      errors.push('Order data is required and must be an object');
+    }
+    
+    // Validate orderDetails array
+    if (!Array.isArray(orderDetails)) {
+      errors.push('OrderDetails must be an array');
+    }
+    
+    // Validate amount_paid if provided
+    if (order && order.amount_paid !== undefined && order.amount_paid !== null) {
+      const amountPaid = parseFloat(order.amount_paid);
+      if (isNaN(amountPaid)) {
+        errors.push('amount_paid must be a valid number');
+      } else if (amountPaid < 0) {
+        errors.push('amount_paid cannot be negative');
+      }
+    }
+    
+    // Validate final_amount if provided
+    if (order && order.final_amount !== undefined && order.final_amount !== null) {
+      const finalAmount = parseFloat(order.final_amount);
+      if (isNaN(finalAmount)) {
+        errors.push('final_amount must be a valid number');
+      } else if (finalAmount < 0) {
+        errors.push('final_amount cannot be negative');
+      }
+    }
+    
+    // If there are validation errors, return them
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order validation failed',
+        errors
+      });
+    }
+    
+    // If validation passes, proceed to the next middleware/controller
+    next();
+  };
