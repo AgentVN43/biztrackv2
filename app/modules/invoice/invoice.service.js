@@ -47,6 +47,7 @@
 const InvoiceModel = require("./invoice.model"); // Đảm bảo đường dẫn đúng tới invoice.model
 const TransactionService = require("../transactions/transaction.service");
 const CustomerModel = require("../customers/customer.model");
+const { generateTransactionCode } = require('../../utils/transactionUtils');
 
 const InvoiceService = {
   // Đổi tên từ 'const create' sang 'const InvoiceService'
@@ -60,6 +61,28 @@ const InvoiceService = {
     try {
       // Gọi InvoiceModel.create và await kết quả của Promise
       const invoice = await InvoiceModel.create(data);
+      
+      // Chỉ tạo transaction cho amount_paid nếu có flag fromOrderHoanTat (chỉ khi hoàn tất đơn hàng)
+      if (data.fromOrderHoanTat && data.order_id && parseFloat(data.amount_paid || 0) > 0) {
+        const OrderModel = require('../orders/order.model');
+        const order = await OrderModel.readById(data.order_id);
+        if (order && parseFloat(order.amount_paid || 0) > 0) {
+          const TransactionModel = require('../transactions/transaction.model');
+          await TransactionModel.createTransaction({
+            transaction_code: generateTransactionCode(),
+            order_id: data.order_id,
+            invoice_id: invoice.invoice_id,
+            customer_id: data.customer_id,
+            type: 'receipt',
+            amount: parseFloat(order.amount_paid),
+            status: 'completed',
+            note: `Thanh toán trước chuyển thành thanh toán hóa đơn ${invoice.invoice_code}`,
+            created_by: data.created_by || null,
+          });
+          console.log(`🚀 ~ InvoiceService: create - Đã tạo transaction cho amount_paid của order: ${order.amount_paid}`);
+        }
+      }
+      
       return invoice;
     } catch (error) {
       console.error(

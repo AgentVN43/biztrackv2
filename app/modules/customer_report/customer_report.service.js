@@ -330,6 +330,7 @@ const CustomerReportService = {
 
   getUnpaidOrPartiallyPaidInvoices: async (customer_id) => {
     try {
+      // 1. Lấy danh sách hóa đơn cơ bản
       const sql = `
         SELECT
           invoice_id,
@@ -338,7 +339,6 @@ const CustomerReportService = {
           order_id,
           final_amount,
           amount_paid,
-          (final_amount - amount_paid) AS remaining_receivable,
           status,
           issued_date,
           due_date,
@@ -349,7 +349,35 @@ const CustomerReportService = {
         ORDER BY issued_date ASC;
       `;
       const [rows] = await db.promise().query(sql, [customer_id]);
-      return rows;
+
+      // 2. Tính toán remaining_receivable cho từng hóa đơn (có trừ refund)
+      const invoicesWithRefund = await Promise.all(
+        rows.map(async (invoice) => {
+          let totalRefundForInvoice = 0;
+          
+          // Nếu hóa đơn có order_id, tính refund cho order đó
+          if (invoice.order_id) {
+            totalRefundForInvoice = await calculateOrderTotalRefund(invoice.order_id);
+          }
+
+          // Tính remaining_receivable = final_amount - amount_paid - total_refund
+          const remaining_receivable = Math.max(0, invoice.final_amount - invoice.amount_paid - totalRefundForInvoice);
+
+          console.log(`🔍 Invoice ${invoice.invoice_code} (Order ${invoice.order_id}):`);
+          console.log(`  - Final amount: ${invoice.final_amount}`);
+          console.log(`  - Amount paid: ${invoice.amount_paid}`);
+          console.log(`  - Total refund: ${totalRefundForInvoice}`);
+          console.log(`  - Remaining receivable: ${remaining_receivable}`);
+
+          return {
+            ...invoice,
+            remaining_receivable: Math.round(remaining_receivable * 100) / 100,
+            total_refund: Math.round(totalRefundForInvoice * 100) / 100
+          };
+        })
+      );
+
+      return invoicesWithRefund;
     } catch (error) {
       console.error(
         "🚀 ~ CustomerReportService: getUnpaidOrPartiallyPaidInvoices - Lỗi:",

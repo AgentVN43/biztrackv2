@@ -590,22 +590,21 @@ const OrderService = {
             invoiceData
           );
           // InvoiceService.create sẽ gọi InvoiceModel.create với amount_paid đã cung cấp
-          const createdInvoice = await InvoiceService.create(invoiceData);
+          let createdInvoice;
+          if (parseFloat(order.amount_paid || 0) > 0) {
+            // Đã có transaction partial_paid cho khoản thanh toán đầu, KHÔNG tạo transaction receipt nữa
+            createdInvoice = await InvoiceService.create(invoiceData);
+          } else {
+            // Nếu chưa có amount_paid, vẫn truyền flag để tạo transaction receipt nếu cần
+            createdInvoice = await InvoiceService.create({ ...invoiceData, fromOrderHoanTat: true });
+          }
           console.log(
             "🚀 ~ order.service: update - Invoice đã tạo thành công:",
             createdInvoice
           );
 
-          // ✅ KHÔNG TẠO TRANSACTION KHI ĐƠN HÀNG CHUYỂN SANG "HOÀN TẤT" NẾU ĐÃ CÓ AMOUNT_PAID TỪ TRƯỚC
-          // Transaction sẽ chỉ được tạo khi có thanh toán bổ sung qua API recordPayment
-          if (parseFloat(order.amount_paid) > 0) {
-            console.log(
-              `🚀 ~ order.service: update - Đơn hàng có thanh toán ban đầu ${order.amount_paid}. Không tạo transaction trùng lặp khi chuyển sang "Hoàn tất".`
-            );
-            console.log(
-              `🚀 ~ order.service: update - Thanh toán ban đầu đã được ghi nhận trong amount_paid của invoice. Transaction sẽ được tạo khi có thanh toán bổ sung.`
-            );
-          } else {
+          // Đơn hàng chưa có thanh toán ban đầu. Không tạo giao dịch thanh toán ở đây, chỉ tạo ở InvoiceService.create nếu cần.
+          if (!(parseFloat(order.amount_paid) > 0)) {
             console.log(
               "🚀 ~ order.service: update - Đơn hàng chưa có thanh toán ban đầu. Không tạo giao dịch thanh toán."
             );
@@ -1157,20 +1156,20 @@ const OrderService = {
       }
     }
     let total_refund = isFullyReturned ? Number(order.final_amount || 0) : totalRefund;
-    // Lấy tổng số tiền đã thanh toán (receipt)
-    const TransactionModel = require("../transactions/transaction.model");
-    const refundTransactions = await TransactionModel.getTransactionsByOrderId(order_id);
-    const amoutPayment = refundTransactions
-      .filter(t => t.type === 'receipt')
+    // Lấy ledger từ getOrderTransactionLedger
+    const ledger = await OrderService.getOrderTransactionLedger(order_id);
+    const amoutPayment = ledger
+      .filter(t => t.type === 'receipt' || t.type === 'partial_paid')
       .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
 
     const final_amount = Number(order.final_amount || 0);
-    const remaining_value = Math.max(0, final_amount - total_refund);
+    const remaining_value = final_amount - total_refund - amoutPayment;
     return {
       ...order,
       total_refund,
       remaining_value: Math.round(remaining_value * 100) / 100,
       amoutPayment: Math.round(amoutPayment * 100) / 100,
+      ledger,
     };
   },
 };

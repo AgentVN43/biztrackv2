@@ -304,7 +304,7 @@ exports.updateDebt = async (customer_id, amount, increase = true) => {
       `UPDATE customers SET debt = debt ${increase ? "+" : "-"} ? WHERE customer_id = ?`,
       [amount, customer_id]
     );
-    return result.affectedRows > 0;
+    return result.affectedRows;
   } catch (err) {
     console.error("Lỗi khi cập nhật debt cho khách hàng:", err.message);
     throw err;
@@ -367,7 +367,7 @@ exports.calculateDebt = async (customer_id) => {
     console.log(`  - Order debt: ${orderDebt}`);
     console.log(`  - Total refund: ${totalRefund}`);
     console.log(`  - Final debt: ${totalDebt}`);
-    return Math.max(0, totalDebt);
+    return totalDebt;
   } catch (error) {
     console.error("🚀 ~ customer.model.js: calculateDebt - Lỗi:", error);
     throw error;
