@@ -3,83 +3,6 @@ const db = require("../../config/db.config");
 const { v4: uuidv4 } = require("uuid");
 
 const Invoice = {
-  // create: async (data) => {
-  //   const invoice_id = uuidv4();
-  //   const {
-  //     invoice_code,
-  //     invoice_type,
-  //     order_id,
-  //     customer_id,
-  //     supplier_id,
-  //     total_amount,
-  //     tax_amount,
-  //     discount_amount,
-  //     final_amount,
-  //     issued_date,
-  //     due_date,
-  //     note,
-  //     amount_paid = 0.0,
-  //   } = data;
-
-  //   // ✅ Logic xác định trạng thái ban đầu của hóa đơn dựa trên amount_paid và final_amount
-  //   let status;
-  //   if (final_amount <= 0) {
-  //     // Trường hợp tổng tiền là 0 hoặc âm (hoàn trả)
-  //     status = "paid"; // Coi như đã thanh toán
-  //   } else if (amount_paid >= final_amount) {
-  //     status = "paid"; // Đã thanh toán đủ
-  //   } else if (amount_paid > 0) {
-  //     status = "partial_paid"; // Thanh toán một phần
-  //   } else {
-  //     status = "pending"; // Chưa thanh toán (hoặc 'pending' theo đề xuất của bạn)
-  //   }
-
-  //   const query = `
-  //           INSERT INTO invoices (
-  //               invoice_id, invoice_code, invoice_type, order_id,
-  //               customer_id, supplier_id, total_amount, tax_amount,
-  //               discount_amount, final_amount, issued_date, due_date,
-  //               status, note, amount_paid
-  //           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  //       `;
-
-  //   const values = [
-  //     invoice_id,
-  //     invoice_code,
-  //     invoice_type,
-  //     order_id,
-  //     customer_id,
-  //     supplier_id,
-  //     total_amount,
-  //     tax_amount,
-  //     discount_amount,
-  //     final_amount,
-  //     issued_date,
-  //     due_date,
-  //     status,
-  //     note,
-  //     amount_paid,
-  //   ];
-
-  //   try {
-  //     console.log("🚀 ~ invoice.model.js: create - SQL Query:", query);
-  //     console.log("🚀 ~ invoice.model.js: create - SQL Values:", values);
-  //     await db.promise().query(query, values);
-  //     const invoiceResult = { invoice_id, ...data, status, amount_paid };
-  //     console.log(
-  //       "🚀 ~ invoice.model.js: create - Invoice created successfully:",
-  //       invoiceResult
-  //     );
-  //     return invoiceResult;
-  //   } catch (error) {
-  //     console.error(
-  //       "🚀 ~ invoice.model.js: create - Error creating invoice:",
-  //       error
-  //     );
-  //     throw error;
-  //   }
-  // },
-
   create: async (invoiceData) => {
     const invoice_id = uuidv4();
     const {
@@ -172,9 +95,12 @@ const Invoice = {
       const currentInvoice = invoiceRows[0];
       const newAmountPaid =
         parseFloat(currentInvoice.amount_paid || 0) + parseFloat(paymentAmount);
-      
+
       // 2. Xác định trạng thái mới dựa trên amount_paid và final_amount
-      const newStatus = Invoice.calculateStatus(newAmountPaid, currentInvoice.final_amount);
+      const newStatus = Invoice.calculateStatus(
+        newAmountPaid,
+        currentInvoice.final_amount
+      );
 
       // 3. Cập nhật hóa đơn
       const sql = `
@@ -189,14 +115,16 @@ const Invoice = {
       if (result.affectedRows === 0) {
         return null; // Invoice not found for update
       }
-      
-      console.log(`🚀 ~ InvoiceModel: updateAmountPaidAndStatus - Updated invoice ${invoice_id}: amount_paid=${newAmountPaid}, status=${newStatus}`);
-      return { 
-        invoice_id, 
-        amount_paid: newAmountPaid, 
+
+      console.log(
+        `🚀 ~ InvoiceModel: updateAmountPaidAndStatus - Updated invoice ${invoice_id}: amount_paid=${newAmountPaid}, status=${newStatus}`
+      );
+      return {
+        invoice_id,
+        amount_paid: newAmountPaid,
         status: newStatus,
         previous_amount_paid: parseFloat(currentInvoice.amount_paid || 0),
-        payment_amount: parseFloat(paymentAmount)
+        payment_amount: parseFloat(paymentAmount),
       };
     } catch (error) {
       console.error(
@@ -235,19 +163,19 @@ const Invoice = {
         SET amount_paid = ?, updated_at = CURRENT_TIMESTAMP
         WHERE invoice_id = ?
       `;
-      const [result] = await db
-        .promise()
-        .query(sql, [amountPaid, invoice_id]);
+      const [result] = await db.promise().query(sql, [amountPaid, invoice_id]);
 
       if (result.affectedRows === 0) {
         return null;
       }
 
-      console.log(`🚀 ~ InvoiceModel: updateAmountPaid - Updated invoice ${invoice_id}: amount_paid=${amountPaid}`);
-      return { 
-        invoice_id, 
+      console.log(
+        `🚀 ~ InvoiceModel: updateAmountPaid - Updated invoice ${invoice_id}: amount_paid=${amountPaid}`
+      );
+      return {
+        invoice_id,
         amount_paid: amountPaid,
-        previous_amount_paid: parseFloat(currentInvoice.amount_paid || 0)
+        previous_amount_paid: parseFloat(currentInvoice.amount_paid || 0),
       };
     } catch (error) {
       console.error(
@@ -342,8 +270,11 @@ const Invoice = {
       if (results.affectedRows === 0) {
         throw new Error("Invoice not found or no changes made");
       }
-      
-      console.log(`🚀 ~ InvoiceModel: updateByInvoiceCode - Updated invoice ${invoice_code}:`, data);
+
+      console.log(
+        `🚀 ~ InvoiceModel: updateByInvoiceCode - Updated invoice ${invoice_code}:`,
+        data
+      );
       return { invoice_code, ...data }; // Return the updated invoice data
     } catch (error) {
       console.error(
@@ -544,15 +475,18 @@ const Invoice = {
    * Cập nhật trạng thái của hóa đơn và tự động tính toán lại status dựa trên amount_paid.
    * @param {string} invoice_id - ID của hóa đơn.
    * @param {string} status - Trạng thái mới (optional, nếu không cung cấp sẽ tự động tính toán).
+   * @param {Object} options - Tùy chọn bổ sung (optional).
+   * @param {boolean} options.includeRefund - Có tính đến refund không (default: false).
+   * @param {string} options.order_id - ID của order để tính refund (required nếu includeRefund = true).
    * @returns {Promise<Object>} Kết quả cập nhật.
    */
-  updateStatus: async (invoice_id, status = null) => {
+  updateStatus: async (invoice_id, status = null, options = {}) => {
     try {
       // 1. Lấy thông tin hóa đơn hiện tại
       const [invoiceRows] = await db
         .promise()
         .query(
-          "SELECT final_amount, amount_paid, status FROM invoices WHERE invoice_id = ?",
+          "SELECT final_amount, amount_paid, status, order_id FROM invoices WHERE invoice_id = ?",
           [invoice_id]
         );
       if (invoiceRows.length === 0) {
@@ -562,9 +496,31 @@ const Invoice = {
       const currentInvoice = invoiceRows[0];
       let newStatus = status;
 
-      // 2. Nếu không cung cấp status, tự động tính toán dựa trên amount_paid
+      // 2. Nếu không cung cấp status, tự động tính toán
       if (!status) {
-        newStatus = Invoice.calculateStatus(currentInvoice.amount_paid, currentInvoice.final_amount);
+        if (options.includeRefund && (options.order_id || currentInvoice.order_id)) {
+          // Tính toán với refund
+          const orderId = options.order_id || currentInvoice.order_id;
+          const CustomerReportService = require("../customer_report/customer_report.service");
+          const totalRefund = await CustomerReportService.calculateOrderTotalRefund(orderId);
+          
+          console.log(`🔍 updateStatus with refund for invoice ${invoice_id}:`);
+          console.log(`  - Amount paid: ${currentInvoice.amount_paid}`);
+          console.log(`  - Final amount: ${currentInvoice.final_amount}`);
+          console.log(`  - Total refund: ${totalRefund}`);
+          
+          newStatus = Invoice.calculateStatusWithRefund(
+            currentInvoice.amount_paid,
+            currentInvoice.final_amount,
+            totalRefund
+          );
+        } else {
+          // Tính toán thông thường
+          newStatus = Invoice.calculateStatus(
+            currentInvoice.amount_paid,
+            currentInvoice.final_amount
+          );
+        }
       }
 
       // 3. Cập nhật status
@@ -574,17 +530,19 @@ const Invoice = {
         WHERE invoice_id = ?
       `;
       const [result] = await db.promise().query(sql, [newStatus, invoice_id]);
-      
+
       if (result.affectedRows === 0) {
         throw new Error("Invoice not found for status update");
       }
 
-      console.log(`🚀 ~ InvoiceModel: updateStatus - Updated invoice ${invoice_id}: status=${newStatus}`);
-      return { 
-        invoice_id, 
-        status: newStatus, 
+      console.log(
+        `🚀 ~ InvoiceModel: updateStatus - Updated invoice ${invoice_id}: status=${newStatus}`
+      );
+      return {
+        invoice_id,
+        status: newStatus,
         previous_status: currentInvoice.status,
-        updated_at: new Date() 
+        updated_at: new Date(),
       };
     } catch (error) {
       console.error(
@@ -604,13 +562,45 @@ const Invoice = {
   calculateStatus: (amount_paid, final_amount) => {
     const paid = parseFloat(amount_paid || 0);
     const total = parseFloat(final_amount || 0);
-    
+
     if (total <= 0) {
       return "paid"; // Trường hợp hoàn trả hoặc final_amount = 0
     } else if (paid >= total) {
       return "paid"; // Đã thanh toán đủ
     } else if (paid > 0) {
       return "partial_paid"; // Thanh toán một phần
+    } else {
+      return "pending"; // Chưa thanh toán
+    }
+  },
+
+  /**
+   * Helper function để tính toán status dựa trên amount_paid, final_amount và refund
+   * @param {number} amount_paid - Số tiền đã thanh toán
+   * @param {number} final_amount - Tổng số tiền phải thanh toán
+   * @param {number} total_refund - Tổng số tiền đã hoàn trả
+   * @returns {string} Status được tính toán
+   */
+  calculateStatusWithRefund: (amount_paid, final_amount, total_refund = 0) => {
+    const paid = parseFloat(amount_paid || 0);
+    const total = parseFloat(final_amount || 0);
+    const refund = parseFloat(total_refund || 0);
+    
+    // Số tiền thực tế phải thanh toán sau khi trừ refund
+    const actualAmountToPay = Math.max(0, total - refund);
+    
+    console.log(`🔍 calculateStatusWithRefund:`);
+    console.log(`  - Final amount: ${total}`);
+    console.log(`  - Amount paid: ${paid}`);
+    console.log(`  - Total refund: ${refund}`);
+    console.log(`  - Actual amount to pay: ${actualAmountToPay}`);
+    
+    if (actualAmountToPay <= 0) {
+      return "paid"; // Trường hợp refund >= final_amount (hoàn toàn)
+    } else if (paid >= actualAmountToPay) {
+      return "paid"; // Đã thanh toán đủ số tiền thực tế phải trả
+    } else if (paid > 0) {
+      return "partial_paid"; // Thanh toán một phần số tiền thực tế phải trả
     } else {
       return "pending"; // Chưa thanh toán
     }
@@ -637,7 +627,10 @@ const Invoice = {
 
       const currentInvoice = invoiceRows[0];
       const newAmountPaid = parseFloat(amount_paid || 0);
-      const newStatus = Invoice.calculateStatus(newAmountPaid, currentInvoice.final_amount);
+      const newStatus = Invoice.calculateStatus(
+        newAmountPaid,
+        currentInvoice.final_amount
+      );
 
       // 2. Cập nhật cả amount_paid và status
       const sql = `
@@ -653,13 +646,15 @@ const Invoice = {
         return null;
       }
 
-      console.log(`🚀 ~ InvoiceModel: syncAmountPaidAndStatus - Updated invoice ${invoice_id}: amount_paid=${newAmountPaid}, status=${newStatus}`);
-      return { 
-        invoice_id, 
-        amount_paid: newAmountPaid, 
+      console.log(
+        `🚀 ~ InvoiceModel: syncAmountPaidAndStatus - Updated invoice ${invoice_id}: amount_paid=${newAmountPaid}, status=${newStatus}`
+      );
+      return {
+        invoice_id,
+        amount_paid: newAmountPaid,
         status: newStatus,
         previous_amount_paid: parseFloat(currentInvoice.amount_paid || 0),
-        previous_status: currentInvoice.status
+        previous_status: currentInvoice.status,
       };
     } catch (error) {
       console.error(
@@ -693,34 +688,43 @@ const Invoice = {
           (amount_paid = 0 AND final_amount > 0 AND status != 'pending')
         )
       `;
-      
+
       const [inconsistentInvoices] = await db.promise().query(sql);
-      
+
       if (inconsistentInvoices.length === 0) {
-        console.log("🚀 ~ InvoiceModel: fixInconsistentStatuses - Không có hóa đơn nào cần sửa chữa");
-        return { 
-          fixed_count: 0, 
+        console.log(
+          "🚀 ~ InvoiceModel: fixInconsistentStatuses - Không có hóa đơn nào cần sửa chữa"
+        );
+        return {
+          fixed_count: 0,
           total_checked: 0,
-          inconsistent_invoices: []
+          inconsistent_invoices: [],
         };
       }
 
-      console.log(`🚀 ~ InvoiceModel: fixInconsistentStatuses - Tìm thấy ${inconsistentInvoices.length} hóa đơn cần sửa chữa`);
+      console.log(
+        `🚀 ~ InvoiceModel: fixInconsistentStatuses - Tìm thấy ${inconsistentInvoices.length} hóa đơn cần sửa chữa`
+      );
 
       // 2. Sửa chữa từng hóa đơn
       const fixedResults = [];
       for (const invoice of inconsistentInvoices) {
-        const correctStatus = Invoice.calculateStatus(invoice.amount_paid, invoice.final_amount);
-        
+        const correctStatus = Invoice.calculateStatus(
+          invoice.amount_paid,
+          invoice.final_amount
+        );
+
         if (correctStatus !== invoice.status) {
           const updateSql = `
             UPDATE invoices 
             SET status = ?, updated_at = CURRENT_TIMESTAMP
             WHERE invoice_id = ?
           `;
-          
-          await db.promise().query(updateSql, [correctStatus, invoice.invoice_id]);
-          
+
+          await db
+            .promise()
+            .query(updateSql, [correctStatus, invoice.invoice_id]);
+
           fixedResults.push({
             invoice_id: invoice.invoice_id,
             invoice_code: invoice.invoice_code,
@@ -728,18 +732,22 @@ const Invoice = {
             old_status: invoice.status,
             new_status: correctStatus,
             amount_paid: parseFloat(invoice.amount_paid || 0),
-            final_amount: parseFloat(invoice.final_amount || 0)
+            final_amount: parseFloat(invoice.final_amount || 0),
           });
-          
-          console.log(`🚀 ~ InvoiceModel: fixInconsistentStatuses - Fixed invoice ${invoice.invoice_code}: ${invoice.status} -> ${correctStatus}`);
+
+          console.log(
+            `🚀 ~ InvoiceModel: fixInconsistentStatuses - Fixed invoice ${invoice.invoice_code}: ${invoice.status} -> ${correctStatus}`
+          );
         }
       }
 
-      console.log(`🚀 ~ InvoiceModel: fixInconsistentStatuses - Đã sửa chữa ${fixedResults.length} hóa đơn`);
+      console.log(
+        `🚀 ~ InvoiceModel: fixInconsistentStatuses - Đã sửa chữa ${fixedResults.length} hóa đơn`
+      );
       return {
         fixed_count: fixedResults.length,
         total_checked: inconsistentInvoices.length,
-        inconsistent_invoices: fixedResults
+        inconsistent_invoices: fixedResults,
       };
     } catch (error) {
       console.error(
@@ -781,13 +789,13 @@ const Invoice = {
         )
         ORDER BY issued_date DESC
       `;
-      
+
       const [inconsistentInvoices] = await db.promise().query(sql);
-      
-      return inconsistentInvoices.map(invoice => ({
+
+      return inconsistentInvoices.map((invoice) => ({
         ...invoice,
         amount_paid: parseFloat(invoice.amount_paid || 0),
-        final_amount: parseFloat(invoice.final_amount || 0)
+        final_amount: parseFloat(invoice.final_amount || 0),
       }));
     } catch (error) {
       console.error(

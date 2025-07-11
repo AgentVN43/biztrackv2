@@ -312,16 +312,18 @@ const CustomerReportService = {
       }
 
       // Tổng công nợ = Công nợ invoices + Công nợ orders - Tổng tiền đã trả hàng
-      const totalReceivables = invoiceDebt + orderDebt - totalRefund;
+      // Nếu totalRefund >= (invoiceDebt + orderDebt) thì totalReceivables = 0
+      const totalDebt = invoiceDebt + orderDebt;
+      const totalReceivables = totalRefund >= totalDebt ? 0 : totalDebt - totalRefund;
 
       console.log(`🔍 getReceivables cho customer ${customer_id}:`);
       console.log(`  - Invoice debt: ${invoiceDebt}`);
       console.log(`  - Order debt: ${orderDebt}`);
-
+      console.log(`  - Total debt: ${totalDebt}`);
       console.log(`  - Total refund: ${totalRefund}`);
       console.log(`  - Total receivables: ${totalReceivables}`);
 
-      return Math.max(0, totalReceivables);
+      return totalReceivables;
     } catch (error) {
       console.error("🚀 ~ CustomerReportService: getReceivables - Lỗi:", error);
       throw error;

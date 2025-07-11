@@ -556,6 +556,11 @@ const CustomerReturnService = {
         console.log(
           `✅ Đã cập nhật debt thành công cho customer_id: ${returnInfo.customer_id}`
         );
+        
+        // Log thêm thông tin về debt âm nếu có
+        if (newDebt < 0) {
+          console.log(`💰 Khách hàng có debt âm (${newDebt}), cần hoàn tiền!`);
+        }
       } catch (debtError) {
         console.error(`❌ Lỗi khi cập nhật debt:`, debtError);
         // Không throw error để không ảnh hưởng đến việc process return_order
@@ -595,6 +600,26 @@ const CustomerReturnService = {
           `❌ Lỗi khi cập nhật total_expenditure và total_orders:`,
           reportError
         );
+        // Không throw error để không ảnh hưởng đến việc process return_order
+      }
+
+      // ✅ Cập nhật status invoice sau khi process return (để đảm bảo tính toán chính xác)
+      try {
+        if (returnInfo.order_id) {
+          console.log(`🔍 ProcessReturn - Updating invoice status for order ${returnInfo.order_id}`);
+          
+          // Tìm invoice liên quan và cập nhật status với refund
+          const invoice = await InvoiceModel.findByOrderId(returnInfo.order_id);
+          if (invoice && invoice.invoice_id) {
+            await InvoiceModel.updateStatus(invoice.invoice_id, null, {
+              includeRefund: true,
+              order_id: returnInfo.order_id
+            });
+            console.log(`✅ ProcessReturn - Updated invoice ${invoice.invoice_code} status with refund`);
+          }
+        }
+      } catch (invoiceError) {
+        console.error(`❌ Lỗi khi cập nhật status invoice:`, invoiceError);
         // Không throw error để không ảnh hưởng đến việc process return_order
       }
 
@@ -666,17 +691,29 @@ const CustomerReturnService = {
         0
       );
 
-      // ✅ Sau khi duyệt trả hàng, cập nhật lại status hóa đơn cho đúng thực tế
+      // ✅ Sau khi duyệt trả hàng, cập nhật lại status hóa đơn có tính đến refund
       if (invoice && invoice.invoice_id) {
-        const amount_paid = Number(invoice.amount_paid || 0);
-        const final_amount = Number(invoice.final_amount || 0);
-        let newStatus = "pending";
-        if (amount_paid >= final_amount) {
-          newStatus = "paid";
-        } else if (amount_paid > 0) {
-          newStatus = "partial_paid";
+        // Sử dụng tính năng refund mới để tính toán status chính xác
+        await InvoiceModel.updateStatus(invoice.invoice_id, null, {
+          includeRefund: true,
+          order_id: returnInfo.order_id
+        });
+      }
+      
+      // ✅ Cập nhật debt ngay sau khi approve return
+      try {
+        console.log(`🔄 ApproveReturn - Đang cập nhật debt cho customer_id: ${returnInfo.customer_id}`);
+        const newDebt = await CustomerModel.calculateDebt(returnInfo.customer_id);
+        console.log(`📊 ApproveReturn - Debt mới được tính: ${newDebt}`);
+        await CustomerModel.update(returnInfo.customer_id, { debt: newDebt });
+        console.log(`✅ ApproveReturn - Đã cập nhật debt thành công`);
+        
+        if (newDebt < 0) {
+          console.log(`💰 ApproveReturn - Khách hàng có debt âm (${newDebt}), cần hoàn tiền!`);
         }
-        await InvoiceModel.updateStatus(invoice.invoice_id, newStatus);
+      } catch (debtError) {
+        console.error(`❌ ApproveReturn - Lỗi khi cập nhật debt:`, debtError);
+        // Không throw error để không ảnh hưởng đến việc approve return
       }
 
       // Sau khi approve, tự động process toàn bộ nghiệp vụ

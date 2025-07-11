@@ -49,11 +49,24 @@ exports.get = async (req, res) => {
       parsedLimit,
       { startDate: effectiveStartDate, endDate: effectiveEndDate }
     );
+    // Bổ sung total_remaining_value cho từng khách hàng
+    const customersWithRemaining = await Promise.all(
+      customers.map(async (c) => {
+        const total_remaining_value =
+          await CustomerService.getTotalRemainingValueForCustomer(
+            c.customer_id
+          );
+        return {
+          ...c,
+          total_remaining_value: Math.round(total_remaining_value),
+        };
+      })
+    );
     return createResponse(
       res,
       200,
       true,
-      customers,
+      customersWithRemaining,
       null,
       total,
       parsedPage,
@@ -133,8 +146,6 @@ exports.get = async (req, res) => {
     next(error); // Chuyển lỗi đến middleware xử lý lỗi
   }
 }),
-
-
   (exports.update = async (req, res) => {
     const id = req.params.id;
     const customerData = req.body;

@@ -66,6 +66,7 @@
 // };
 
 const Customer = require("./customer.model");
+const OrderService = require("../orders/order.service");
 
 exports.createCustomer = async (data) => {
   return await Customer.create(data);
@@ -133,4 +134,22 @@ exports.updateDebt = async (customerId, amount, increase = true) => {
   // amount: số tiền tăng/giảm
   // increase: true => tăng, false => giảm
   return await Customer.updateDebt(customerId, amount, increase);
+};
+
+exports.getTotalRemainingValueForCustomer = async (customer_id) => {
+  const db = require("../../config/db.config");
+  // Lấy tất cả order_id của khách, bỏ qua đơn bị huỷ
+  const [orders] = await db.promise().query(
+    "SELECT order_id FROM orders WHERE customer_id = ? AND order_status != 'Huỷ đơn'",
+    [customer_id]
+  );
+  if (!orders.length) return 0;
+  // Tính tổng remaining_value
+  const values = await Promise.all(
+    orders.map(async (o) => {
+      const summary = await OrderService.getOrderWithReturnSummary(o.order_id);
+      return summary ? Number(summary.remaining_value) : 0;
+    })
+  );
+  return values.reduce((sum, v) => sum + v, 0);
 };
