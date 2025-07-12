@@ -196,22 +196,15 @@ const CustomerReportController = {
         customer_id
       );
       
-      if (ledger.length === 0) {
-        return createResponse(
-          res,
-          404,
-          false,
-          null,
-          `Không tìm thấy lịch sử giao dịch cho khách hàng ID: ${customer_id}.`
-        );
-      }
-
+      // Trả về mảng rỗng thay vì 404 để tránh loop ở frontend
       createResponse(
         res,
         200,
         true,
-        ledger,
-        "Sổ cái giao dịch của khách hàng đã được tải thành công."
+        ledger || [],
+        ledger && ledger.length > 0 
+          ? "Sổ cái giao dịch của khách hàng đã được tải thành công."
+          : "Không có dữ liệu giao dịch cho khách hàng này."
       );
     } catch (error) {
       console.error(
