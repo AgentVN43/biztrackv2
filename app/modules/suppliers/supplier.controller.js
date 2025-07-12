@@ -1,5 +1,10 @@
-const SupplierService = require('./supplier.service'); // Ensure the correct path to your supplier.service.js
-const {createResponse} = require('../../utils/response'); // Ensure the correct path to your createResponse utility
+const SupplierService = require("./supplier.service"); // Ensure the correct path to your supplier.service.js
+const { createResponse } = require("../../utils/response"); // Ensure the correct path to your createResponse utility
+// Import search/filter service
+const {
+  EntityHelpers,
+  SearchFilterService,
+} = require("../../utils/searchFilterService");
 
 const SupplierController = {
   /**
@@ -11,9 +16,18 @@ const SupplierController = {
   createSupplier: async (req, res, next) => {
     try {
       const newSupplier = await SupplierService.createSupplier(req.body);
-      createResponse(res, 201, true, newSupplier, "Supplier created successfully.");
+      createResponse(
+        res,
+        201,
+        true,
+        newSupplier,
+        "Supplier created successfully."
+      );
     } catch (error) {
-      console.error("🚀 ~ supplier.controller.js: createSupplier - Error:", error);
+      console.error(
+        "🚀 ~ supplier.controller.js: createSupplier - Error:",
+        error
+      );
       next(error); // Pass error to global error handler
     }
   },
@@ -27,9 +41,18 @@ const SupplierController = {
   getAllSuppliers: async (req, res, next) => {
     try {
       const suppliers = await SupplierService.getAllSuppliers();
-      createResponse(res, 200, true, suppliers, "Suppliers retrieved successfully.");
+      createResponse(
+        res,
+        200,
+        true,
+        suppliers,
+        "Suppliers retrieved successfully."
+      );
     } catch (error) {
-      console.error("🚀 ~ supplier.controller.js: getAllSuppliers - Error:", error);
+      console.error(
+        "🚀 ~ supplier.controller.js: getAllSuppliers - Error:",
+        error
+      );
       next(error);
     }
   },
@@ -46,9 +69,18 @@ const SupplierController = {
       if (!supplier) {
         return createResponse(res, 404, false, null, "Supplier not found.");
       }
-      createResponse(res, 200, true, supplier, "Supplier retrieved successfully.");
+      createResponse(
+        res,
+        200,
+        true,
+        supplier,
+        "Supplier retrieved successfully."
+      );
     } catch (error) {
-      console.error("🚀 ~ supplier.controller.js: getSupplierById - Error:", error);
+      console.error(
+        "🚀 ~ supplier.controller.js: getSupplierById - Error:",
+        error
+      );
       next(error);
     }
   },
@@ -61,10 +93,22 @@ const SupplierController = {
    */
   updateSupplier: async (req, res, next) => {
     try {
-      const updatedSupplier = await SupplierService.updateSupplier(req.params.id, req.body);
-      createResponse(res, 200, true, updatedSupplier, "Supplier updated successfully.");
+      const updatedSupplier = await SupplierService.updateSupplier(
+        req.params.id,
+        req.body
+      );
+      createResponse(
+        res,
+        200,
+        true,
+        updatedSupplier,
+        "Supplier updated successfully."
+      );
     } catch (error) {
-      console.error("🚀 ~ supplier.controller.js: updateSupplier - Error:", error);
+      console.error(
+        "🚀 ~ supplier.controller.js: updateSupplier - Error:",
+        error
+      );
       next(error);
     }
   },
@@ -80,7 +124,41 @@ const SupplierController = {
       const result = await SupplierService.deleteSupplier(req.params.id);
       createResponse(res, 200, true, result, "Supplier deleted successfully.");
     } catch (error) {
-      console.error("🚀 ~ supplier.controller.js: deleteSupplier - Error:", error);
+      console.error(
+        "🚀 ~ supplier.controller.js: deleteSupplier - Error:",
+        error
+      );
+      next(error);
+    }
+  },
+
+  /**
+   * MỚI: Xử lý yêu cầu GET để tìm kiếm và lọc nhà cung cấp với phân trang.
+   * @param {Object} req - Đối tượng yêu cầu Express (với searchParams từ phần mềm trung gian).
+   * @param {Object} res - Đối tượng phản hồi Express.
+   * @param {Function} next - Hàm trung gian Express next.
+   */
+  searchSuppliersWithFilter: async (req, res, next) => {
+    try {
+      // searchParams đã được parse và validate bởi middleware
+      const searchParams = req.searchParams;
+
+      console.log("🔍 Search params:", searchParams);
+
+      // Thực hiện search và filter
+      const result = await EntityHelpers.searchSuppliers(searchParams);
+
+      // Tạo response với pagination
+      SearchFilterService.createSearchResponse(
+        res,
+        result,
+        "Nhà cung cấp đã được tìm kiếm thành công bằng chức năng tìm kiếm và lọc."
+      );
+    } catch (error) {
+      console.error(
+        "🚀 ~ supplier.controller.js: searchSuppliersWithFilter - Error:",
+        error
+      );
       next(error);
     }
   },
