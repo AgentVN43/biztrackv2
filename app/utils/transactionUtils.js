@@ -1,6 +1,5 @@
 // app/utils/transactionUtils.js
-const generateTransactionCode = () => {
-  const prefix = "TXN";
+const generateTransactionCode = (prefix = "TXN") => {
   const today = new Date();
   const dateStr = `${today.getFullYear()}${String(
     today.getMonth() + 1

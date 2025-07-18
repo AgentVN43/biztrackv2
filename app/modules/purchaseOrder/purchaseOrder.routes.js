@@ -9,7 +9,7 @@ router.get("/", controller.getAll);
 // router.put('/:id', controller.update);
 router.put("/:id/podetails", controller.updatePOWithDetails);
 // router.delete("/:id", controller.remove);
-router.post("/:id/post", authMiddleware, controller.postOrder);
+router.post("/:id/post", controller.postOrder);
 router.get("/:id/details", controller.getWithDetailsById);
 router.get("/supplier/:supplierId/history", controller.getSupplierHistory);
 router.get("/supplier/:supplierId/receivables", controller.getSupplierReceivables);
