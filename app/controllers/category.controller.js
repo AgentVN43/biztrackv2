@@ -1,4 +1,5 @@
 const db = require('../config/db.config');
+const { v4: uuidv4 } = require('uuid');
 
 exports.getAllCategories = (req, res, next) => {
   db.query('SELECT category_id, category_name, status FROM categories', (err, results) => {
@@ -24,15 +25,17 @@ exports.getCategoryById = (req, res, next) => {
 
 exports.createCategory = (req, res, next) => {
   const { category_name, status = 'active' } = req.body;
+  const category_id = uuidv4(); // tạo UUID từ Node.js
+
   db.query(
-    'INSERT INTO categories (category_id, category_name, status) VALUES (UUID(), ?, ?)',
-    [category_name, status],
+    'INSERT INTO categories (category_id, category_name, status) VALUES (?, ?, ?)',
+    [category_id, category_name, status],
     (err, result) => {
       if (err) return next(err);
       res.status(201).json({
         success: true,
         message: 'Category created',
-        data: { category_name, status }
+        data: { category_id, category_name, status }
       });
     }
   );
