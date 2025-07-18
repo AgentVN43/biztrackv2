@@ -19,29 +19,34 @@ const productReportRoutes = require("../modules/product_report/product_report.ro
 const supplierRoutes = require("../modules/suppliers/supplier.routes");
 const customerReportRoutes = require("../modules/customer_report/customer_report.routes");
 const customerReturnRoutes = require("../modules/customer_return/customer_return.routes");
+const supplierReturnRoutes = require("../modules/supplier_return/supplier_return.routes");
+const { authMiddleware } = require("../middlewares/auth.middleware");
 
 module.exports = (app) => {
-  // Register all routes
+  // Public routes
   app.use("/api/v1/ping", pingRoutes);
   app.use("/api/v1/auth", authRoutes);
-  app.use("/api/v1/users", userRoutes);
-  app.use("/api/v1/categories", categoryRoutes);
-  app.use("/api/v1/products", productRoutes);
-  app.use("/api/v1/product-report", productReportRoutes);
-  app.use("/api/v1/warehouses", warehouseRoutes);
-  app.use("/api/v1/purchase-orders", purchaseOrderRoutes);
-  app.use("/api/v1/inventories", inventoriesRoutes);
-  app.use("/api/v1/payments", paymentRoutes);
-  app.use("/api/v1/customers", customerRoutes);
-  app.use("/api/v1/customer-report", customerReportRoutes);
-  app.use("/api/v1/orders", orderRoutes);
-  app.use("/api/v1/order-details", orderDetailRoutes);
-  app.use("/api/v1/search", searchRoutes);
-  app.use("/api/v1/invoices", invoiceRoutes);
-  app.use("/api/v1/analysis", analysisRoutes);
-  app.use("/api/v1/transactions", transactionRoutes);
-  app.use("/api/v1/suppliers", supplierRoutes);
-  app.use("/api/v1/customer-returns", customerReturnRoutes);
+
+  // Protected routes
+  app.use("/api/v1/users", authMiddleware, userRoutes);
+  app.use("/api/v1/categories", authMiddleware, categoryRoutes);
+  app.use("/api/v1/products", authMiddleware, productRoutes);
+  app.use("/api/v1/product-report", authMiddleware, productReportRoutes);
+  app.use("/api/v1/warehouses", authMiddleware, warehouseRoutes);
+  app.use("/api/v1/purchase-orders", authMiddleware, purchaseOrderRoutes);
+  app.use("/api/v1/inventories", authMiddleware, inventoriesRoutes);
+  app.use("/api/v1/payments", authMiddleware, paymentRoutes);
+  app.use("/api/v1/customers", authMiddleware, customerRoutes);
+  app.use("/api/v1/customer-report", authMiddleware, customerReportRoutes);
+  app.use("/api/v1/orders", authMiddleware, orderRoutes);
+  app.use("/api/v1/order-details", authMiddleware, orderDetailRoutes);
+  app.use("/api/v1/search", authMiddleware, searchRoutes);
+  app.use("/api/v1/invoices", authMiddleware, invoiceRoutes);
+  app.use("/api/v1/analysis", authMiddleware, analysisRoutes);
+  app.use("/api/v1/transactions", authMiddleware, transactionRoutes);
+  app.use("/api/v1/suppliers", authMiddleware, supplierRoutes);
+  app.use("/api/v1/customer-returns", authMiddleware, customerReturnRoutes);
+  app.use("/api/v1/supplier-returns", authMiddleware, supplierReturnRoutes);
 
   // Default route for non-existent endpoints
   app.use("*", (req, res) => {

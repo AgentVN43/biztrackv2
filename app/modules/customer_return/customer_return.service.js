@@ -4,11 +4,13 @@ const Order = require("../orders/order.model");
 const CustomerModel = require("../customers/customer.model");
 const Inventory = require("../inventories/inventory.model");
 const Transaction = require("../transactions/transaction.model");
+const ProductEventModel = require("../product_report/product_event.model");
+
 const CustomerReportService = require("../customer_report/customer_report.service");
 const db = require("../../config/db.config");
 const OrderDetailService = require("../orderDetails/orderDetail.service");
 const { calculateRefund } = require("../../utils/refundUtils");
-const { generateTransactionCode } = require('../../utils/transactionUtils');
+const { generateTransactionCode } = require("../../utils/transactionUtils");
 
 // Hàm tạo transaction code
 
@@ -441,6 +443,13 @@ const CustomerReturnService = {
             detail.quantity
           );
 
+          // ✅ Lấy tồn kho sau khi cập nhật để ghi nhận vào product event
+          const currentInventory = await Inventory.findByProductAndWarehouse(
+            detail.product_id,
+            warehouse_id
+          );
+          const current_stock_after = currentInventory ? currentInventory.quantity : 0;
+
           // Ghi lại lịch sử điều chỉnh tồn kho
           await Inventory.recordAdjustment({
             product_id: detail.product_id,
@@ -450,6 +459,23 @@ const CustomerReturnService = {
             reason: `Customer return - ${returnInfo.return_id}`,
             adjusted_by: null,
           });
+
+          await ProductEventModel.recordEvent({
+            product_id: detail.product_id,
+            warehouse_id: warehouse_id,
+            event_type: "RETURN_FROM_CUSTOMER",
+            quantity_impact: detail.quantity, // Số lượng trả về (dương)
+            transaction_price: detail.refund_amount / detail.quantity, // Giá hoàn trả trên mỗi đơn vị
+            partner_name:
+              returnInfo.customer_name || `Customer ${returnInfo.customer_id}`,
+            current_stock_after: current_stock_after, // ✅ Tồn kho thực tế sau khi trả hàng
+            reference_id: return_id,
+            reference_type: "RETURN_FROM_CUSTOMER",
+            description: `Customer return - ${returnInfo.return_id}`,
+            initiated_by: processed_by,
+          });
+
+          console.log(`✅ Đã ghi nhận sự kiện trả hàng cho sản phẩm ${detail.product_id}, tồn kho sau: ${current_stock_after}`);
         }
       }
 
@@ -556,7 +582,7 @@ const CustomerReturnService = {
         console.log(
           `✅ Đã cập nhật debt thành công cho customer_id: ${returnInfo.customer_id}`
         );
-        
+
         // Log thêm thông tin về debt âm nếu có
         if (newDebt < 0) {
           console.log(`💰 Khách hàng có debt âm (${newDebt}), cần hoàn tiền!`);
@@ -606,16 +632,20 @@ const CustomerReturnService = {
       // ✅ Cập nhật status invoice sau khi process return (để đảm bảo tính toán chính xác)
       try {
         if (returnInfo.order_id) {
-          console.log(`🔍 ProcessReturn - Updating invoice status for order ${returnInfo.order_id}`);
-          
+          console.log(
+            `🔍 ProcessReturn - Updating invoice status for order ${returnInfo.order_id}`
+          );
+
           // Tìm invoice liên quan và cập nhật status với refund
           const invoice = await InvoiceModel.findByOrderId(returnInfo.order_id);
           if (invoice && invoice.invoice_id) {
             await InvoiceModel.updateStatus(invoice.invoice_id, null, {
               includeRefund: true,
-              order_id: returnInfo.order_id
+              order_id: returnInfo.order_id,
             });
-            console.log(`✅ ProcessReturn - Updated invoice ${invoice.invoice_code} status with refund`);
+            console.log(
+              `✅ ProcessReturn - Updated invoice ${invoice.invoice_code} status with refund`
+            );
           }
         }
       } catch (invoiceError) {
@@ -654,6 +684,49 @@ const CustomerReturnService = {
         note: rejection_reason,
       });
 
+      // ✅ Bổ sung: Ghi nhận sự kiện từ chối đơn trả hàng
+      try {
+        const returnDetails = await CustomerReturn.getReturnDetails(return_id);
+        if (Array.isArray(returnDetails)) {
+          for (const detail of returnDetails) {
+            // Lấy warehouse_id từ order
+            let warehouse_id = null;
+            if (returnInfo.order_id) {
+              const order = await Order.readById(returnInfo.order_id);
+              warehouse_id = order?.warehouse_id;
+            }
+
+            // Lấy tồn kho hiện tại
+            let current_stock_after = null;
+            if (warehouse_id) {
+              const currentInventory = await Inventory.findByProductAndWarehouse(
+                detail.product_id,
+                warehouse_id
+              );
+              current_stock_after = currentInventory ? currentInventory.quantity : 0;
+            }
+
+            await ProductEventModel.recordEvent({
+              product_id: detail.product_id,
+              warehouse_id: warehouse_id,
+              event_type: 'RETURN_REJECTED',
+              quantity_impact: 0, // Không thay đổi số lượng khi từ chối
+              transaction_price: null,
+              partner_name: returnInfo.customer_name || `Customer ${returnInfo.customer_id}`,
+              current_stock_after: current_stock_after,
+              reference_id: return_id,
+              reference_type: 'CUSTOMER_RETURN',
+              description: `Return rejected - ${rejection_reason}`,
+              initiated_by: null
+            });
+          }
+          console.log(`✅ Đã ghi nhận sự kiện từ chối đơn trả hàng ${return_id}`);
+        }
+      } catch (eventError) {
+        console.error('❌ Lỗi ghi nhận sự kiện từ chối đơn trả hàng:', eventError);
+        // Không throw error để không ảnh hưởng đến việc reject return
+      }
+
       return {
         return_id,
         status: "rejected",
@@ -677,6 +750,49 @@ const CustomerReturnService = {
       // Cập nhật trạng thái
       await CustomerReturn.updateStatus(return_id, "approved");
 
+      // ✅ Bổ sung: Ghi nhận sự kiện phê duyệt đơn trả hàng
+      try {
+        const returnDetails = await CustomerReturn.getReturnDetails(return_id);
+        if (Array.isArray(returnDetails)) {
+          for (const detail of returnDetails) {
+            // Lấy warehouse_id từ order
+            let warehouse_id = null;
+            if (returnInfo.order_id) {
+              const order = await Order.readById(returnInfo.order_id);
+              warehouse_id = order?.warehouse_id;
+            }
+
+            // Lấy tồn kho hiện tại
+            let current_stock_after = null;
+            if (warehouse_id) {
+              const currentInventory = await Inventory.findByProductAndWarehouse(
+                detail.product_id,
+                warehouse_id
+              );
+              current_stock_after = currentInventory ? currentInventory.quantity : 0;
+            }
+
+            // await ProductEventModel.recordEvent({
+            //   product_id: detail.product_id,
+            //   warehouse_id: warehouse_id,
+            //   event_type: 'RETURN_APPROVED',
+            //   quantity_impact: 0, // Không thay đổi số lượng khi phê duyệt
+            //   transaction_price: null,
+            //   partner_name: returnInfo.customer_name || `Customer ${returnInfo.customer_id}`,
+            //   current_stock_after: current_stock_after,
+            //   reference_id: return_id,
+            //   reference_type: 'CUSTOMER_RETURN',
+            //   description: `Return approved - ${return_id}`,
+            //   initiated_by: null
+            // });
+          }
+          console.log(`✅ Đã ghi nhận sự kiện phê duyệt đơn trả hàng ${return_id}`);
+        }
+      } catch (eventError) {
+        console.error('❌ Lỗi ghi nhận sự kiện phê duyệt đơn trả hàng:', eventError);
+        // Không throw error để không ảnh hưởng đến việc approve return
+      }
+
       // Lý do: KHÔNG cập nhật amount_paid khi hoàn trả (refund), chỉ cập nhật status nếu cần.
       // Nếu cần cập nhật status hóa đơn, hãy dùng hàm riêng chỉ update status, ví dụ:
       // await InvoiceModel.updateStatus(invoice.invoice_id, "partial_paid"); // hoặc "paid", tùy logic
@@ -696,20 +812,26 @@ const CustomerReturnService = {
         // Sử dụng tính năng refund mới để tính toán status chính xác
         await InvoiceModel.updateStatus(invoice.invoice_id, null, {
           includeRefund: true,
-          order_id: returnInfo.order_id
+          order_id: returnInfo.order_id,
         });
       }
-      
+
       // ✅ Cập nhật debt ngay sau khi approve return
       try {
-        console.log(`🔄 ApproveReturn - Đang cập nhật debt cho customer_id: ${returnInfo.customer_id}`);
-        const newDebt = await CustomerModel.calculateDebt(returnInfo.customer_id);
+        console.log(
+          `🔄 ApproveReturn - Đang cập nhật debt cho customer_id: ${returnInfo.customer_id}`
+        );
+        const newDebt = await CustomerModel.calculateDebt(
+          returnInfo.customer_id
+        );
         console.log(`📊 ApproveReturn - Debt mới được tính: ${newDebt}`);
         await CustomerModel.update(returnInfo.customer_id, { debt: newDebt });
         console.log(`✅ ApproveReturn - Đã cập nhật debt thành công`);
-        
+
         if (newDebt < 0) {
-          console.log(`💰 ApproveReturn - Khách hàng có debt âm (${newDebt}), cần hoàn tiền!`);
+          console.log(
+            `💰 ApproveReturn - Khách hàng có debt âm (${newDebt}), cần hoàn tiền!`
+          );
         }
       } catch (debtError) {
         console.error(`❌ ApproveReturn - Lỗi khi cập nhật debt:`, debtError);
