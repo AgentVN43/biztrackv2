@@ -250,6 +250,31 @@ const ProductModel = {
   },
 
   /**
+   * Kiểm tra SKU đã tồn tại chưa.
+   * @param {string} sku - SKU cần kiểm tra.
+   * @param {string} excludeProductId - ID sản phẩm cần loại trừ (dùng cho update).
+   * @returns {Promise<boolean>} Promise giải quyết với true nếu SKU đã tồn tại, false nếu chưa.
+   */
+  checkSkuExists: async (sku, excludeProductId = null) => {
+    try {
+      let sql = "SELECT COUNT(*) as count FROM products WHERE sku = ?";
+      let params = [sku];
+
+      // Nếu có excludeProductId (dùng cho update), loại trừ sản phẩm hiện tại
+      if (excludeProductId) {
+        sql += " AND product_id != ?";
+        params.push(excludeProductId);
+      }
+
+      const [results] = await db.query(sql, params);
+      return results[0].count > 0;
+    } catch (err) {
+      console.error("🚀 ~ product.model.js: checkSkuExists - Error:", err);
+      throw err;
+    }
+  },
+
+  /**
    * Cập nhật các trường tồn kho của sản phẩm.
    * @param {string} product_id - ID sản phẩm.
    * @param {number} stockChange - Thay đổi tổng số lượng tồn kho.
@@ -265,20 +290,16 @@ const ProductModel = {
   ) => {
     try {
       const sql = `
-        UPDATE products
-        SET
-          stock = stock + ?,
+        UPDATE products SET
+          total_stock = total_stock + ?,
           reserved_stock = reserved_stock + ?,
           available_stock = available_stock + ?
         WHERE product_id = ?
       `;
-      const [result] = await db.query(sql, [
-        stockChange,
-        reservedChange,
-        availableChange,
-        product_id,
-      ]);
-      return result;
+      const values = [stockChange, reservedChange, availableChange, product_id];
+
+      const [results] = await db.query(sql, values);
+      return results;
     } catch (err) {
       console.error("🚀 ~ product.model.js: updateStockFields - Error:", err);
       throw err;

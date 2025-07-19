@@ -43,7 +43,15 @@ const ProductService = {
    */
   createProduct: async (productData) => {
     try {
-      // Thêm logic nghiệp vụ nếu cần (ví dụ: kiểm tra trùng lặp SKU, xử lý ảnh...)
+      // Kiểm tra SKU trùng lặp
+      if (productData.sku) {
+        const skuExists = await ProductModel.checkSkuExists(productData.sku);
+        if (skuExists) {
+          throw new Error(`SKU "${productData.sku}" đã tồn tại. Vui lòng chọn SKU khác.`);
+        }
+      }
+
+      // Thêm logic nghiệp vụ nếu cần (ví dụ: xử lý ảnh...)
       const result = await ProductModel.createProduct(productData);
       return result;
     } catch (error) {
@@ -60,6 +68,14 @@ const ProductService = {
    */
   updateProduct: async (id, productData) => {
     try {
+      // Kiểm tra SKU trùng lặp (loại trừ sản phẩm hiện tại)
+      if (productData.sku) {
+        const skuExists = await ProductModel.checkSkuExists(productData.sku, id);
+        if (skuExists) {
+          throw new Error(`SKU "${productData.sku}" đã tồn tại. Vui lòng chọn SKU khác.`);
+        }
+      }
+
       // Thêm logic nghiệp vụ nếu cần
       const result = await ProductModel.updateProduct(id, productData);
       return result;
