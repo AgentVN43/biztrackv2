@@ -97,7 +97,7 @@ exports.login = (req, res, next) => {
       const accessToken = jwt.sign(
         { user_id: user.user_id, role: user.role },
         process.env.JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: '1d' }
       );
       const refreshToken = jwt.sign(
         { id: user.user_id },
@@ -155,24 +155,24 @@ exports.login = (req, res, next) => {
  */
 exports.logout = (req, res, next) => {
   try {
-    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
-    
+    const refreshToken = req?.cookies?.refreshToken || req?.body?.refreshToken;
+
     if (!refreshToken) {
       return res.status(400).json({
         success: false,
         message: 'Refresh token is required'
       });
     }
-    
+
     // Delete refresh token from database
     db.query('DELETE FROM refresh_tokens WHERE token = ?', [refreshToken], (err) => {
       if (err) {
         return next(err);
       }
-      
+
       // Clear cookie
       res.clearCookie('refreshToken');
-      
+
       res.json({
         success: true,
         message: 'Logged out successfully'

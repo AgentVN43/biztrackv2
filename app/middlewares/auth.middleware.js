@@ -150,7 +150,7 @@ exports.refreshToken = (req, res) => {
           const accessToken = jwt.sign(
             { user_id: user.user_id, role: user.role },
             process.env.JWT_SECRET || 'your_jwt_secret_key',
-            { expiresIn: '1h' }
+            { expiresIn: '1d' }
           );
           
           res.json({
