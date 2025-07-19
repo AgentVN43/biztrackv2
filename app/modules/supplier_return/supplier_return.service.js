@@ -265,6 +265,129 @@ const SupplierReturnService = {
       throw error;
     }
   },
+
+  // Cập nhật đơn trả hàng nhà cung cấp
+  updateReturnWithDetails: async (return_id, supplier_id, note, details) => {
+    try {
+      // Kiểm tra đơn trả hàng tồn tại và có thể cập nhật
+      const existingReturn = await SupplierReturn.getById(return_id);
+      if (!existingReturn) {
+        throw new Error("Không tìm thấy đơn trả hàng");
+      }
+      if (existingReturn.status !== "pending") {
+        throw new Error("Chỉ có thể cập nhật đơn ở trạng thái pending");
+      }
+
+      // Cập nhật thông tin chính
+      await db.promise().query(
+        `UPDATE return_orders SET supplier_id = ?, note = ?, updated_at = NOW() WHERE return_id = ?`,
+        [supplier_id, note, return_id]
+      );
+
+      // Xóa chi tiết cũ
+      await db.promise().query(
+        `DELETE FROM return_order_items WHERE return_id = ?`,
+        [return_id]
+      );
+
+      // Tạo chi tiết mới
+      const detailResults = await Promise.all(
+        details.map(async (item) => {
+          return SupplierReturn.createReturnDetail({
+            return_id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            refund_amount: item.price * item.quantity,
+            warehouse_id: item.warehouse_id,
+          });
+        })
+      );
+
+      return { return_id, supplier_id, note, details: detailResults };
+    } catch (error) {
+      console.error("Lỗi trong updateReturnWithDetails:", error);
+      throw error;
+    }
+  },
+
+  // Xóa đơn trả hàng nhà cung cấp
+  deleteReturn: async (return_id) => {
+    try {
+      // Kiểm tra đơn trả hàng tồn tại và có thể xóa
+      const existingReturn = await SupplierReturn.getById(return_id);
+      if (!existingReturn) {
+        throw new Error("Không tìm thấy đơn trả hàng");
+      }
+      if (existingReturn.status !== "pending") {
+        throw new Error("Chỉ có thể xóa đơn ở trạng thái pending");
+      }
+
+      // Xóa chi tiết trước
+      await db.promise().query(
+        `DELETE FROM return_order_items WHERE return_id = ?`,
+        [return_id]
+      );
+
+      // Xóa đơn trả hàng
+      await db.promise().query(
+        `DELETE FROM return_orders WHERE return_id = ?`,
+        [return_id]
+      );
+
+      return { return_id, message: "Xóa đơn trả hàng thành công" };
+    } catch (error) {
+      console.error("Lỗi trong deleteReturn:", error);
+      throw error;
+    }
+  },
+
+  // Lấy danh sách đơn trả hàng theo nhà cung cấp
+  getReturnBySupplierId: async (supplier_id, page = 1, limit = 10) => {
+    try {
+      const offset = (page - 1) * limit;
+      const filters = { supplier_id };
+      const returns = await SupplierReturn.getAll(filters, { limit, offset });
+      
+      // Đếm tổng số
+      const [countResult] = await db.promise().query(
+        `SELECT COUNT(*) as total FROM return_orders WHERE type = 'supplier_return' AND supplier_id = ?`,
+        [supplier_id]
+      );
+      const total = countResult[0].total;
+
+      return {
+        returns,
+        pagination: { page, limit, total },
+      };
+    } catch (error) {
+      console.error("Lỗi trong getReturnBySupplierId:", error);
+      throw error;
+    }
+  },
+
+  // Lấy danh sách đơn trả hàng theo trạng thái
+  getReturnByStatus: async (status, page = 1, limit = 10) => {
+    try {
+      const offset = (page - 1) * limit;
+      const filters = { status };
+      const returns = await SupplierReturn.getAll(filters, { limit, offset });
+      
+      // Đếm tổng số
+      const [countResult] = await db.promise().query(
+        `SELECT COUNT(*) as total FROM return_orders WHERE type = 'supplier_return' AND status = ?`,
+        [status]
+      );
+      const total = countResult[0].total;
+
+      return {
+        returns,
+        pagination: { page, limit, total },
+      };
+    } catch (error) {
+      console.error("Lỗi trong getReturnByStatus:", error);
+      throw error;
+    }
+  },
 };
 
 module.exports = SupplierReturnService;
