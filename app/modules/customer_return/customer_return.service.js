@@ -1109,12 +1109,36 @@ const CustomerReturnService = {
   // Tính toán số tiền hoàn trả
   calculateRefundAmount: async (return_id) => {
     try {
+      // Lấy chi tiết trả hàng
       const returnDetails = await CustomerReturn.getReturnDetails(return_id);
+      if (!returnDetails || returnDetails.length === 0) return 0;
 
-      let totalRefund = 0;
-      for (const detail of returnDetails) {
-        totalRefund += detail.refund_amount || 0;
+      // Lấy order_id từ returnDetails hoặc returnOrder
+      const returnOrder = await CustomerReturn.getById(return_id);
+      const order_id = returnOrder?.order_id;
+      let productPriceMap = {};
+      let productDiscountMap = {};
+      let orderInfo = null;
+
+      if (order_id) {
+        // Lấy chi tiết order gốc
+        orderInfo = await Order.readById(order_id);
+        const orderDetails = await OrderDetailService.getOrderDetailByOrderId(order_id);
+        if (orderDetails && Array.isArray(orderDetails.products)) {
+          for (const p of orderDetails.products) {
+            productPriceMap[p.product_id] = p.price;
+            productDiscountMap[p.product_id] = p.discount || 0;
+          }
+        }
       }
+
+      // Tính lại số tiền hoàn trả thực tế
+      const totalRefund = calculateRefund({
+        order: orderInfo || returnOrder,
+        returnDetails,
+        productPriceMap,
+        productDiscountMap,
+      });
 
       return totalRefund;
     } catch (error) {
