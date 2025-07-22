@@ -30,8 +30,9 @@ const getUnPaidInvoices = async (req, res) => {
 
     // 2. Lấy tất cả hóa đơn chưa thanh toán
     const allInvoices = await InvoiceService.getUnPaid();
-    const total = allInvoices.length;
-    const paginatedInvoices = allInvoices.slice(offset, offset + limit);
+    const sortedInvoices = allInvoices.sort((a, b) => new Date(b.issued_date) - new Date(a.issued_date));
+    const total = sortedInvoices.length;
+    const paginatedInvoices = sortedInvoices.slice(offset, offset + limit);
 
     // 3. Lấy thông tin khách hàng cho từng hóa đơn (song song)
     const customerIds = [...new Set(paginatedInvoices.map(inv => inv.customer_id).filter(Boolean))];
@@ -229,7 +230,7 @@ const recordBulkPayment = async (req, res, next) => {
  */
 const getAllPayments = async (req, res, next) => {
   const { customer_id } = req.query;
-  
+
   try {
     const payments = await InvoiceService.getAllPayments(customer_id);
     createResponse(res, 200, true, payments, "Lấy danh sách thanh toán thành công.");
