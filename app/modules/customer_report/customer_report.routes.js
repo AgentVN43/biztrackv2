@@ -14,5 +14,6 @@ router.get('/:id/receivables', customerReportController.getCustomerReceivables);
 router.get('/:customerId/transactions', customerReportController.getCustomerTransactions);
 router.get('/:id/financial', customerReportController.getCustomerFinancialLedger);
 router.get('/:id/transaction-ledger', customerReportController.getCustomerTransactionLedger);
+router.post('/:customerId/transaction', customerReportController.createCustomerTransaction);
 
 module.exports = router;

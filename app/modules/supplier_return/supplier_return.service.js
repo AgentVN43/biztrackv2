@@ -388,6 +388,24 @@ const SupplierReturnService = {
       throw error;
     }
   },
+
+  // Lấy danh sách đơn trả hàng phải trả cho nhà cung cấp (payable)
+  getPayableReturns: async ({ supplier_id, status = 'approved' }) => {
+    const filters = { status };
+    if (supplier_id) filters.supplier_id = supplier_id;
+    const returns = await SupplierReturn.getAll(filters, {});
+    // Lấy tổng số tiền phải trả cho từng đơn (từ chi tiết)
+    const payableList = await Promise.all(returns.map(async (r) => {
+      const details = await SupplierReturn.getReturnDetails(r.return_id);
+      const total_refund = details.reduce((sum, d) => sum + Number(d.refund_amount || 0), 0);
+      return {
+        ...r,
+        total_refund,
+        details
+      };
+    }));
+    return payableList;
+  },
 };
 
 module.exports = SupplierReturnService;

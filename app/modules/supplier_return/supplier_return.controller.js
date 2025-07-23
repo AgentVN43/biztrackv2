@@ -181,6 +181,37 @@ const SupplierReturnController = {
     } catch (error) {
       return errorResponse(res, error.message || "Lỗi lấy danh sách đơn trả hàng theo trạng thái", 500);
     }
+  },
+
+  // Lấy danh sách đơn trả hàng phải trả cho nhà cung cấp (payable)
+  getPayableReturns: async (req, res) => {
+    try {
+      const { supplier_id, status = 'approved' } = req.query;
+      const result = await SupplierReturnService.getPayableReturns({ supplier_id, status });
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: "Danh sách đơn trả hàng phải trả cho nhà cung cấp"
+      });
+    } catch (error) {
+      return errorResponse(res, error.message || "Lỗi lấy payable returns", 500);
+    }
+  },
+
+  // Lấy danh sách đơn trả hàng phải trả cho một nhà cung cấp cụ thể (payable)
+  getPayableReturnsBySupplier: async (req, res) => {
+    try {
+      const { supplier_id } = req.params;
+      const { status = 'approved' } = req.query;
+      const result = await SupplierReturnService.getPayableReturns({ supplier_id, status });
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: "Danh sách đơn trả hàng phải trả cho nhà cung cấp"
+      });
+    } catch (error) {
+      return errorResponse(res, error.message || "Lỗi lấy payable returns", 500);
+    }
   }
 
   

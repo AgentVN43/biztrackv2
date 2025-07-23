@@ -1,5 +1,6 @@
 const CustomerReportService = require("./customer_report.service");
 const TransactionService = require("../transactions/transaction.service");
+const TransactionModel = require("../transactions/transaction.model");
 const { createResponse, errorResponse } = require("../../utils/response");
 const CustomerReportController = {
   /**
@@ -212,6 +213,29 @@ const CustomerReportController = {
         error
       );
       return errorResponse(res, error.message || "Lỗi server", 500);
+    }
+  },
+
+  createCustomerTransaction: async (req, res, next) => {
+    try {
+      const { customerId } = req.params;
+      const { amount, type, description } = req.body;
+      if (!amount || !type) {
+        return res.status(400).json({ success: false, message: "amount và type là bắt buộc" });
+      }
+      // type: 'receipt' (phiếu thu), 'payment' (phiếu chi)
+      const transaction = await TransactionModel.createTransaction({
+        transaction_code: `TXN-${Date.now()}`,
+        type,
+        amount,
+        customer_id: customerId,
+        description: description || (type === 'receipt' ? 'Phiếu thu' : 'Phiếu chi'),
+        status: 'completed',
+        created_at: new Date()
+      });
+      res.status(201).json({ success: true, data: transaction, message: "Tạo phiếu thành công" });
+    } catch (err) {
+      next(err);
     }
   },
 };
