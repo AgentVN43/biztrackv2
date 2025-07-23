@@ -5,18 +5,22 @@ const SupplierReturnController = {
   // Tạo đơn trả hàng nhà cung cấp
   createReturn: async (req, res) => {
     try {
-      const { supplier_id, note, details } = req.body;
+      const { supplier_id, note, details, warehouse_id } = req.body;
       if (!supplier_id || !details || !Array.isArray(details) || details.length === 0) {
         return errorResponse(res, "Thiếu thông tin bắt buộc", 400);
       }
-      // Validate mỗi item phải có warehouse_id
-      for (const item of details) {
+      // Nếu warehouse_id ngoài cùng tồn tại, gán vào từng item nếu item chưa có warehouse_id
+      const detailsWithWarehouse = details.map(item => ({
+        ...item,
+        warehouse_id: item.warehouse_id || warehouse_id
+      }));
+      for (const item of detailsWithWarehouse) {
         if (!item.product_id || !item.quantity || !item.warehouse_id) {
           return errorResponse(res, "Chi tiết sản phẩm phải có product_id, quantity, warehouse_id", 400);
         }
       }
       const returnData = { supplier_id, note, status: "pending" };
-      const result = await SupplierReturnService.createReturnWithDetails(returnData, details);
+      const result = await SupplierReturnService.createReturnWithDetails(returnData, detailsWithWarehouse);
       return createResponse(res, 201, true, result, "Tạo đơn trả hàng nhà cung cấp thành công");
     } catch (error) {
       return errorResponse(res, error.message || "Lỗi tạo đơn trả hàng nhà cung cấp", 500);
@@ -76,7 +80,7 @@ const SupplierReturnController = {
   updateReturn: async (req, res) => {
     try {
       const { return_id } = req.params;
-      const { supplier_id, note, details } = req.body;
+      const { supplier_id, note, details, warehouse_id } = req.body;
       
       if (!return_id) {
         return errorResponse(res, "Thiếu ID đơn trả hàng", 400);
@@ -85,14 +89,18 @@ const SupplierReturnController = {
         return errorResponse(res, "Thiếu thông tin bắt buộc", 400);
       }
       
-      // Validate mỗi item phải có warehouse_id
-      for (const item of details) {
+      // Nếu warehouse_id ngoài cùng tồn tại, gán vào từng item nếu item chưa có warehouse_id
+      const detailsWithWarehouse = details.map(item => ({
+        ...item,
+        warehouse_id: item.warehouse_id || warehouse_id
+      }));
+      for (const item of detailsWithWarehouse) {
         if (!item.product_id || !item.quantity || !item.warehouse_id) {
           return errorResponse(res, "Chi tiết sản phẩm phải có product_id, quantity, warehouse_id", 400);
         }
       }
       
-      const result = await SupplierReturnService.updateReturnWithDetails(return_id, supplier_id, note, details);
+      const result = await SupplierReturnService.updateReturnWithDetails(return_id, supplier_id, note, detailsWithWarehouse);
       return createResponse(res, 200, true, result, "Cập nhật đơn trả hàng nhà cung cấp thành công");
     } catch (error) {
       return errorResponse(res, error.message || "Lỗi cập nhật đơn trả hàng nhà cung cấp", 500);
