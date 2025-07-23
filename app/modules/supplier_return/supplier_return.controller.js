@@ -37,9 +37,16 @@ const SupplierReturnController = {
       if (created_at_from) filters.created_at_from = created_at_from;
       if (created_at_to) filters.created_at_to = created_at_to;
       const result = await SupplierReturnService.getReturnsWithPagination(filters, parseInt(page), parseInt(limit));
+      // Lấy chi tiết cho từng đơn trả hàng (bao gồm warehouse_id cho từng item)
+      const returnsWithDetails = await Promise.all(
+        result.returns.map(async (r) => {
+          const details = await SupplierReturnService.getReturnWithDetails(r.return_id);
+          return { ...r, details: details.details };
+        })
+      );
       return res.status(200).json({
         success: true,
-        data: result.returns,
+        data: returnsWithDetails,
         pagination: result.pagination,
         message: "Lấy danh sách đơn trả hàng nhà cung cấp thành công"
       });
@@ -56,6 +63,7 @@ const SupplierReturnController = {
         return errorResponse(res, "Thiếu ID đơn trả hàng", 400);
       }
       const result = await SupplierReturnService.getReturnWithDetails(return_id);
+      // Đảm bảo trả về details có warehouse_id cho từng item
       return createResponse(res, 200, true, result, "Lấy chi tiết đơn trả hàng nhà cung cấp thành công");
     } catch (error) {
       return errorResponse(res, error.message || "Lỗi lấy chi tiết đơn trả hàng nhà cung cấp", 500);
@@ -126,15 +134,20 @@ const SupplierReturnController = {
     try {
       const { supplier_id } = req.params;
       const { page = 1, limit = 10 } = req.query;
-      
       if (!supplier_id) {
         return errorResponse(res, "Thiếu ID nhà cung cấp", 400);
       }
-      
       const result = await SupplierReturnService.getReturnBySupplierId(supplier_id, parseInt(page), parseInt(limit));
+      // Lấy chi tiết cho từng đơn trả hàng
+      const returnsWithDetails = await Promise.all(
+        result.returns.map(async (r) => {
+          const details = await SupplierReturnService.getReturnWithDetails(r.return_id);
+          return { ...r, details: details.details };
+        })
+      );
       return res.status(200).json({
         success: true,
-        data: result.returns,
+        data: returnsWithDetails,
         pagination: result.pagination,
         message: "Lấy danh sách đơn trả hàng theo nhà cung cấp thành công"
       });
@@ -148,15 +161,20 @@ const SupplierReturnController = {
     try {
       const { status } = req.params;
       const { page = 1, limit = 10 } = req.query;
-      
       if (!status) {
         return errorResponse(res, "Thiếu trạng thái", 400);
       }
-      
       const result = await SupplierReturnService.getReturnByStatus(status, parseInt(page), parseInt(limit));
+      // Lấy chi tiết cho từng đơn trả hàng
+      const returnsWithDetails = await Promise.all(
+        result.returns.map(async (r) => {
+          const details = await SupplierReturnService.getReturnWithDetails(r.return_id);
+          return { ...r, details: details.details };
+        })
+      );
       return res.status(200).json({
         success: true,
-        data: result.returns,
+        data: returnsWithDetails,
         pagination: result.pagination,
         message: "Lấy danh sách đơn trả hàng theo trạng thái thành công"
       });
