@@ -47,7 +47,12 @@ const SupplierReturnController = {
       return res.status(200).json({
         success: true,
         data: returnsWithDetails,
-        pagination: result.pagination,
+        pagination: {
+          total: result.total,
+          currentPage: result.page,
+          pageSize: result.limit,
+          totalPages: Math.ceil(result.total / result.limit)
+        },
         message: "Lấy danh sách đơn trả hàng nhà cung cấp thành công"
       });
     } catch (error) {

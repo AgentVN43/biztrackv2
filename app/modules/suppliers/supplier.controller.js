@@ -40,14 +40,31 @@ const SupplierController = {
    */
   getAllSuppliers: async (req, res, next) => {
     try {
-      const suppliers = await SupplierService.getAllSuppliers();
-      createResponse(
-        res,
-        200,
-        true,
-        suppliers,
-        "Suppliers retrieved successfully."
-      );
+      const { page = 1, limit = 10 } = req.query;
+      const parsedPage = parseInt(page);
+      const parsedLimit = parseInt(limit);
+      const skip = (parsedPage - 1) * parsedLimit;
+      const result = await SupplierService.getAllSuppliers(skip, parsedLimit);
+      if (result && result.suppliers && typeof result.total === 'number') {
+        createResponse(
+          res,
+          200,
+          true,
+          result.suppliers,
+          "Suppliers retrieved successfully.",
+          result.total,
+          parsedPage,
+          parsedLimit
+        );
+      } else {
+        createResponse(
+          res,
+          200,
+          true,
+          result,
+          "Suppliers retrieved successfully."
+        );
+      }
     } catch (error) {
       console.error(
         "🚀 ~ supplier.controller.js: getAllSuppliers - Error:",

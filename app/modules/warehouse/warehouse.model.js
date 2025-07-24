@@ -79,20 +79,38 @@ const WarehouseModel = {
   },
 
   /**
-   * Lấy tất cả các bản ghi kho.
-   * @returns {Promise<Array<Object>>} Promise giải quyết với một mảng các đối tượng kho.
-   * @throws {Error} Nếu có lỗi database.
+   * Lấy tất cả các bản ghi kho (có thể phân trang).
+   * @param {number|null} skip - Số bản ghi bỏ qua (offset).
+   * @param {number|null} limit - Số bản ghi lấy về.
+   * @returns {Promise<Array<Object>>}
    */
-  getAll: async () => {
-    const query = "SELECT * FROM warehouses ORDER BY warehouse_name ASC";
+  getAll: async (skip = null, limit = null) => {
+    let query = "SELECT * FROM warehouses ORDER BY warehouse_name ASC";
+    const params = [];
+    if (limit !== null && skip !== null) {
+      query += " LIMIT ? OFFSET ?";
+      params.push(limit, skip);
+    }
     try {
-      const [rows] = await db.promise().query(query);
+      const [rows] = await db.promise().query(query, params);
       return rows;
     } catch (error) {
-      console.error(
-        "🚀 ~ WarehouseModel: getAll - Lỗi khi lấy tất cả kho:",
-        error
-      );
+      console.error("🚀 ~ WarehouseModel: getAll - Lỗi khi lấy tất cả kho:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Đếm tổng số kho (cho phân trang).
+   * @returns {Promise<number>}
+   */
+  countAll: async () => {
+    const query = "SELECT COUNT(*) AS total FROM warehouses";
+    try {
+      const [rows] = await db.promise().query(query);
+      return rows && rows.length ? rows[0].total : 0;
+    } catch (error) {
+      console.error("🚀 ~ WarehouseModel: countAll - Lỗi khi đếm kho:", error);
       throw error;
     }
   },

@@ -16,11 +16,21 @@ const SupplierService = {
   },
 
   /**
-   * Retrieves all suppliers.
-   * @returns {Promise<Array<Object>>} A promise that resolves with an array of suppliers.
+   * Retrieves all suppliers (with optional pagination).
+   * @param {number|null} skip
+   * @param {number|null} limit
+   * @returns {Promise<Array|{suppliers:Array,total:number}>}
    */
-  getAllSuppliers: async () => {
-    return await SupplierModel.getAll();
+  getAllSuppliers: async (skip = null, limit = null) => {
+    if (skip !== null && limit !== null) {
+      const [suppliers, total] = await Promise.all([
+        SupplierModel.getAll(skip, limit),
+        SupplierModel.countAll()
+      ]);
+      return { suppliers, total };
+    } else {
+      return await SupplierModel.getAll();
+    }
   },
 
   /**

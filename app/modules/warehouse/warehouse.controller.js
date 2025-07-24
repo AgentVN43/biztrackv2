@@ -76,14 +76,36 @@ exports.createWarehouse = async (req, res, next) => {
  */
 exports.getAllWarehouses = async (req, res, next) => {
   try {
-    const warehouses = await WarehouseModel.getAll(); // Gọi hàm getAll đã refactor trong model
-    createResponse(
-      res,
-      200,
-      true,
-      warehouses,
-      "Danh sách kho đã được tải thành công."
-    );
+    const { page = 1, limit = 10 } = req.query;
+    const parsedPage = parseInt(page);
+    const parsedLimit = parseInt(limit);
+    const skip = (parsedPage - 1) * parsedLimit;
+    let result, total;
+    if (req.query.page || req.query.limit) {
+      [result, total] = await Promise.all([
+        WarehouseModel.getAll(skip, parsedLimit),
+        WarehouseModel.countAll()
+      ]);
+      createResponse(
+        res,
+        200,
+        true,
+        result,
+        "Danh sách kho đã được tải thành công.",
+        total,
+        parsedPage,
+        parsedLimit
+      );
+    } else {
+      result = await WarehouseModel.getAll();
+      createResponse(
+        res,
+        200,
+        true,
+        result,
+        "Danh sách kho đã được tải thành công."
+      );
+    }
   } catch (err) {
     console.error("🚀 ~ warehouse.controller.js: getAllWarehouses - Lỗi:", err);
     next(err);

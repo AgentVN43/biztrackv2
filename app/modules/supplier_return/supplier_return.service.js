@@ -28,12 +28,15 @@ const SupplierReturnService = {
   // Lấy danh sách đơn trả hàng
   getReturnsWithPagination: async (filters, page = 1, limit = 10) => {
     const offset = (page - 1) * limit;
-    const returns = await SupplierReturn.getAll(filters, { limit, offset });
-    // Đếm tổng số
-    const total = returns.length;
+    const [returns, total] = await Promise.all([
+      SupplierReturn.getAll(filters, { limit, offset }),
+      SupplierReturn.countAll(filters)
+    ]);
     return {
       returns,
-      pagination: { page, limit, total },
+      total,
+      page,
+      limit
     };
   },
 

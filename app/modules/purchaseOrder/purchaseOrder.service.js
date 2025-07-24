@@ -782,13 +782,23 @@ const PurchaseOrderService = {
   },
 
   /**
-   * Lấy tất cả các đơn mua hàng.
-   * @returns {Promise<Array<Object>>} Promise giải quyết với danh sách đơn mua hàng.
+   * Lấy tất cả các đơn mua hàng (có thể phân trang).
+   * @param {number|null} skip
+   * @param {number|null} limit
+   * @returns {Promise<Array|{orders:Array,total:number}>}
    */
-  getAllPurchaseOrders: async () => {
+  getAllPurchaseOrders: async (skip = null, limit = null) => {
     try {
-      const orders = await PurchaseOrderModel.findAll();
-      return orders;
+      if (skip !== null && limit !== null) {
+        const [orders, total] = await Promise.all([
+          PurchaseOrderModel.findAll(skip, limit),
+          PurchaseOrderModel.countAll()
+        ]);
+        return { orders, total };
+      } else {
+        const orders = await PurchaseOrderModel.findAll();
+        return orders;
+      }
     } catch (error) {
       console.error(
         "🚀 ~ purchaseOrder.service.js: getAllPurchaseOrders - Lỗi:",
