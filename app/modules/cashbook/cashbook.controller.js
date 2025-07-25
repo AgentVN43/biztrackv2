@@ -166,24 +166,25 @@ exports.getLedger = async (req, res) => {
     const balance = total_receipt - total_payment;
 
     // Trả về kết quả với thông tin phân trang và tổng hợp
+    const responseData = {
+      resultRows,
+      summary: {
+        total_receipt,
+        total_payment,
+        balance,
+      },
+    };
+    const paginated = require('../../utils/pagination').paginateResponse(
+      responseData,
+      total,
+      pageNum,
+      limitNum
+    );
     return createResponse(
       res,
       200,
       true,
-      {
-        resultRows,
-        summary: {
-          total_receipt,
-          total_payment,
-          balance,
-        },
-        pagination: { 
-          current_page: pageNum,
-          per_page: limitNum,
-          total_records: total,
-          total_pages: totalPages,
-        },
-      },
+      paginated,
       "Lấy sổ quỹ thành công"
     );
   } catch (err) {
