@@ -28,18 +28,42 @@ const SupplierModel = {
   },
 
   /**
-   * Retrieves all supplier records.
-   * @returns {Promise<Array<Object>>} A promise that resolves with an array of suppliers.
+   * Retrieves all supplier records (with optional pagination).
+   * @param {number|null} skip - Number of records to skip (offset).
+   * @param {number|null} limit - Number of records to fetch.
+   * @returns {Promise<Array<Object>>}
    */
-  getAll: () => {
+  getAll: (skip = null, limit = null) => {
     return new Promise((resolve, reject) => {
-      const sql = `SELECT * FROM suppliers ORDER BY supplier_name ASC`;
-      db.query(sql, (err, results) => {
+      let sql = `SELECT * FROM suppliers ORDER BY supplier_name ASC`;
+      const params = [];
+      if (limit !== null && skip !== null) {
+        sql += ' LIMIT ? OFFSET ?';
+        params.push(limit, skip);
+      }
+      db.query(sql, params, (err, results) => {
         if (err) {
           console.error("🚀 ~ supplier.model.js: getAll - Error fetching all suppliers:", err);
           return reject(err);
         }
         resolve(results);
+      });
+    });
+  },
+
+  /**
+   * Đếm tổng số supplier (cho phân trang).
+   * @returns {Promise<number>}
+   */
+  countAll: () => {
+    return new Promise((resolve, reject) => {
+      const sql = `SELECT COUNT(*) AS total FROM suppliers`;
+      db.query(sql, (err, results) => {
+        if (err) {
+          console.error("🚀 ~ supplier.model.js: countAll - Error:", err);
+          return reject(err);
+        }
+        resolve(results && results.length ? results[0].total : 0);
       });
     });
   },

@@ -225,8 +225,25 @@ exports.create = async (req, res, next) => {
 
 exports.getAll = async (req, res, next) => {
   try {
-    const result = await service.getAllPurchaseOrders();
-    res.json({ success: true, data: result });
+    const { page = 1, limit = 10 } = req.query;
+    const parsedPage = parseInt(page);
+    const parsedLimit = parseInt(limit);
+    const skip = (parsedPage - 1) * parsedLimit;
+    const result = await service.getAllPurchaseOrders(skip, parsedLimit);
+    if (result && result.orders && typeof result.total === 'number') {
+      res.json({
+        success: true,
+        data: result.orders,
+        pagination: {
+          total: result.total,
+          currentPage: parsedPage,
+          pageSize: parsedLimit,
+          totalPages: Math.ceil(result.total / parsedLimit)
+        }
+      });
+    } else {
+      res.json({ success: true, data: result });
+    }
   } catch (err) {
     next(err);
   }

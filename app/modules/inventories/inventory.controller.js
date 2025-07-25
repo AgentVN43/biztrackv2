@@ -150,10 +150,26 @@ exports.update = async (req, res, next) => {
 };
 
 exports.getAll = async (req, res, next) => {
-  // ✅ Chuyển hàm thành async
   try {
-    const inventories = await service.getAllInventories(); // ✅ Sử dụng await
-    res.json({ success: true, data: inventories });
+    const { page = 1, limit = 10 } = req.query;
+    const parsedPage = parseInt(page);
+    const parsedLimit = parseInt(limit);
+    const skip = (parsedPage - 1) * parsedLimit;
+    const result = await service.getAllInventories(skip, parsedLimit);
+    if (result && result.inventories && typeof result.total === 'number') {
+      createResponse(
+        res,
+        200,
+        true,
+        result.inventories,
+        null,
+        result.total,
+        parsedPage,
+        parsedLimit
+      );
+    } else {
+      createResponse(res, 200, true, result);
+    }
   } catch (err) {
     console.error("🚀 ~ inventory.controller.js: getAll - Lỗi:", err);
     next(err);
@@ -177,25 +193,26 @@ exports.getById = async (req, res, next) => {
 };
 
 exports.getByWareHouseId = async (req, res, next) => {
-  // ✅ Chuyển hàm thành async
   const warehouseId = req.params.id;
   try {
-    const results = await service.getByWareHouseId(warehouseId); // ✅ Sử dụng await
-
-    // Nếu không có dữ liệu, trả về mảng rỗng thay vì lỗi
-    if (!results || (Array.isArray(results) && results.length === 0)) {
-      // Kiểm tra cả mảng rỗng
-      return res.status(200).json({ success: true, data: [] });
-    }
-
-    // `results` từ service.getByWareHouseId có thể là { success: true, data: [] }
-    // Cần kiểm tra cấu trúc trả về từ service
-    if (results && results.success !== undefined) {
-      // Nếu service trả về object có success
-      return res.status(200).json(results); // Trả về nguyên object nếu service đã định dạng
+    const { page = 1, limit = 10 } = req.query;
+    const parsedPage = parseInt(page);
+    const parsedLimit = parseInt(limit);
+    const skip = (parsedPage - 1) * parsedLimit;
+    const result = await service.getByWareHouseId(warehouseId, skip, parsedLimit);
+    if (result && result.inventories && typeof result.total === 'number') {
+      createResponse(
+        res,
+        200,
+        true,
+        result.inventories,
+        null,
+        result.total,
+        parsedPage,
+        parsedLimit
+      );
     } else {
-      // Nếu service chỉ trả về mảng dữ liệu
-      return res.status(200).json({ success: true, data: results });
+      createResponse(res, 200, true, result);
     }
   } catch (err) {
     console.error("🚀 ~ inventory.controller.js: getByWareHouseId - Lỗi:", err);

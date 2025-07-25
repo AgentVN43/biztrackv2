@@ -2,9 +2,31 @@ const db = require('../config/db.config');
 const { v4: uuidv4 } = require('uuid');
 
 exports.getAllCategories = (req, res, next) => {
-  db.query('SELECT category_id, category_name, status FROM categories', (err, results) => {
+  const { page = 1, limit = 10 } = req.query;
+  const parsedPage = parseInt(page);
+  const parsedLimit = parseInt(limit);
+  const skip = (parsedPage - 1) * parsedLimit;
+  // Đếm tổng số bản ghi
+  db.query('SELECT COUNT(*) AS total FROM categories', (err, countResult) => {
     if (err) return next(err);
-    res.json({ success: true, data: results });
+    const total = countResult[0].total;
+    db.query(
+      'SELECT category_id, category_name, status FROM categories LIMIT ? OFFSET ?',
+      [parsedLimit, skip],
+      (err, results) => {
+        if (err) return next(err);
+        res.json({
+          success: true,
+          data: results,
+          pagination: {
+            total,
+            currentPage: parsedPage,
+            pageSize: parsedLimit,
+            totalPages: Math.ceil(total / parsedLimit)
+          }
+        });
+      }
+    );
   });
 };
 

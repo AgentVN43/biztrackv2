@@ -143,6 +143,46 @@ const SupplierReturn = {
     } catch (error) {
       throw error;
     }
+  },
+
+  /**
+   * Đếm tổng số đơn trả hàng nhà cung cấp theo filter (cho phân trang).
+   * @param {Object} filters
+   * @returns {Promise<number>}
+   */
+  countAll: async (filters = {}) => {
+    try {
+      let query = `SELECT COUNT(*) AS total FROM return_orders ro WHERE ro.type = 'supplier_return'`;
+      const values = [];
+      const conditions = [];
+      if (filters.supplier_id) {
+        conditions.push("ro.supplier_id = ?");
+        values.push(filters.supplier_id);
+      }
+      if (filters.status) {
+        conditions.push("ro.status = ?");
+        values.push(filters.status);
+      }
+      if (filters.created_at_from) {
+        conditions.push("ro.created_at >= ?");
+        values.push(filters.created_at_from);
+      }
+      if (filters.created_at_to) {
+        conditions.push("ro.created_at <= ?");
+        values.push(filters.created_at_to);
+      }
+      if (conditions.length > 0) {
+        query += " AND " + conditions.join(" AND ");
+      }
+      return new Promise((resolve, reject) => {
+        db.query(query, values, (error, results) => {
+          if (error) return reject(error);
+          resolve(results && results.length ? results[0].total : 0);
+        });
+      });
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

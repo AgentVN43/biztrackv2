@@ -421,19 +421,26 @@ const InventoryService = {
   },
 
   /**
-   * Lấy tất cả các bản ghi tồn kho.
-   * @returns {Promise<Array<Object>>} Promise giải quyết với danh sách tồn kho.
+   * Lấy tất cả các bản ghi tồn kho (có thể phân trang).
+   * @param {number|null} skip - Số bản ghi bỏ qua (offset).
+   * @param {number|null} limit - Số bản ghi lấy về.
+   * @returns {Promise<Array|{inventories:Array,total:number}>}
    */
-  getAllInventories: async () => {
+  getAllInventories: async (skip = null, limit = null) => {
     try {
-      const inventories = await InventoryModel.findAll();
-      return inventories; // ✅ Trả về kết quả
+      if (skip !== null && limit !== null) {
+        const [inventories, total] = await Promise.all([
+          InventoryModel.findAll(skip, limit),
+          InventoryModel.countAll(),
+        ]);
+        return { inventories, total };
+      } else {
+        const inventories = await InventoryModel.findAll();
+        return inventories;
+      }
     } catch (error) {
-      console.error(
-        "🚀 ~ inventory.service.js: getAllInventories - Error:",
-        error
-      );
-      throw error; // ✅ Ném lỗi
+      console.error("🚀 ~ inventory.service.js: getAllInventories - Error:", error);
+      throw error;
     }
   },
 
@@ -496,21 +503,27 @@ const InventoryService = {
   },
 
   /**
-   * Lấy tồn kho theo ID kho.
-   * @param {string} id - ID kho.
-   * @returns {Promise<Array<Object>>} Promise giải quyết với danh sách tồn kho theo kho.
+   * Lấy tồn kho theo warehouse_id, có thể phân trang.
+   * @param {string} warehouse_id
+   * @param {number|null} skip
+   * @param {number|null} limit
+   * @returns {Promise<Array|{inventories:Array,total:number}>}
    */
-  getByWareHouseId: async (id) => {
-    // ✅ Bỏ tham số `callback`
+  getByWareHouseId: async (warehouse_id, skip = null, limit = null) => {
     try {
-      const inventories = await InventoryModel.findByWareHouseId(id);
-      return inventories; // ✅ Trả về kết quả
+      if (skip !== null && limit !== null) {
+        const [inventories, total] = await Promise.all([
+          InventoryModel.findByWareHouseIdWithPagination(warehouse_id, skip, limit),
+          InventoryModel.countByWareHouseId(warehouse_id),
+        ]);
+        return { inventories, total };
+      } else {
+        const inventories = await InventoryModel.findByWareHouseId(warehouse_id);
+        return inventories;
+      }
     } catch (error) {
-      console.error(
-        "🚀 ~ inventory.service.js: getByWareHouseId - Error:",
-        error
-      );
-      throw error; // ✅ Ném lỗi
+      console.error("🚀 ~ inventory.service.js: getByWareHouseId - Error:", error);
+      throw error;
     }
   },
 

@@ -181,12 +181,14 @@ const InventoryModel = {
   },
 
   /**
-   * Lấy tất cả các bản ghi tồn kho với thông tin sản phẩm, kho và danh mục liên quan.
+   * Lấy tất cả các bản ghi tồn kho với thông tin sản phẩm, kho và danh mục liên quan (có thể phân trang).
+   * @param {number|null} skip - Số bản ghi bỏ qua (offset).
+   * @param {number|null} limit - Số bản ghi lấy về.
    * @returns {Promise<Array<Object>>} Promise giải quyết với mảng các đối tượng tồn kho đã định dạng.
    */
-  findAll: () => {
+  findAll: (skip = null, limit = null) => {
     return new Promise((resolve, reject) => {
-      const sql = `
+      let sql = `
         SELECT
           i.inventory_id,
           i.quantity,
@@ -203,7 +205,12 @@ const InventoryModel = {
         JOIN warehouses w ON i.warehouse_id = w.warehouse_id
         LEFT JOIN categories c ON p.category_id = c.category_id
       `;
-      db.query(sql, (err, results) => {
+      const params = [];
+      if (limit !== null && skip !== null) {
+        sql += ' LIMIT ? OFFSET ?';
+        params.push(limit, skip);
+      }
+      db.query(sql, params, (err, results) => {
         if (err) {
           console.error("🚀 ~ inventory.model.js: findAll - Error:", err);
           return reject(err);
@@ -576,6 +583,107 @@ const InventoryModel = {
         }
         // Trả về tổng số lượng hoặc 0 nếu không có bản ghi nào
         resolve(results && results.length ? results[0].total_stock : 0);
+      });
+    });
+  },
+
+  /**
+   * Đếm tổng số bản ghi tồn kho (cho phân trang).
+   * @returns {Promise<number>} Tổng số bản ghi tồn kho.
+   */
+  countAll: () => {
+    return new Promise((resolve, reject) => {
+      const sql = `SELECT COUNT(*) AS total FROM inventories`;
+      db.query(sql, (err, results) => {
+        if (err) {
+          console.error("🚀 ~ inventory.model.js: countAll - Error:", err);
+          return reject(err);
+        }
+        resolve(results && results.length ? results[0].total : 0);
+      });
+    });
+  },
+
+  /**
+   * Lấy tồn kho theo ID kho, nhóm theo sản phẩm, có phân trang.
+   * @param {string} warehouse_id - ID kho.
+   * @param {number} skip - Số bản ghi bỏ qua.
+   * @param {number} limit - Số bản ghi lấy về.
+   * @returns {Promise<Array<Object>>}
+   */
+  findByWareHouseIdWithPagination: (warehouse_id, skip, limit) => {
+    return new Promise((resolve, reject) => {
+      const sql = `
+        SELECT
+          i.product_id,
+          i.inventory_id,
+          i.created_at,
+          i.updated_at,
+          p.*,
+          c.category_name,
+          SUM(i.quantity) AS total_quantity,
+          SUM(i.available_stock) AS available_quantity,
+          SUM(i.reserved_stock) AS reserved_quantity,
+          w.warehouse_id AS warehouse_id,
+          w.warehouse_name
+        FROM inventories i
+        JOIN products p ON i.product_id = p.product_id
+        JOIN warehouses w ON i.warehouse_id = w.warehouse_id
+        LEFT JOIN categories c ON p.category_id = c.category_id
+        WHERE i.warehouse_id = ?
+        GROUP BY i.product_id, p.product_name
+        ORDER BY p.product_name ASC
+        LIMIT ? OFFSET ?
+      `;
+      db.query(sql, [warehouse_id, limit, skip], (err, results) => {
+        if (err) {
+          console.error("[Inventory.findByWareHouseIdWithPagination] Lỗi khi truy vấn:", err.message);
+          return reject(err);
+        }
+        const formattedResults = results.map((row) => ({
+          inventory_id: row.inventory_id,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          product: {
+            product_id: row.product_id,
+            sku: row.sku,
+            product_image: row.product_image,
+            product_name: row.product_name,
+            product_retail_price: row.product_retail_price,
+            total_quantity: row.total_quantity,
+            reserved_quantity: row.reserved_quantity,
+            available_quantity: row.available_quantity,
+            category: row.category_id
+              ? {
+                  category_id: row.category_id,
+                  category_name: row.category_name,
+                }
+              : null,
+          },
+          warehouse: {
+            warehouse_id: row.warehouse_id,
+            warehouse_name: row.warehouse_name,
+          },
+        }));
+        resolve(formattedResults);
+      });
+    });
+  },
+
+  /**
+   * Đếm tổng số bản ghi tồn kho theo warehouse_id (cho phân trang).
+   * @param {string} warehouse_id
+   * @returns {Promise<number>}
+   */
+  countByWareHouseId: (warehouse_id) => {
+    return new Promise((resolve, reject) => {
+      const sql = `SELECT COUNT(DISTINCT product_id) AS total FROM inventories WHERE warehouse_id = ?`;
+      db.query(sql, [warehouse_id], (err, results) => {
+        if (err) {
+          console.error("🚀 ~ inventory.model.js: countByWareHouseId - Error:", err);
+          return reject(err);
+        }
+        resolve(results && results.length ? results[0].total : 0);
       });
     });
   },

@@ -337,26 +337,13 @@ const PurchaseOrderModel = {
   },
 
   /**
-   * Lấy tất cả các đơn mua hàng.
-   * @returns {Promise<Array<Object>>} Promise giải quyết với danh sách đơn mua hàng.
+   * Lấy tất cả các đơn mua hàng (có thể phân trang).
+   * @param {number|null} skip - Số bản ghi bỏ qua (offset).
+   * @param {number|null} limit - Số bản ghi lấy về.
+   * @returns {Promise<Array<Object>>}
    */
-  // findAll: async () => {
-  //   const sql = "SELECT * FROM purchase_orders ORDER BY created_at DESC";
-  //   try {
-  //     const [rows] = await db.promise().query(sql);
-  //     return rows;
-  //   } catch (error) {
-  //     console.error(
-  //       "🚀 ~ purchase_order.model.js: findAll - Lỗi khi lấy tất cả đơn mua hàng:",
-  //       error
-  //     );
-  //     throw error;
-  //   }
-  // },
-
-  findAll: async () => {
-    // Modify the SQL query to join with the suppliers table
-    const sql = `
+  findAll: async (skip = null, limit = null) => {
+    let sql = `
       SELECT
         po.*,
         s.supplier_name
@@ -365,16 +352,36 @@ const PurchaseOrderModel = {
       JOIN
         suppliers s ON po.supplier_id = s.supplier_id
       ORDER BY
-        po.created_at DESC;
+        po.created_at DESC
     `;
+    const params = [];
+    if (limit !== null && skip !== null) {
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(limit, skip);
+    }
     try {
-      const [rows] = await db.promise().query(sql);
+      const [rows] = await db.promise().query(sql, params);
       return rows;
     } catch (error) {
       console.error(
         "🚀 ~ purchase_order.model.js: findAll - Error fetching all purchase orders:",
         error
       );
+      throw error;
+    }
+  },
+
+  /**
+   * Đếm tổng số purchase order (cho phân trang).
+   * @returns {Promise<number>}
+   */
+  countAll: async () => {
+    const sql = `SELECT COUNT(*) AS total FROM purchase_orders`;
+    try {
+      const [rows] = await db.promise().query(sql);
+      return rows && rows.length ? rows[0].total : 0;
+    } catch (error) {
+      console.error("🚀 ~ purchase_order.model.js: countAll - Error:", error);
       throw error;
     }
   },
