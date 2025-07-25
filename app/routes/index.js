@@ -20,6 +20,7 @@ const supplierRoutes = require("../modules/suppliers/supplier.routes");
 const customerReportRoutes = require("../modules/customer_report/customer_report.routes");
 const customerReturnRoutes = require("../modules/customer_return/customer_return.routes");
 const supplierReturnRoutes = require("../modules/supplier_return/supplier_return.routes");
+const cashbookRoutes = require("../modules/cashbook/cashbook.routes");
 const { authMiddleware } = require("../middlewares/auth.middleware");
 
 module.exports = (app) => {
@@ -46,6 +47,7 @@ module.exports = (app) => {
   // app.use("/api/v1/suppliers", supplierRoutes);
   // app.use("/api/v1/customer-returns", customerReturnRoutes);
   // app.use("/api/v1/supplier-returns", supplierReturnRoutes);
+  app.use("/api/v1/cashbook", authMiddleware, cashbookRoutes);
 
   // Protected routes
   app.use("/api/v1/users", authMiddleware, userRoutes);

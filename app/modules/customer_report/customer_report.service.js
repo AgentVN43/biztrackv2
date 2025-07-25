@@ -26,7 +26,7 @@ const CustomerReportService = {
         WHERE customer_id = ? AND order_status = 'Hoàn tất';
       `;
       const [orderRows] = await db.promise().query(orderSql, [customer_id]);
-      
+
       // 2. Lấy tất cả đơn trả hàng đã approved/completed
       const returnSql = `
         SELECT
@@ -44,22 +44,31 @@ const CustomerReportService = {
       for (const ret of returnRows) {
         if (!ret.order_id) continue;
         if (!(ret.order_id in orderRefundMap)) {
-          orderRefundMap[ret.order_id] = await calculateOrderTotalRefund(ret.order_id);
+          orderRefundMap[ret.order_id] = await calculateOrderTotalRefund(
+            ret.order_id
+          );
         }
       }
-      totalRefund = Object.values(orderRefundMap).reduce((sum, v) => sum + v, 0);
+      totalRefund = Object.values(orderRefundMap).reduce(
+        (sum, v) => sum + v,
+        0
+      );
       const totalExpenditure = parseFloat(orderRows[0].total_expenditure || 0);
       const netExpenditure = Math.max(0, totalExpenditure - totalRefund);
-      
-      console.log(`🔍 getTotalOrdersAndExpenditure cho customer ${customer_id}:`);
+
+      console.log(
+        `🔍 getTotalOrdersAndExpenditure cho customer ${customer_id}:`
+      );
       console.log(`  - Total orders: ${orderRows[0].total_orders}`);
-      console.log(`  - Total expenditure (before returns): ${totalExpenditure}`);
+      console.log(
+        `  - Total expenditure (before returns): ${totalExpenditure}`
+      );
       console.log(`  - Total refund: ${totalRefund}`);
       console.log(`  - Net expenditure: ${netExpenditure}`);
-      
+
       return {
         total_orders: orderRows[0].total_orders,
-        total_expenditure: netExpenditure
+        total_expenditure: netExpenditure,
       };
     } catch (error) {
       console.error(
@@ -196,13 +205,13 @@ const CustomerReportService = {
           refundMap[ret.return_id] = 0;
         } else {
           const arr = await calculateRefundForEachReturn(ret.order_id);
-          const found = arr.find(r => r.return_id === ret.return_id);
+          const found = arr.find((r) => r.return_id === ret.return_id);
           refundMap[ret.return_id] = found ? found.refund_amount : 0;
         }
       }
 
       // 3. Thêm các đơn hàng vào kết quả
-      orders.forEach(order => {
+      orders.forEach((order) => {
         result.push({
           order_id: order.order_id,
           order_code: order.order_code,
@@ -216,17 +225,17 @@ const CustomerReportService = {
           created_at: order.created_at,
           updated_at: order.updated_at,
           // Thông tin bổ sung để phân biệt với return
-          type: 'order',
+          type: "order",
           related_order_code: null,
           return_count: 0,
           has_returns: false,
           total_refund: 0,
-          final_amount_after_returns: parseFloat(order.final_amount)
+          final_amount_after_returns: parseFloat(order.final_amount),
         });
       });
 
       // 4. Thêm các đơn trả hàng vào kết quả (mỗi lần trả là 1 record riêng biệt)
-      returns.forEach(ret => {
+      returns.forEach((ret) => {
         result.push({
           order_id: ret.return_id, // Sử dụng return_id làm order_id để tương thích
           order_code: `TH-${ret.related_order_code}`,
@@ -240,12 +249,12 @@ const CustomerReportService = {
           created_at: ret.return_created_at,
           updated_at: ret.return_created_at,
           // Thông tin bổ sung để phân biệt với order thật
-          type: 'return',
+          type: "return",
           related_order_code: ret.related_order_code,
           return_count: 0,
           has_returns: true,
           total_refund: refundMap[ret.return_id],
-          final_amount_after_returns: 0
+          final_amount_after_returns: 0,
         });
       });
 
@@ -314,7 +323,8 @@ const CustomerReportService = {
       // Tổng công nợ = Công nợ invoices + Công nợ orders - Tổng tiền đã trả hàng
       // Nếu totalRefund >= (invoiceDebt + orderDebt) thì totalReceivables = 0
       const totalDebt = invoiceDebt + orderDebt;
-      const totalReceivables = totalRefund >= totalDebt ? 0 : totalDebt - totalRefund;
+      const totalReceivables =
+        totalRefund >= totalDebt ? 0 : totalDebt - totalRefund;
 
       console.log(`🔍 getReceivables cho customer ${customer_id}:`);
       console.log(`  - Invoice debt: ${invoiceDebt}`);
@@ -356,16 +366,23 @@ const CustomerReportService = {
       const invoicesWithRefund = await Promise.all(
         rows.map(async (invoice) => {
           let totalRefundForInvoice = 0;
-          
+
           // Nếu hóa đơn có order_id, tính refund cho order đó
           if (invoice.order_id) {
-            totalRefundForInvoice = await calculateOrderTotalRefund(invoice.order_id);
+            totalRefundForInvoice = await calculateOrderTotalRefund(
+              invoice.order_id
+            );
           }
 
           // Tính remaining_receivable = final_amount - amount_paid - total_refund
-          const remaining_receivable = Math.max(0, invoice.final_amount - invoice.amount_paid - totalRefundForInvoice);
+          const remaining_receivable = Math.max(
+            0,
+            invoice.final_amount - invoice.amount_paid - totalRefundForInvoice
+          );
 
-          console.log(`🔍 Invoice ${invoice.invoice_code} (Order ${invoice.order_id}):`);
+          console.log(
+            `🔍 Invoice ${invoice.invoice_code} (Order ${invoice.order_id}):`
+          );
           console.log(`  - Final amount: ${invoice.final_amount}`);
           console.log(`  - Amount paid: ${invoice.amount_paid}`);
           console.log(`  - Total refund: ${totalRefundForInvoice}`);
@@ -374,7 +391,7 @@ const CustomerReportService = {
           return {
             ...invoice,
             remaining_receivable: Math.round(remaining_receivable * 100) / 100,
-            total_refund: Math.round(totalRefundForInvoice * 100) / 100
+            total_refund: Math.round(totalRefundForInvoice * 100) / 100,
           };
         })
       );
@@ -478,7 +495,7 @@ const CustomerReportService = {
   /**
    * Lấy lịch sử giao dịch chi tiết của khách hàng theo format sổ cái
    * Hiển thị tất cả các giao dịch từ tạo đơn, thanh toán trước, thanh toán sau...
-   * 
+   *
    * @param {string} customer_id - ID của khách hàng
    * @returns {Promise<Array>} Danh sách giao dịch với dư nợ
    */
@@ -520,8 +537,13 @@ const CustomerReportService = {
       const [invoices] = await db.promise().query(invoicesSql, [customer_id]);
 
       // 3. Lấy tất cả giao dịch thanh toán
-      const transactions = await TransactionModel.getTransactionsByCustomerId(customer_id);
-      console.log("🚀 ~ getCustomerTransactionLedger: ~ transactions:", transactions)
+      const transactions = await TransactionModel.getTransactionsByCustomerId(
+        customer_id
+      );
+      console.log(
+        "🚀 ~ getCustomerTransactionLedger: ~ transactions:",
+        transactions
+      );
 
       // 3.5. ✅ Lấy tất cả return_orders đã approved/completed
       const returnOrdersSql = `
@@ -540,15 +562,17 @@ const CustomerReportService = {
         GROUP BY ro.return_id, ro.order_id, ro.status, ro.created_at, o.order_code
         ORDER BY ro.created_at ASC
       `;
-      const [returnOrders] = await db.promise().query(returnOrdersSql, [customer_id]);
+      const [returnOrders] = await db
+        .promise()
+        .query(returnOrdersSql, [customer_id]);
 
       // 4. Tạo danh sách giao dịch theo thứ tự thời gian
       const allTransactions = [];
 
       // Xử lý từng đơn hàng
-      orders.forEach(order => {
+      orders.forEach((order) => {
         // BỎ QUA ĐƠN HÀNG BỊ HỦY
-        if (order.order_status === 'Huỷ đơn') return;
+        if (order.order_status === "Huỷ đơn") return;
         const orderDate = new Date(order.created_at);
         const orderAdvanceAmount = parseFloat(order.amount_paid) || 0;
 
@@ -574,18 +598,19 @@ const CustomerReportService = {
         // Advance payment chỉ ghi nhận phần còn lại chưa được thanh toán thực tế
         // let advanceLeft = orderAdvanceAmount - totalRealPaidForInvoice;
         // if (orderAdvanceAmount > 0 && advanceLeft > 0.0001)
-        if (orderAdvanceAmount > 0) { // dùng > 0.0001 để tránh lỗi số thực
+        if (orderAdvanceAmount > 0) {
+          // dùng > 0.0001 để tránh lỗi số thực
           allTransactions.push({
             transaction_code: `TTDH-${order.order_code}`,
             transaction_date: new Date(orderDate.getTime() + 1000),
-            type: 'partial_paid',
+            type: "partial_paid",
             amount: orderAdvanceAmount,
             description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
             order_id: order.order_id,
             invoice_id: null,
             transaction_id: null,
             order_code: order.order_code,
-            status: 'completed'
+            status: "completed",
           });
         }
         // Nếu transaction thực tế lớn hơn advance, phần dư sẽ được ghi nhận ở transaction thực tế (không cộng dồn với advance)
@@ -594,14 +619,14 @@ const CustomerReportService = {
         allTransactions.push({
           transaction_code: order.order_code,
           transaction_date: orderDate,
-          type: 'pending',
+          type: "pending",
           amount: parseFloat(order.final_amount),
           description: `Tạo đơn hàng ${order.order_code} - ${order.order_status}`,
           order_id: order.order_id,
           invoice_id: null,
           transaction_id: null,
           order_code: order.order_code,
-          status: order.order_status
+          status: order.order_status,
         });
 
         // Nếu có hóa đơn và có thanh toán bổ sung (không phải thanh toán trước)
@@ -632,45 +657,57 @@ const CustomerReportService = {
       // Xử lý return_orders: mỗi lần trả là 1 record riêng biệt
       for (const returnOrder of returnOrders) {
         // Tính số tiền refund đúng cho lần này
-        const refundArr = await calculateRefundForEachReturn(returnOrder.order_id);
-        const found = refundArr.find(r => r.return_id === returnOrder.return_id);
+        const refundArr = await calculateRefundForEachReturn(
+          returnOrder.order_id
+        );
+        const found = refundArr.find(
+          (r) => r.return_id === returnOrder.return_id
+        );
         if (found && found.refund_amount > 0) {
           allTransactions.push({
             transaction_code: `TH-${returnOrder.order_code}`,
             transaction_date: new Date(returnOrder.created_at),
-            type: 'return',
+            type: "return",
             amount: found.refund_amount,
-            description: `Trả hàng cho đơn hàng ${returnOrder.order_code || returnOrder.order_id} - ${returnOrder.status}`,
+            description: `Trả hàng cho đơn hàng ${
+              returnOrder.order_code || returnOrder.order_id
+            } - ${returnOrder.status}`,
             order_id: returnOrder.order_id,
             invoice_id: null,
             transaction_id: null,
             return_id: returnOrder.return_id,
-            status: returnOrder.status
+            status: returnOrder.status,
           });
         }
       }
 
       // Thêm các giao dịch thanh toán riêng lẻ (không liên quan đến đơn hàng cụ thể)
-      transactions.forEach(transaction => {
+      transactions.forEach((transaction) => {
         // Kiểm tra xem giao dịch này có liên quan đến order nào không
         let isRelatedToOrder = false;
         let isCancelled = false;
         // Kiểm tra trực tiếp với order
-        if (transaction.related_type === 'order') {
-          const relatedOrder = orders.find(order => order.order_id === transaction.related_id);
+        if (transaction.related_type === "order") {
+          const relatedOrder = orders.find(
+            (order) => order.order_id === transaction.related_id
+          );
           isRelatedToOrder = true;
-          if (relatedOrder && relatedOrder.order_status === 'Huỷ đơn') {
+          if (relatedOrder && relatedOrder.order_status === "Huỷ đơn") {
             isCancelled = true;
           }
         }
         // Kiểm tra thông qua invoice
-        if (transaction.related_type === 'invoice') {
-          const relatedInvoice = invoices.find(inv => inv.invoice_id === transaction.related_id);
+        if (transaction.related_type === "invoice") {
+          const relatedInvoice = invoices.find(
+            (inv) => inv.invoice_id === transaction.related_id
+          );
           if (relatedInvoice) {
-            if (relatedInvoice.status === 'cancelled') {
+            if (relatedInvoice.status === "cancelled") {
               isCancelled = true;
             }
-            if (orders.some(order => order.order_id === relatedInvoice.order_id)) {
+            if (
+              orders.some((order) => order.order_id === relatedInvoice.order_id)
+            ) {
               isRelatedToOrder = true;
             }
           }
@@ -684,13 +721,21 @@ const CustomerReportService = {
           transaction_date: new Date(transaction.created_at),
           type: transaction.type,
           amount: parseFloat(transaction.amount),
-          description: transaction.description || `Thanh toán ${transaction.transaction_code}`,
-          order_id: transaction.related_type === 'order' ? transaction.related_id : null,
-          invoice_id: transaction.related_type === 'invoice' ? transaction.related_id : null,
+          description:
+            transaction.description ||
+            `Thanh toán ${transaction.transaction_code}`,
+          order_id:
+            transaction.related_type === "order"
+              ? transaction.related_id
+              : null,
+          invoice_id:
+            transaction.related_type === "invoice"
+              ? transaction.related_id
+              : null,
           transaction_id: transaction.transaction_id,
-          status: 'completed',
+          status: "completed",
           payment_method: transaction.payment_method,
-          is_manual_payment: true // Đánh dấu đây là thanh toán manual
+          is_manual_payment: true, // Đánh dấu đây là thanh toán manual
         });
       });
 
@@ -698,13 +743,19 @@ const CustomerReportService = {
       allTransactions.sort((a, b) => b.transaction_date - a.transaction_date);
 
       // Debug: In ra thứ tự giao dịch
-      console.log('🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):');
+      console.log("🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):");
       allTransactions.forEach((t, index) => {
-        console.log(`${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${t.type} | ${t.amount}`);
+        console.log(
+          `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${
+            t.type
+          } | ${t.amount}`
+        );
       });
 
       // Lọc bỏ transaction có type === 'refund' khỏi allTransactions trước khi mapping
-      const allTransactionsNoRefund = allTransactions.filter(txn => txn.type !== 'refund');
+      const allTransactionsNoRefund = allTransactions.filter(
+        (txn) => txn.type !== "refund"
+      );
 
       // 6. Tính toán dư nợ theo logic sổ cái (từ cũ đến mới để tính đúng)
       // Đảo ngược lại để tính từ cũ đến mới
@@ -713,16 +764,41 @@ const CustomerReportService = {
       const calculatedBalances = [];
 
       // Tính dư nợ từ cũ đến mới
+      // reversedTransactions.forEach((transaction, index) => {
+      //   if (transaction.type === 'pending') {
+      //     runningBalance += transaction.amount;
+      //   } else if (transaction.type === 'partial_paid' || transaction.type === 'payment' || transaction.type === 'receipt') {
+      //     runningBalance -= transaction.amount;
+      //   } else if (transaction.type === 'return') {
+      //     runningBalance -= transaction.amount;
+      //   } else {
+      //     // Log các type lạ để debug
+      //     console.warn('⚠️ Transaction type lạ:', transaction.type, transaction);
+      //   }
+      //   calculatedBalances.push(runningBalance);
+      // });
       reversedTransactions.forEach((transaction, index) => {
-        if (transaction.type === 'pending') {
+        if (transaction.type === "pending") {
           runningBalance += transaction.amount;
-        } else if (transaction.type === 'partial_paid' || transaction.type === 'payment' || transaction.type === 'receipt') {
-          runningBalance -= transaction.amount;
-        } else if (transaction.type === 'return') {
-          runningBalance -= transaction.amount;
+        } else if (
+          transaction.type === "partial_paid" ||
+          transaction.type === "payment" ||
+          transaction.type === "receipt" ||
+          transaction.type === "return"
+        ) {
+          // Nếu đang dư nợ âm (doanh nghiệp nợ khách), thì cộng vào để giảm nợ
+          if (runningBalance < 0) {
+            runningBalance += transaction.amount;
+          } else {
+            runningBalance -= transaction.amount;
+          }
         } else {
           // Log các type lạ để debug
-          console.warn('⚠️ Transaction type lạ:', transaction.type, transaction);
+          console.warn(
+            "⚠️ Transaction type lạ:",
+            transaction.type,
+            transaction
+          );
         }
         calculatedBalances.push(runningBalance);
       });
@@ -732,7 +808,11 @@ const CustomerReportService = {
 
       const result = allTransactionsNoRefund.map((transaction, index) => {
         // Debug: In ra từng bước tính dư nợ
-        console.log(`💰 ${index + 1}. ${transaction.transaction_code} | ${transaction.type} | ${transaction.amount} | Dư nợ: ${calculatedBalances[index]}`);
+        console.log(
+          `💰 ${index + 1}. ${transaction.transaction_code} | ${
+            transaction.type
+          } | ${transaction.amount} | Dư nợ: ${calculatedBalances[index]}`
+        );
 
         // Format dữ liệu trả về
         return {
@@ -749,14 +829,18 @@ const CustomerReportService = {
           invoice_code: transaction.invoice_code,
           status: transaction.status,
           phuong_thuc_thanh_toan: transaction.payment_method || null,
-          la_thanh_toan_manual: transaction.is_manual_payment || false
+          la_thanh_toan_manual: transaction.is_manual_payment || false,
         };
       });
 
       // Lọc lại theo loai === 'refund' để đảm bảo tuyệt đối
-      const filteredTransactions = result.filter(txn => txn.loai !== 'refund');
+      const filteredTransactions = result.filter(
+        (txn) => txn.loai !== "refund"
+      );
       // Sắp xếp lại theo thời gian (mới nhất lên trên)
-      filteredTransactions.sort((a, b) => new Date(b.ngay_giao_dich) - new Date(a.ngay_giao_dich));
+      filteredTransactions.sort(
+        (a, b) => new Date(b.ngay_giao_dich) - new Date(a.ngay_giao_dich)
+      );
       return filteredTransactions;
     } catch (error) {
       console.error(
@@ -796,8 +880,13 @@ async function calculateOrderTotalRefund(order_id) {
   const order_amount = Number(order.order_amount || order.discount_amount || 0);
 
   // 2. Lấy chi tiết sản phẩm của order
-  const orderDetails = await OrderDetailService.getOrderDetailByOrderId(order_id);
-  const orderProducts = orderDetails && Array.isArray(orderDetails.products) ? orderDetails.products : [];
+  const orderDetails = await OrderDetailService.getOrderDetailByOrderId(
+    order_id
+  );
+  const orderProducts =
+    orderDetails && Array.isArray(orderDetails.products)
+      ? orderDetails.products
+      : [];
   let productPriceMap = {};
   let productDiscountMap = {};
   for (const p of orderProducts) {
@@ -805,10 +894,12 @@ async function calculateOrderTotalRefund(order_id) {
     productDiscountMap[p.product_id] = p.discount || 0;
   }
   // 3. Lấy tất cả return của order này, sắp xếp theo thời gian tạo
-  const [returnRows] = await db.promise().query(
-    `SELECT * FROM return_orders WHERE order_id = ? AND status IN ('approved', 'completed') ORDER BY created_at ASC, return_id ASC`,
-    [order_id]
-  );
+  const [returnRows] = await db
+    .promise()
+    .query(
+      `SELECT * FROM return_orders WHERE order_id = ? AND status IN ('approved', 'completed') ORDER BY created_at ASC, return_id ASC`,
+      [order_id]
+    );
   if (!returnRows || returnRows.length === 0) return 0;
 
   // 4. Duyệt qua từng return, xác định lần cuối cùng, phân bổ lại số tiền hoàn
@@ -819,7 +910,8 @@ async function calculateOrderTotalRefund(order_id) {
     const ret = returnRows[i];
     const details = await CustomerReturn.getReturnDetails(ret.return_id);
     for (const d of details) {
-      returnedQuantityMap[d.product_id] = (returnedQuantityMap[d.product_id] || 0) + (d.quantity || 0);
+      returnedQuantityMap[d.product_id] =
+        (returnedQuantityMap[d.product_id] || 0) + (d.quantity || 0);
     }
     let isFinalReturn = true;
     for (const p of orderProducts) {
@@ -842,15 +934,15 @@ async function calculateOrderTotalRefund(order_id) {
     }
     refundThisTime = Math.round(refundThisTime * 100) / 100;
     // LOG DEBUG CHI TIẾT
-    console.log('--- Debug Refund ---');
-    console.log('Order:', order.order_id, order.order_code);
-    console.log('Return:', ret.return_id, ret.created_at);
-          console.log('Order Products:', orderProducts);
-      console.log('Returned Quantity Map:', returnedQuantityMap);
-      // console.log('Return Details:', details);
-      console.log('Is Final Return:', isFinalReturn);
-    console.log('Refund This Time:', refundThisTime);
-    console.log('Total Refund So Far:', totalRefund + refundThisTime);
+    console.log("--- Debug Refund ---");
+    console.log("Order:", order.order_id, order.order_code);
+    console.log("Return:", ret.return_id, ret.created_at);
+    console.log("Order Products:", orderProducts);
+    console.log("Returned Quantity Map:", returnedQuantityMap);
+    // console.log('Return Details:', details);
+    console.log("Is Final Return:", isFinalReturn);
+    console.log("Refund This Time:", refundThisTime);
+    console.log("Total Refund So Far:", totalRefund + refundThisTime);
     totalRefund += refundThisTime;
   }
   totalRefund = Math.round(totalRefund * 100) / 100;
@@ -871,8 +963,13 @@ async function calculateRefundForEachReturn(order_id) {
   const order_amount = Number(order.order_amount || order.discount_amount || 0);
 
   // 2. Lấy chi tiết sản phẩm của order
-  const orderDetails = await OrderDetailService.getOrderDetailByOrderId(order_id);
-  const orderProducts = orderDetails && Array.isArray(orderDetails.products) ? orderDetails.products : [];
+  const orderDetails = await OrderDetailService.getOrderDetailByOrderId(
+    order_id
+  );
+  const orderProducts =
+    orderDetails && Array.isArray(orderDetails.products)
+      ? orderDetails.products
+      : [];
   let productPriceMap = {};
   let productDiscountMap = {};
   for (const p of orderProducts) {
@@ -880,10 +977,12 @@ async function calculateRefundForEachReturn(order_id) {
     productDiscountMap[p.product_id] = p.discount || 0;
   }
   // 3. Lấy tất cả return của order này, sắp xếp theo thời gian tạo
-  const [returnRows] = await db.promise().query(
-    `SELECT * FROM return_orders WHERE order_id = ? AND status IN ('approved', 'completed') ORDER BY created_at ASC, return_id ASC`,
-    [order_id]
-  );
+  const [returnRows] = await db
+    .promise()
+    .query(
+      `SELECT * FROM return_orders WHERE order_id = ? AND status IN ('approved', 'completed') ORDER BY created_at ASC, return_id ASC`,
+      [order_id]
+    );
   if (!returnRows || returnRows.length === 0) return [];
 
   // 4. Duyệt qua từng return, xác định lần cuối cùng, phân bổ lại số tiền hoàn
@@ -895,7 +994,8 @@ async function calculateRefundForEachReturn(order_id) {
     const ret = returnRows[i];
     const details = await CustomerReturn.getReturnDetails(ret.return_id);
     for (const d of details) {
-      returnedQuantityMap[d.product_id] = (returnedQuantityMap[d.product_id] || 0) + (d.quantity || 0);
+      returnedQuantityMap[d.product_id] =
+        (returnedQuantityMap[d.product_id] || 0) + (d.quantity || 0);
     }
     let isFinalReturn = true;
     for (const p of orderProducts) {
@@ -918,15 +1018,15 @@ async function calculateRefundForEachReturn(order_id) {
     }
     refundThisTime = Math.round(refundThisTime * 100) / 100;
     // LOG DEBUG CHI TIẾT
-    console.log('--- Debug Refund (Each Return) ---');
-    console.log('Order:', order.order_id, order.order_code);
-    console.log('Return:', ret.return_id, ret.created_at);
-    console.log('Order Products:', orderProducts);
-    console.log('Returned Quantity Map:', returnedQuantityMap);
+    console.log("--- Debug Refund (Each Return) ---");
+    console.log("Order:", order.order_id, order.order_code);
+    console.log("Return:", ret.return_id, ret.created_at);
+    console.log("Order Products:", orderProducts);
+    console.log("Returned Quantity Map:", returnedQuantityMap);
     // console.log('Return Details:', details);
-    console.log('Is Final Return:', isFinalReturn);
-    console.log('Refund This Time:', refundThisTime);
-    console.log('Total Refund So Far:', totalRefund + refundThisTime);
+    console.log("Is Final Return:", isFinalReturn);
+    console.log("Refund This Time:", refundThisTime);
+    console.log("Total Refund So Far:", totalRefund + refundThisTime);
     totalRefund += refundThisTime;
     result.push({
       return_id: ret.return_id,
@@ -934,7 +1034,7 @@ async function calculateRefundForEachReturn(order_id) {
       created_at: ret.created_at,
       order_id: ret.order_id,
       order_code: order.order_code,
-      status: ret.status
+      status: ret.status,
     });
   }
   return result;

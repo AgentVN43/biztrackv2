@@ -49,16 +49,17 @@ exports.get = async (req, res) => {
       parsedLimit,
       { startDate: effectiveStartDate, endDate: effectiveEndDate }
     );
-    // Bổ sung total_remaining_value cho từng khách hàng
+    // Bổ sung total_remaining_value và total_payable cho từng khách hàng
     const customersWithRemaining = await Promise.all(
       customers.map(async (c) => {
-        const total_remaining_value =
+        const { total_remaining_value, net_debt } =
           await CustomerService.getTotalRemainingValueForCustomer(
             c.customer_id
           );
         return {
           ...c,
           total_remaining_value: Math.round(total_remaining_value),
+          net_debt: Math.round(net_debt),
         };
       })
     );

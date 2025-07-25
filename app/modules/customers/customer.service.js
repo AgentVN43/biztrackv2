@@ -72,8 +72,8 @@ exports.createCustomer = async (data) => {
   return await Customer.create(data);
 };
 
-exports.getAllCustomers = async (skip, limit,filters = {}) => {
-  const { customers, total } = await Customer.getAll(skip, limit,filters);
+exports.getAllCustomers = async (skip, limit, filters = {}) => {
+  const { customers, total } = await Customer.getAll(skip, limit, filters);
   return { customers, total };
 };
 
@@ -136,20 +136,81 @@ exports.updateDebt = async (customerId, amount, increase = true) => {
   return await Customer.updateDebt(customerId, amount, increase);
 };
 
+// exports.getTotalRemainingValueForCustomer = async (customer_id) => {
+//   const db = require("../../config/db.config");
+//   // Lấy tất cả order_id của khách, bỏ qua đơn bị huỷ
+//   const [orders] = await db
+//     .promise()
+//     .query(
+//       "SELECT order_id FROM orders WHERE customer_id = ? AND order_status != 'Huỷ đơn'",
+//       [customer_id]
+//     );
+//     if (!orders.length) return { total_remaining_value: 0, total_payable: 0 };
+//   // Tính tổng remaining_value
+//   const values = await Promise.all(
+//     orders.map(async (o) => {
+//       const summary = await OrderService.getOrderWithReturnSummary(o.order_id);
+//       return summary ? Number(summary.remaining_value) : 0;
+//     })
+//   );
+
+//   const total_remaining_value = values
+//     .filter((v) => v > 0)
+//     .reduce((sum, v) => sum + v, 0);
+//   // Tổng doanh nghiệp nợ khách (chỉ cộng phần âm, lấy trị tuyệt đối)
+//   const total_payable = values
+//     .filter((v) => v < 0)
+//     .reduce((sum, v) => sum + Math.abs(v), 0);
+
+//   return { total_remaining_value, total_payable };
+// };
+
 exports.getTotalRemainingValueForCustomer = async (customer_id) => {
   const db = require("../../config/db.config");
   // Lấy tất cả order_id của khách, bỏ qua đơn bị huỷ
-  const [orders] = await db.promise().query(
-    "SELECT order_id FROM orders WHERE customer_id = ? AND order_status != 'Huỷ đơn'",
-    [customer_id]
-  );
-  if (!orders.length) return 0;
-  // Tính tổng remaining_value
-  const values = await Promise.all(
-    orders.map(async (o) => {
-      const summary = await OrderService.getOrderWithReturnSummary(o.order_id);
-      return summary ? Number(summary.remaining_value) : 0;
-    })
-  );
-  return values.reduce((sum, v) => sum + v, 0);
+  const [orders] = await db
+    .promise()
+    .query(
+      "SELECT order_id FROM orders WHERE customer_id = ? AND order_status != 'Huỷ đơn'",
+      [customer_id]
+    );
+  // Nếu không có đơn hàng, vẫn phải kiểm tra giao dịch thu/chi
+  // Lấy tổng đã thu (receipt)
+  const [receipts] = await db
+    .promise()
+    .query(
+      "SELECT IFNULL(SUM(amount), 0) as total_receipt FROM transactions WHERE customer_id = ? AND type = 'receipt'",
+      [customer_id]
+    );
+  const total_receipt = Number(receipts[0]?.total_receipt || 0);
+
+  // Lấy tổng đã chi (payment)
+  const [payments] = await db
+    .promise()
+    .query(
+      "SELECT IFNULL(SUM(amount), 0) as total_payment FROM transactions WHERE customer_id = ? AND type = 'payment' AND order_id IS NULL",
+      [customer_id]
+    );
+  const total_payment = Number(payments[0]?.total_payment || 0);
+
+  // Tính tổng remaining_value từ các đơn hàng (nếu cần)
+  let total_remaining_value = 0;
+  if (orders.length) {
+    const values = await Promise.all(
+      orders.map(async (o) => {
+        const summary = await OrderService.getOrderWithReturnSummary(
+          o.order_id
+        );
+        return summary ? Number(summary.remaining_value) : 0;
+      })
+    );
+    total_remaining_value = values
+      .filter((v) => v > 0)
+      .reduce((sum, v) => sum + v, 0);
+  }
+
+  // Số tiền khách còn nợ doanh nghiệp (hoặc ngược lại)
+  const net_debt = total_receipt - total_payment;
+
+  return { total_remaining_value, net_debt };
 };
