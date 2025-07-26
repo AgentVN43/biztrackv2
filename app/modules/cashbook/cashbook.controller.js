@@ -174,18 +174,15 @@ exports.getLedger = async (req, res) => {
         balance,
       },
     };
-    const paginated = require('../../utils/pagination').paginateResponse(
-      responseData,
-      total,
-      pageNum,
-      limitNum
-    );
     return createResponse(
       res,
       200,
       true,
-      paginated,
-      "Lấy sổ quỹ thành công"
+      responseData,
+      "Lấy sổ quỹ thành công",
+      total,
+      pageNum,
+      limitNum
     );
   } catch (err) {
     return errorResponse(res, err.message || "Lỗi lấy sổ quỹ", 500);
