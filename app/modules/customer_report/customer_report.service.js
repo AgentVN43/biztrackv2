@@ -596,23 +596,21 @@ const CustomerReportService = {
         // const totalRealPaidForInvoice = relatedInvoiceTransactions.reduce((sum, trx) => sum + parseFloat(trx.amount), 0);
 
         // Advance payment chỉ ghi nhận phần còn lại chưa được thanh toán thực tế
-        // let advanceLeft = orderAdvanceAmount - totalRealPaidForInvoice;
-        // if (orderAdvanceAmount > 0 && advanceLeft > 0.0001)
-        if (orderAdvanceAmount > 0) {
-          // dùng > 0.0001 để tránh lỗi số thực
-          allTransactions.push({
-            transaction_code: `TTDH-${order.order_code}`,
-            transaction_date: new Date(orderDate.getTime() + 1000),
-            type: "partial_paid",
-            amount: orderAdvanceAmount,
-            description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
-            order_id: order.order_id,
-            invoice_id: null,
-            transaction_id: null,
-            order_code: order.order_code,
-            status: "completed",
-          });
-        }
+        // if (orderAdvanceAmount > 0) {
+        //   // dùng > 0.0001 để tránh lỗi số thực
+        //   allTransactions.push({
+        //     transaction_code: `TTDH-${order.order_code}`,
+        //     transaction_date: new Date(orderDate.getTime() + 1000),
+        //     type: "partial_paid",
+        //     amount: orderAdvanceAmount,
+        //     description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
+        //     order_id: order.order_id,
+        //     invoice_id: null,
+        //     transaction_id: null,
+        //     order_code: order.order_code,
+        //     status: "completed",
+        //   });
+        // }
         // Nếu transaction thực tế lớn hơn advance, phần dư sẽ được ghi nhận ở transaction thực tế (không cộng dồn với advance)
 
         // Thêm đơn hàng chính (tạo nợ)
@@ -784,7 +782,8 @@ const CustomerReportService = {
           transaction.type === "partial_paid" ||
           transaction.type === "payment" ||
           transaction.type === "receipt" ||
-          transaction.type === "return"
+          transaction.type === "return" ||
+          transaction.type === "transfer"
         ) {
           // Nếu đang dư nợ âm (doanh nghiệp nợ khách), thì cộng vào để giảm nợ
           if (runningBalance < 0) {

@@ -559,6 +559,7 @@ const OrderService = {
         const existingInvoice = await InvoiceService.findByOrderId(
           order.order_id
         );
+        let createdInvoice = existingInvoice;
         if (!existingInvoice) {
           console.log(
             "🚀 ~ order.service: update - Bắt đầu tạo hóa đơn và giao dịch ban đầu cho đơn hàng hoàn tất."
@@ -593,34 +594,42 @@ const OrderService = {
             invoiceData
           );
           // InvoiceService.create sẽ gọi InvoiceModel.create với amount_paid đã cung cấp
-          let createdInvoice;
-          if (parseFloat(order.amount_paid || 0) > 0) {
-            // Đã có transaction partial_paid cho khoản thanh toán đầu, KHÔNG tạo transaction receipt nữa
-            createdInvoice = await InvoiceService.create(invoiceData);
-          } else {
-            // Nếu chưa có amount_paid, vẫn truyền flag để tạo transaction receipt nếu cần
-            createdInvoice = await InvoiceService.create({
-              ...invoiceData,
-              fromOrderHoanTat: true,
-            });
-          }
+          createdInvoice = await InvoiceService.create(invoiceData);
           console.log(
             "🚀 ~ order.service: update - Invoice đã tạo thành công:",
             createdInvoice
           );
-
-          // Đơn hàng chưa có thanh toán ban đầu. Không tạo giao dịch thanh toán ở đây, chỉ tạo ở InvoiceService.create nếu cần.
-          if (!(parseFloat(order.amount_paid) > 0)) {
-            console.log(
-              "🚀 ~ order.service: update - Đơn hàng chưa có thanh toán ban đầu. Không tạo giao dịch thanh toán."
-            );
-          }
         } else {
           console.log(
             `🚀 ~ order.service: update - Hóa đơn cho đơn hàng ${order.order_code} (ID: ${order.order_id}) đã tồn tại (mã: ${existingInvoice.invoice_code}). Bỏ qua việc tạo lại.`
           );
-          // Hóa đơn đã tồn tại, không cần tạo lại. Các giao dịch ban đầu cũng đã được xử lý.
-          // Mọi khoản thanh toán bổ sung sau này sẽ được xử lý qua API recordPayment.
+        }
+
+        // 4. TẠO TRANSACTION CHO amount_paid NẾU CÓ (và chưa có transaction nào)
+        if (parseFloat(order.amount_paid || 0) > 0) {
+          // Kiểm tra đã có transaction advance_payment/partial_paid cho order này chưa
+          const existingTransactions =
+            await TransactionModel.getTransactionsByOrderId(order.order_id);
+          const hasAdvancePayment = existingTransactions.some(
+            (t) => t.type === "advance_payment" || t.type === "partial_paid"
+          );
+          if (!hasAdvancePayment) {
+            await TransactionModel.createTransaction({
+              transaction_code: `TTDH-${order.order_code}`,
+              type: "receipt",
+              amount: parseFloat(order.amount_paid),
+              description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
+              customer_id: order.customer_id,
+              related_type: "order",
+              related_id: createdInvoice ? createdInvoice.invoice_id : null,
+              order_id: order.order_id,
+              status: "completed",
+              created_at: new Date(),
+            });
+            console.log(
+              "🚀 ~ order.service: update - Đã tạo transaction advance_payment cho amount_paid ban đầu của order."
+            );
+          }
         }
 
         // 4. Cập nhật các trường báo cáo cho khách hàng trong bảng 'customers'
@@ -966,21 +975,21 @@ const OrderService = {
       const orderDate = new Date(order.created_at);
       const orderAdvanceAmount = parseFloat(order.amount_paid) || 0;
 
-      if (orderAdvanceAmount > 0) {
-        // dùng > 0.0001 để tránh lỗi số thực
-        allTransactions.push({
-          transaction_code: `TTDH-${order.order_code}`,
-          transaction_date: new Date(orderDate.getTime() + 1000),
-          type: "partial_paid",
-          amount: orderAdvanceAmount,
-          description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
-          order_id: order.order_id,
-          invoice_id: null,
-          transaction_id: null,
-          order_code: order.order_code,
-          status: "completed",
-        });
-      }
+      // if (orderAdvanceAmount > 0) {
+      //   // dùng > 0.0001 để tránh lỗi số thực
+      //   allTransactions.push({
+      //     transaction_code: `TTDH-${order.order_code}`,
+      //     transaction_date: new Date(orderDate.getTime() + 1000),
+      //     type: "partial_paid",
+      //     amount: orderAdvanceAmount,
+      //     description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
+      //     order_id: order.order_id,
+      //     invoice_id: null,
+      //     transaction_id: null,
+      //     order_code: order.order_code,
+      //     status: "completed",
+      //   });
+      // }
 
       // Thêm các giao dịch thanh toán riêng lẻ (không liên quan đến đơn hàng cụ thể)
       transactions.forEach((transaction) => {
