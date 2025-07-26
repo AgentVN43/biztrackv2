@@ -171,7 +171,9 @@ const OrderService = {
 
       // Sau khi tạo đơn hàng thành công, tăng debt cho khách hàng
       if (createdOrder && createdOrder.customer_id) {
-        const debt = await CustomerModel.calculateDebt(createdOrder.customer_id);
+        const debt = await CustomerModel.calculateDebt(
+          createdOrder.customer_id
+        );
         await CustomerModel.update(createdOrder.customer_id, { debt });
       }
 
@@ -542,8 +544,9 @@ const OrderService = {
             current_stock_after: current_stock_after_at_warehouse,
             reference_id: order.order_id,
             reference_type: "ORDER",
-            description: `Sản phẩm ${item.product_name || item.product_id
-              } được bán trong đơn hàng ${order.order_code}.`,
+            description: `Sản phẩm ${
+              item.product_name || item.product_id
+            } được bán trong đơn hàng ${order.order_code}.`,
             initiated_by: initiatedByUserId,
           });
           console.log(
@@ -596,7 +599,10 @@ const OrderService = {
             createdInvoice = await InvoiceService.create(invoiceData);
           } else {
             // Nếu chưa có amount_paid, vẫn truyền flag để tạo transaction receipt nếu cần
-            createdInvoice = await InvoiceService.create({ ...invoiceData, fromOrderHoanTat: true });
+            createdInvoice = await InvoiceService.create({
+              ...invoiceData,
+              fromOrderHoanTat: true,
+            });
           }
           console.log(
             "🚀 ~ order.service: update - Invoice đã tạo thành công:",
@@ -710,8 +716,9 @@ const OrderService = {
             current_stock_after: current_stock_after_at_warehouse,
             reference_id: order.order_id,
             reference_type: "ORDER",
-            description: `Đơn hàng ${order.order_code} bị hủy - Sản phẩm ${item.product_name || item.product_id
-              } tồn kho được giải phóng.`,
+            description: `Đơn hàng ${order.order_code} bị hủy - Sản phẩm ${
+              item.product_name || item.product_id
+            } tồn kho được giải phóng.`,
             initiated_by: initiatedByUserId,
           });
           console.log(
@@ -725,13 +732,18 @@ const OrderService = {
         );
 
         // ✅ HỦY HÓA ĐƠN LIÊN QUAN NẾU CÓ
-        const invoiceToDelete = await InvoiceService.findByOrderId(order.order_id);
+        const invoiceToDelete = await InvoiceService.findByOrderId(
+          order.order_id
+        );
         if (invoiceToDelete) {
           console.log(
             `🚀 ~ order.service: update - Tìm thấy hóa đơn liên quan ${invoiceToDelete.invoice_code}. Đang hủy hóa đơn.`
           );
           // Cập nhật trạng thái hóa đơn thành 'cancelled'
-          await InvoiceModel.updateStatus(invoiceToDelete.invoice_id, 'cancelled');
+          await InvoiceModel.updateStatus(
+            invoiceToDelete.invoice_id,
+            "cancelled"
+          );
           console.log(
             `🚀 ~ order.service: update - Đã hủy hóa đơn ${invoiceToDelete.invoice_code} liên quan đến đơn hàng bị hủy.`
           );
@@ -882,7 +894,10 @@ const OrderService = {
           "🚀 ~ order.service: updateOrderWithDetails - Đồng bộ amount_paid với invoices..."
         );
         try {
-          await OrderModel.syncAmountPaidWithInvoices(orderId, updatedOrder.amount_paid);
+          await OrderModel.syncAmountPaidWithInvoices(
+            orderId,
+            updatedOrder.amount_paid
+          );
           console.log(
             "🚀 ~ order.service: updateOrderWithDetails - Đồng bộ amount_paid thành công"
           );
@@ -917,7 +932,7 @@ const OrderService = {
 
   getOrderTransactionLedger: async (order_id) => {
     try {
-      // 1. Lấy thông tin đơn hàng 
+      // 1. Lấy thông tin đơn hàng
       const order = await OrderModel.readById(order_id);
       // 2. Lấy tất cả hóa đơn của đơn hàng
       const invoicesSql = `
@@ -938,42 +953,47 @@ const OrderService = {
       const [invoices] = await db.promise().query(invoicesSql, [order_id]);
 
       // 3. Lấy tất cả giao dịch thanh toán
-      const transactions = await TransactionModel.getTransactionsByOrderId(order_id);
+      const transactions = await TransactionModel.getTransactionsByOrderId(
+        order_id
+      );
 
       // 4. Tạo danh sách giao dịch theo thứ tự thời gian
       const allTransactions = [];
 
       // Xử lý  đơn hàng
       // BỎ QUA ĐƠN HÀNG BỊ HỦY
-      if (order.order_status === 'Huỷ đơn') return;
+      if (order.order_status === "Huỷ đơn") return;
       const orderDate = new Date(order.created_at);
       const orderAdvanceAmount = parseFloat(order.amount_paid) || 0;
 
-      if (orderAdvanceAmount > 0) { // dùng > 0.0001 để tránh lỗi số thực
+      if (orderAdvanceAmount > 0) {
+        // dùng > 0.0001 để tránh lỗi số thực
         allTransactions.push({
           transaction_code: `TTDH-${order.order_code}`,
           transaction_date: new Date(orderDate.getTime() + 1000),
-          type: 'partial_paid',
+          type: "partial_paid",
           amount: orderAdvanceAmount,
           description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
           order_id: order.order_id,
           invoice_id: null,
           transaction_id: null,
           order_code: order.order_code,
-          status: 'completed'
+          status: "completed",
         });
       }
 
       // Thêm các giao dịch thanh toán riêng lẻ (không liên quan đến đơn hàng cụ thể)
-      transactions.forEach(transaction => {
+      transactions.forEach((transaction) => {
         // Kiểm tra xem giao dịch này có liên quan đến order nào không
         let isCancelled = false;
 
         // Kiểm tra thông qua invoice
-        if (transaction.related_type === 'invoice') {
-          const relatedInvoice = invoices.find(inv => inv.invoice_id === transaction.related_id);
+        if (transaction.related_type === "invoice") {
+          const relatedInvoice = invoices.find(
+            (inv) => inv.invoice_id === transaction.related_id
+          );
           if (relatedInvoice) {
-            if (relatedInvoice.status === 'cancelled') {
+            if (relatedInvoice.status === "cancelled") {
               isCancelled = true;
             }
           }
@@ -987,13 +1007,21 @@ const OrderService = {
           transaction_date: new Date(transaction.created_at),
           type: transaction.type,
           amount: parseFloat(transaction.amount),
-          description: transaction.description || `Thanh toán ${transaction.transaction_code}`,
-          order_id: transaction.related_type === 'order' ? transaction.related_id : null,
-          invoice_id: transaction.related_type === 'invoice' ? transaction.related_id : null,
+          description:
+            transaction.description ||
+            `Thanh toán ${transaction.transaction_code}`,
+          order_id:
+            transaction.related_type === "order"
+              ? transaction.related_id
+              : null,
+          invoice_id:
+            transaction.related_type === "invoice"
+              ? transaction.related_id
+              : null,
           transaction_id: transaction.transaction_id,
-          status: 'completed',
+          status: "completed",
           payment_method: transaction.payment_method,
-          is_manual_payment: true // Đánh dấu đây là thanh toán manual
+          is_manual_payment: true, // Đánh dấu đây là thanh toán manual
         });
       });
 
@@ -1001,13 +1029,19 @@ const OrderService = {
       allTransactions.sort((a, b) => b.transaction_date - a.transaction_date);
 
       // Debug: In ra thứ tự giao dịch
-      console.log('🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):');
+      console.log("🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):");
       allTransactions.forEach((t, index) => {
-        console.log(`${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${t.type} | ${t.amount}`);
+        console.log(
+          `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${
+            t.type
+          } | ${t.amount}`
+        );
       });
 
       // Lọc bỏ transaction có type === 'refund' khỏi allTransactions trước khi mapping
-      const allTransactionsNoRefund = allTransactions.filter(txn => txn.type !== 'refund');
+      const allTransactionsNoRefund = allTransactions.filter(
+        (txn) => txn.type !== "refund"
+      );
 
       // 6. Tính toán dư nợ theo logic sổ cái (từ cũ đến mới để tính đúng)
       // Đảo ngược lại để tính từ cũ đến mới
@@ -1017,15 +1051,23 @@ const OrderService = {
 
       // Tính dư nợ từ cũ đến mới
       reversedTransactions.forEach((transaction, index) => {
-        if (transaction.type === 'pending') {
+        if (transaction.type === "pending") {
           runningBalance += transaction.amount;
-        } else if (transaction.type === 'partial_paid' || transaction.type === 'payment' || transaction.type === 'receipt') {
+        } else if (
+          transaction.type === "partial_paid" ||
+          transaction.type === "payment" ||
+          transaction.type === "receipt"
+        ) {
           runningBalance -= transaction.amount;
-        } else if (transaction.type === 'return') {
+        } else if (transaction.type === "return") {
           runningBalance -= transaction.amount;
         } else {
           // Log các type lạ để debug
-          console.warn('⚠️ Transaction type lạ:', transaction.type, transaction);
+          console.warn(
+            "⚠️ Transaction type lạ:",
+            transaction.type,
+            transaction
+          );
         }
         calculatedBalances.push(runningBalance);
       });
@@ -1035,7 +1077,11 @@ const OrderService = {
 
       const result = allTransactionsNoRefund.map((transaction, index) => {
         // Debug: In ra từng bước tính dư nợ
-        console.log(`💰 ${index + 1}. ${transaction.transaction_code} | ${transaction.type} | ${transaction.amount} | Dư nợ: ${calculatedBalances[index]}`);
+        console.log(
+          `💰 ${index + 1}. ${transaction.transaction_code} | ${
+            transaction.type
+          } | ${transaction.amount} | Dư nợ: ${calculatedBalances[index]}`
+        );
 
         // Format dữ liệu trả về
         return {
@@ -1050,14 +1096,18 @@ const OrderService = {
           order_code: transaction.order_code,
           status: transaction.status,
           payment_method: transaction.payment_method || null,
-          la_thanh_toan_manual: transaction.is_manual_payment || false
+          la_thanh_toan_manual: transaction.is_manual_payment || false,
         };
       });
 
       // Lọc lại theo loai === 'refund' để đảm bảo tuyệt đối
-      const filteredTransactions = result.filter(txn => txn.type !== 'refund');
+      const filteredTransactions = result.filter(
+        (txn) => txn.type !== "refund"
+      );
       // Sắp xếp lại theo thời gian (mới nhất lên trên)
-      filteredTransactions.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
+      filteredTransactions.sort(
+        (a, b) => new Date(b.transaction_date) - new Date(a.transaction_date)
+      );
       return filteredTransactions;
     } catch (error) {
       console.error(
@@ -1070,28 +1120,40 @@ const OrderService = {
 
   getOrderWithReturnSummary: async (order_id) => {
     const [orderRows] = await new Promise((resolve, reject) => {
-      db.query('SELECT * FROM orders WHERE order_id = ?', [order_id], (err, rows) => {
-        if (err) return reject(err);
-        resolve([rows]);
-      });
+      db.query(
+        "SELECT * FROM orders WHERE order_id = ?",
+        [order_id],
+        (err, rows) => {
+          if (err) return reject(err);
+          resolve([rows]);
+        }
+      );
     });
     if (!orderRows || !orderRows[0]) return null;
     const order = orderRows[0];
 
     // Lấy chi tiết trả hàng (nếu cần tính lại refund chi tiết)
     const [returnRows] = await new Promise((resolve, reject) => {
-      db.query(`SELECT ro.return_id FROM return_orders ro WHERE ro.order_id = ? AND ro.status IN ('approved', 'completed')`, [order_id], (err, rows) => {
-        if (err) return reject(err);
-        resolve([rows]);
-      });
+      db.query(
+        `SELECT ro.return_id FROM return_orders ro WHERE ro.order_id = ? AND ro.status IN ('approved', 'completed')`,
+        [order_id],
+        (err, rows) => {
+          if (err) return reject(err);
+          resolve([rows]);
+        }
+      );
     });
 
     // Lấy orderDetails để map giá/discount sản phẩm
     const [orderDetailRows] = await new Promise((resolve, reject) => {
-      db.query(`SELECT * FROM order_details WHERE order_id = ?`, [order_id], (err, rows) => {
-        if (err) return reject(err);
-        resolve([rows]);
-      });
+      db.query(
+        `SELECT * FROM order_details WHERE order_id = ?`,
+        [order_id],
+        (err, rows) => {
+          if (err) return reject(err);
+          resolve([rows]);
+        }
+      );
     });
     let productPriceMap = {};
     let productDiscountMap = {};
@@ -1113,14 +1175,19 @@ const OrderService = {
       const ret = returnRows[i];
       // Lấy chi tiết trả hàng cho từng lần trả
       const [returnDetailRows] = await new Promise((resolve, reject) => {
-        db.query(`SELECT * FROM return_order_items WHERE return_id = ?`, [ret.return_id], (err, rows) => {
-          if (err) return reject(err);
-          resolve([rows]);
-        });
+        db.query(
+          `SELECT * FROM return_order_items WHERE return_id = ?`,
+          [ret.return_id],
+          (err, rows) => {
+            if (err) return reject(err);
+            resolve([rows]);
+          }
+        );
       });
       // Cộng dồn quantity đã trả
       for (const d of returnDetailRows) {
-        returnedQuantityMap[d.product_id] = (returnedQuantityMap[d.product_id] || 0) + (d.quantity || 0);
+        returnedQuantityMap[d.product_id] =
+          (returnedQuantityMap[d.product_id] || 0) + (d.quantity || 0);
       }
       // Kiểm tra nếu là lần trả cuối cùng (tất cả sản phẩm đã trả đủ quantity đã mua)
       let isFinalReturn = true;
@@ -1155,11 +1222,23 @@ const OrderService = {
         break;
       }
     }
-    let total_refund = isFullyReturned ? Number(order.final_amount || 0) : totalRefund;
+    let total_refund = isFullyReturned
+      ? Number(order.final_amount || 0)
+      : totalRefund;
     // Lấy ledger từ getOrderTransactionLedger
     const ledger = await OrderService.getOrderTransactionLedger(order_id);
+    if (!ledger) {
+      return {
+        ...order,
+        total_refund: 0,
+        remaining_value: 0,
+        amoutPayment: 0,
+        ledger: [],
+        note: "Đơn hàng đã bị huỷ, không có lịch sử giao dịch.",
+      };
+    }
     const amoutPayment = ledger
-      .filter(t => t.type === 'receipt' || t.type === 'partial_paid')
+      .filter((t) => t.type === "receipt" || t.type === "partial_paid")
       .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
 
     const final_amount = Number(order.final_amount || 0);
