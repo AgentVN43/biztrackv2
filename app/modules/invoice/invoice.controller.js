@@ -1,7 +1,6 @@
 const { createResponse } = require("../../utils/response");
 const InvoiceService = require("./invoice.service");
 const CustomerModel = require("../customers/customer.model");
-const { paginateResponse } = require("../../utils/pagination");
 
 const getAllInvoices = async (req, res) => {
   try {
@@ -60,7 +59,7 @@ const getUnPaidInvoices = async (req, res) => {
     });
 
     // 5. Trả về response phân trang
-    return res.json(paginateResponse(invoicesWithCustomer, total, page, limit));
+    return createResponse(res, 200, true, invoicesWithCustomer, null, total, page, limit);
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

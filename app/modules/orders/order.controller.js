@@ -224,7 +224,6 @@
 const OrderService = require("./order.service");
 const OrderDetailService = require("../orderDetails/orderDetail.service"); // Cần import OrderDetailService
 const Inventory = require("../inventories/inventory.service"); // Cần import InventoryService
-const { paginateResponse } = require("../../utils/pagination");
 const { processDateFilters } = require("../../utils/dateUtils");
 const { createResponse, errorResponse } = require("../../utils/response");
 const Order = require('./order.model');
@@ -357,7 +356,7 @@ const OrderController = {
       );
 
       // 5. Trả về dữ liệu phân trang
-      res.status(200).json(paginateResponse(orders, totalOrders, page, limit));
+      return createResponse(res, 200, true, orders, null, totalOrders, page, limit);
     } catch (err) {
       console.error("🚀 ~ OrderController.read ~ Lỗi:", err);
       next(err);

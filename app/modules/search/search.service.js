@@ -1,4 +1,4 @@
-const { CustomerModel, OrderModel, ProductModel } = require("./search.model");
+const { CustomerModel, OrderModel, ProductModel, CategoryModel, WarehouseModel, InventoryModel } = require("./search.model");
 
 exports.getCustomerByPhone = async (phone, skip, limit) => {
   try {
@@ -8,6 +8,20 @@ exports.getCustomerByPhone = async (phone, skip, limit) => {
   } catch (error) {
     console.error(
       "Lỗi trong Search Service (getCustomerByPhone):",
+      error.message
+    );
+    throw error;
+  }
+};
+
+exports.getCustomerByName = async (name, skip, limit) => {
+  try {
+    const customers = await CustomerModel.findByName(name, skip, limit);
+    const total = await CustomerModel.countByName(name);
+    return { customers, total };
+  } catch (error) {
+    console.error(
+      "Lỗi trong Search Service (getCustomerByName):",
       error.message
     );
     throw error;
@@ -67,6 +81,44 @@ exports.getOrdersByCustomerPhone = async (partialPhone, skip, limit) => {
   }
 };
 
+exports.getOrdersByCustomerName = async (customerName, skip, limit) => {
+  try {
+    const { orders, total } = await OrderModel.findByCustomerName(
+      customerName,
+      skip,
+      limit
+    );
+    return { orders, total };
+  } catch (error) {
+    console.error(
+      "Lỗi trong Search Service (getOrdersByCustomerName):",
+      error.message
+    );
+    throw error;
+  }
+};
+
+exports.searchOrdersByQuery = async (q, skip, limit) => {
+  try {
+    // Kiểm tra xem query có phải là số điện thoại không (chỉ chứa số và có độ dài từ 9-11 ký tự)
+    const isPhoneNumber = /^\d{9,11}$/.test(q);
+    
+    if (isPhoneNumber) {
+      // Tìm kiếm theo số điện thoại
+      return await this.getOrdersByCustomerPhone(q, skip, limit);
+    } else {
+      // Tìm kiếm theo tên khách hàng
+      return await this.getOrdersByCustomerName(q, skip, limit);
+    }
+  } catch (error) {
+    console.error(
+      "Lỗi trong Search Service (searchOrdersByQuery):",
+      error.message
+    );
+    throw error;
+  }
+};
+
 exports.getProductsByName = async (name, limit, skip) => {
   try {
     const { products, total } = await ProductModel.findByName(
@@ -78,6 +130,87 @@ exports.getProductsByName = async (name, limit, skip) => {
   } catch (error) {
     console.error(
       "Lỗi trong Search Service (getProductsByName):",
+      error.message
+    );
+    throw error;
+  }
+};
+
+exports.getCategoryByName = async (name, skip, limit) => {
+  try {
+    const categories = await CategoryModel.findByName(name, skip, limit);
+    const total = await CategoryModel.countByName(name);
+    return { categories, total };
+  } catch (error) {
+    console.error(
+      "Lỗi trong Search Service (getCategoryByName):",
+      error.message
+    );
+    throw error;
+  }
+};
+
+exports.getProductsBySku = async (sku, limit, skip) => {
+  try {
+    const { products, total } = await ProductModel.findBySku(
+      sku,
+      limit,
+      skip
+    );
+    return { products, total };
+  } catch (error) {
+    console.error(
+      "Lỗi trong Search Service (getProductsBySku):",
+      error.message
+    );
+    throw error;
+  }
+};
+
+exports.getWarehouseByName = async (name, skip, limit) => {
+  try {
+    const warehouses = await WarehouseModel.findByName(name, skip, limit);
+    const total = await WarehouseModel.countByName(name);
+    return { warehouses, total };
+  } catch (error) {
+    console.error(
+      "Lỗi trong Search Service (getWarehouseByName):",
+      error.message
+    );
+    throw error;
+  }
+};
+
+exports.searchInventory = async (q, warehouseName, status, skip, limit) => {
+  try {
+    const { inventories, total } = await InventoryModel.searchByProductQueryAndWarehouse(
+      q,
+      warehouseName,
+      status,
+      skip,
+      limit
+    );
+    return { inventories, total };
+  } catch (error) {
+    console.error(
+      "Lỗi trong Search Service (searchInventory):",
+      error.message
+    );
+    throw error;
+  }
+};
+
+exports.searchProductsByQuery = async (q, limit, skip) => {
+  try {
+    const { products, total } = await ProductModel.searchByQuery(
+      q,
+      limit,
+      skip
+    );
+    return { products, total };
+  } catch (error) {
+    console.error(
+      "Lỗi trong Search Service (searchProductsByQuery):",
       error.message
     );
     throw error;
