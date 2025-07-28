@@ -27,9 +27,9 @@ router.get("/customers-by-phone", searchCustomerByPhone);
 router.get("/customers-by-name", searchCustomerByName);
 router.get("/customers-search", searchCustomerAuto);
 
-// router.get("/categories-by-name", searchCategoryByName);
-// router.get("/warehouses-by-name", searchWarehouseByName);
+router.get("/categories-by-name", searchCategoryByName);
+router.get("/warehouses-by-name", searchWarehouseByName);
 
-// router.get("/inventory", searchInventory);
+router.get("/inventory", searchInventory);
 
 module.exports = router;
