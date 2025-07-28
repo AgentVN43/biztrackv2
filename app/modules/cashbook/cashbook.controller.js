@@ -101,7 +101,7 @@ exports.getLedger = async (req, res) => {
        FROM transactions t
        LEFT JOIN customers c ON t.customer_id = c.customer_id
        LEFT JOIN suppliers s ON t.supplier_id = s.supplier_id
-       ${where}
+       ${where} AND t.type != 'refund'
        ORDER BY t.created_at DESC
        LIMIT ? OFFSET ?`,
       [...params, limitNum, offset]
