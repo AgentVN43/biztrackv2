@@ -864,6 +864,13 @@ const CustomerReturnService = {
 
       const returnDetails = await CustomerReturn.getReturnDetails(return_id);
 
+      // Đảm bảo refund_amount là number
+      returnDetails.forEach((d) => {
+        if (typeof d.refund_amount === 'string') {
+          d.refund_amount = parseFloat(d.refund_amount);
+        }
+        d.item_return_price = (d.refund_amount || 0) / (d.quantity || 0);
+      });
       return {
         ...returnInfo,
         details: returnDetails,
