@@ -61,22 +61,22 @@ const SupplierReportService = {
         });
 
       // 6. Tạo entry cho từng lần trả hàng
-      for (const ret of returns) {
-        const details = await SupplierReturn.getReturnDetails(ret.return_id);
-        const refundAmount = details.reduce((sum, d) => sum + (parseFloat(d.refund_amount) || 0), 0);
-        allTransactions.push({
-          transaction_code: ret.return_id,
-          transaction_date: ret.created_at,
-          type: "return",
-          amount: refundAmount,
-          description: `Trả hàng NCC #${ret.return_id} - ${ret.status}`,
-          reference_id: ret.return_id,
-          po_id: ret.po_id || null,
-          invoice_id: null,
-          return_id: ret.return_id,
-          transaction_id: null,
-        });
-      }
+      // for (const ret of returns) {
+      //   const details = await SupplierReturn.getReturnDetails(ret.return_id);
+      //   const refundAmount = details.reduce((sum, d) => sum + (parseFloat(d.refund_amount) || 0), 0);
+      //   allTransactions.push({
+      //     transaction_code: ret.return_id,
+      //     transaction_date: ret.created_at,
+      //     type: "return",
+      //     amount: refundAmount,
+      //     description: `Trả hàng NCC #${ret.return_id} - ${ret.status}`,
+      //     reference_id: ret.return_id,
+      //     po_id: ret.po_id || null,
+      //     invoice_id: null,
+      //     return_id: ret.return_id,
+      //     transaction_id: null,
+      //   });
+      // }
 
       // 7. Tạo entry cho từng transaction thanh toán
       transactions.forEach(txn => {
@@ -106,7 +106,7 @@ const SupplierReportService = {
       });
 
       // 8. Sắp xếp theo thời gian tăng dần để tính balance chuẩn
- 
+      allTransactions.sort((a, b) => new Date(a.transaction_date) - new Date(b.transaction_date));
       // 9. Tính running balance từ cũ đến mới
       let runningBalance = 0;
       allTransactions.forEach(txn => {
