@@ -149,77 +149,27 @@ const InvoiceService = require("../invoice/invoice.service");
 const {createResponse} = require("../../utils/response");
 
 exports.create = async (req, res, next) => {
-  // ✅ Chuyển hàm thành async
   try {
-    // Gọi service.createPurchaseOrder và await kết quả
-    // Hàm createPurchaseOrder trong service cần trả về po_id, total_amount, final_amount, order_date, supplier_id, payment_method
+    // ✅ Chỉ tạo Purchase Order theo best practice
     const purchaseOrderResult = await service.createPurchaseOrder(req.body);
 
-    // --- LƯU Ý QUAN TRỌNG: Theo quy trình nghiệp vụ, Invoice và Transaction thường được tạo khi PO được PHÊ DUYỆT/NHẬP KHO,
-    // chứ không phải ngay khi PO được tạo nháp. Tuy nhiên, theo yêu cầu hiện tại, chúng ta sẽ tạo chúng ở đây. ---
-
-    // ✅ Tạo Invoice cho đơn mua hàng này
-    const invoiceData = {
-      invoice_code: `INV-PO-${Date.now()}`, // Tự động sinh mã invoice cho PO
-      invoice_type: "purchase_invoice",
-      order_id: purchaseOrderResult.po_id, // Không có order_id cho hóa đơn mua hàng
-      // purchase_order_id: purchaseOrderResult.po_id, // Liên kết với PO
-      supplier_id: purchaseOrderResult.supplier_id, // Lấy từ PO đã tạo
-      total_amount: purchaseOrderResult.total_amount,
-      tax_amount: 0, // Cần tính toán nếu có thuế
-      discount_amount: purchaseOrderResult.discount_amount || 0,
-      final_amount: purchaseOrderResult.final_amount,
-      issued_date: purchaseOrderResult.order_date || new Date(), // Sử dụng ngày PO hoặc ngày hiện tại
-      due_date: purchaseOrderResult.order_date || new Date(), // Hoặc một ngày cụ thể
-      status: "pending", // Trạng thái ban đầu của hóa đơn mua hàng
-      note: `Hóa đơn mua hàng tự động phát sinh từ PO ${purchaseOrderResult.po_id}`,
-    };
-
-    // InvoiceService.create cần được refactor để trả về Promise
-    const invoice = await InvoiceService.create(invoiceData);
-    console.log(
-      "🚀 ~ purchaseOrder.controller.js: Invoice created successfully:",
-      invoice
-    );
-
-    // ✅ Tạo Transaction cho hóa đơn mua hàng
-    const transactionData = {
-      transaction_code: `TRX-PO-${Date.now()}`, // Tự động sinh mã transaction
-      type: "payment", // Thường là 'payment' cho hóa đơn mua hàng
-      amount: invoice.final_amount, // Lấy từ invoice đã tạo
-      description: `Thanh toán cho hóa đơn mua hàng ${invoice.invoice_code}`,
-      category: "purchase_payment", // Danh mục mua hàng
-      payment_method: purchaseOrderResult.payment_method || "Chuyển khoản", // Lấy từ PO hoặc mặc định
-      related_type: "invoice", // Liên kết với invoice
-      related_id: invoice.invoice_id, // Lấy từ invoice đã tạo
-    };
-
-    // transactionService.createTransaction đã được refactor để trả về Promise
-    const transaction = await TransactionService.createTransaction(
-      transactionData
-    );
-    console.log(
-      "🚀 ~ purchaseOrder.controller.js: Transaction created successfully:",
-      transaction
-    );
-
-    // Trả về kết quả cuối cùng
+    // ✅ Trả về chỉ PO, không tạo Invoice và Transaction
     return res.status(201).json({
       success: true,
       data: {
         purchaseOrder: purchaseOrderResult,
-        invoice, // ✅ Thêm invoice vào response
-        transaction, // ✅ Thêm transaction vào response
+        // Invoice và Transaction sẽ được tạo ở các bước sau:
+        // - Invoice: khi nhận hàng (confirm/receive)
+        // - Transaction: khi thanh toán
       },
-      message: "Purchase Order, Invoice, and Transaction created successfully.",
+      message: "Purchase Order created successfully. Invoice and Transaction will be created when goods are received and payment is made.",
     });
   } catch (err) {
     console.error(
-      "🚀 ~ purchaseOrder.controller.js: create - Lỗi trong quá trình tạo Purchase Order và các bản ghi liên quan:",
+      "🚀 ~ purchaseOrder.controller.js: create - Lỗi trong quá trình tạo Purchase Order:",
       err
     );
-    // Xử lý lỗi và trả về phản hồi lỗi
-    next(err); // Chuyển lỗi đến middleware xử lý lỗi
+    next(err);
   }
 };
 
@@ -272,7 +222,16 @@ exports.postOrder = async (req, res, next) => {
       req.params.id,
       initiatedByUserId
     );
-    res.json({ success: true, data: result });
+    
+    // ✅ Trả về thông tin chỉ gồm Invoice (không có transaction)
+    res.json({ 
+      success: true, 
+      data: {
+        message: result.message,
+        invoice: result.invoice,
+      },
+      message: "Purchase order confirmed successfully. Invoice created. Transaction will be created only when payment is made."
+    });
   } catch (err) {
     console.error("🚀 ~ purchaseOrder.controller.js: postOrder - Lỗi:", err);
     next(err);

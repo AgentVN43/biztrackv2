@@ -165,11 +165,11 @@
 //       //       if (err) return callback(err);
 //       //       callback(null, {
 //       //         message: "PO and details updated successfully",
-//       //         total_amount: totalAmount,
-//       //       });
-//       //     });
-//       //   });
-//       // };
+// //       //         total_amount: totalAmount,
+// //       //       });
+// //       //     });
+// //       //   });
+// //       // };
 
 //       const updateTotalAmount = () => {
 //         PurchaseOrderDetail.findByPOId(poId, (err, detailResults) => {
@@ -993,8 +993,34 @@ const PurchaseOrderService = {
         "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - Purchase order posted and inventory updated."
       );
 
+      // ✅ TẠO INVOICE KHI NHẬN HÀNG (theo best practice)
+      const InvoiceService = require("../invoice/invoice.service");
+      const invoiceData = {
+        invoice_code: `INV-PO-${Date.now()}`,
+        invoice_type: "purchase_invoice",
+        purchase_order_id: po_id, // Liên kết với PO
+        supplier_id: order.supplier_id,
+        total_amount: order.total_amount,
+        tax_amount: 0, // Cần tính toán nếu có thuế
+        discount_amount: order.discount_amount || 0,
+        final_amount: order.final_amount || order.total_amount,
+        issued_date: new Date(),
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 ngày
+        status: "pending", // Chưa thanh toán
+        note: `Hóa đơn mua hàng phát sinh từ PO ${po_id} khi nhận hàng`,
+      };
+
+      const invoice = await InvoiceService.create(invoiceData);
+      console.log(
+        "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - Invoice created successfully:",
+        invoice
+      );
+
+      // ❌ KHÔNG tạo Transaction ở bước này
+
       return {
-        message: "Purchase order posted and inventory updated",
+        message: "Purchase order posted, inventory updated, invoice created (no transaction until payment)",
+        invoice,
       };
     } catch (error) {
       console.error(

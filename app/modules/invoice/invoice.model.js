@@ -314,7 +314,8 @@ const Invoice = {
   },
 
   getUnPaid: async () => {
-    const query = "SELECT * FROM invoices WHERE status != 'paid' AND invoice_type = 'sale_invoice'";
+    // const query = "SELECT * FROM invoices WHERE status != 'paid' AND invoice_type = 'sale_invoice'";
+    const query = "SELECT * FROM invoices WHERE status != 'paid'";
     try {
       const [results] = await db.promise().query(query);
       return results;

@@ -8,7 +8,7 @@ const supplierReportController = require('./supplier_report.controller');
 // router.use(authMiddleware.authMiddleware);
 
 router.get('/:id/transaction-ledger', supplierReportController.getSupplierTransactionLedger);
-router.get('/:id/order-history', supplierReportController.getSupplierOrderHistory);
+router.get('/:id/po-history', supplierReportController.getSupplierOrderHistory);
 router.post('/:supplierId/transaction', supplierReportController.createSupplierTransaction);
 
 module.exports = router; 
