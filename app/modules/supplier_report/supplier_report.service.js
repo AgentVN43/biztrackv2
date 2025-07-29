@@ -3,6 +3,7 @@ const TransactionService = require("../transactions/transaction.service");
 const InvoiceModel = require("../invoice/invoice.model");
 const PurchaseOrderModel = require("../purchaseOrder/purchaseOrder.model");
 const SupplierReturn = require("../supplier_return/supplier_return.model");
+const { generateTransactionCode } = require("../../utils/transactionUtils");
 
 const SupplierReportService = {
   /**
@@ -13,79 +14,119 @@ const SupplierReportService = {
    */
   getSupplierTransactionLedger: async (supplier_id) => {
     try {
-      const [purchaseOrders, invoices, transactions, returns] = await Promise.all([
-        // 1. Lấy tất cả PO (bỏ qua PO bị huỷ)
+      // 1. Lấy dữ liệu PO và return
+      const [purchaseOrders, returns, invoices] = await Promise.all([
         PurchaseOrderModel.getPurchaseOrdersBySupplierId(supplier_id),
-        // 2. Lấy tất cả hóa đơn của supplier
-        InvoiceModel.getDebtSupplier(supplier_id),
-        // 3. Lấy tất cả giao dịch thanh toán của supplier
-        TransactionService.getTransactionsBySupplierId(supplier_id),
-        // 4. Lấy tất cả return_orders đã approved/completed
         SupplierReturn.getAll({ supplier_id, status: ["approved", "completed"] }),
+        InvoiceModel.getDebtSupplier(supplier_id),
       ]);
+      const supplierInvoiceIds = invoices.map(inv => inv.invoice_id);
+
+      // 2. Lấy transaction có supplier_id trực tiếp
+      const db = require("../../config/db.config");
+      const [directTransactions] = await db.promise().query(
+        `SELECT * FROM transactions WHERE supplier_id = ?`,
+        [supplier_id]
+      );
+      // 3. Lấy transaction liên quan đến invoice của supplier
+      let invoiceTransactions = [];
+      if (supplierInvoiceIds.length > 0) {
+        const [rows] = await db.promise().query(
+          `SELECT * FROM transactions WHERE related_type = 'invoice' AND related_id IN (${supplierInvoiceIds.map(() => '?').join(',')})`,
+          supplierInvoiceIds
+        );
+        invoiceTransactions = rows;
+      }
+      // 4. Gộp tất cả transaction
+      const transactions = [...directTransactions, ...invoiceTransactions];
 
       const allTransactions = [];
 
-      // Xử lý từng PO (bỏ qua PO bị huỷ)
-      purchaseOrders.filter(po => po.status !== 'cancelled' && po.status !== 'Huỷ đơn').forEach(order => {
-        allTransactions.push({
-          transaction_code: order.po_id,
-          transaction_date: order.created_at,
-          type: "pending",
-          amount: order.total_amount,
-          description: `Tạo đơn hàng ${order.po_id} - ${order.status}`,
-          reference: order.po_id,
+      // 5. Tạo entry cho từng PO (bỏ qua PO bị hủy)
+      purchaseOrders
+        .filter(po => po.status !== "cancelled" && po.status !== "Huỷ đơn")
+        .forEach(po => {
+          allTransactions.push({
+            transaction_code: po.po_id,
+            transaction_date: po.created_at,
+            type: "pending",
+            amount: parseFloat(po.total_amount),
+            description: `Tạo PO ${po.po_id} - ${po.status}`,
+            reference_id: po.po_id,
+            po_id: po.po_id,
+            invoice_id: null,
+            return_id: null,
+            transaction_id: null,
+          });
         });
-      });
 
-      // Xử lý return_orders: mỗi lần trả là 1 record riêng biệt
+      // 6. Tạo entry cho từng lần trả hàng
       for (const ret of returns) {
-        // Lấy tổng refund_amount cho từng lần trả hàng
         const details = await SupplierReturn.getReturnDetails(ret.return_id);
         const refundAmount = details.reduce((sum, d) => sum + (parseFloat(d.refund_amount) || 0), 0);
         allTransactions.push({
           transaction_code: ret.return_id,
           transaction_date: ret.created_at,
-          type: "refund",
-          amount: -refundAmount,
+          type: "return",
+          amount: refundAmount,
           description: `Trả hàng NCC #${ret.return_id} - ${ret.status}`,
-          reference: ret.return_id,
+          reference_id: ret.return_id,
+          po_id: ret.po_id || null,
+          invoice_id: null,
+          return_id: ret.return_id,
+          transaction_id: null,
         });
       }
 
-      // Xử lý các giao dịch thanh toán riêng lẻ
+      // 7. Tạo entry cho từng transaction thanh toán
       transactions.forEach(txn => {
+        // Mapping invoice_id nếu liên quan đến invoice
+        let invoice_id = null;
+        let po_id = null;
+        if (txn.related_type === "invoice") {
+          invoice_id = txn.related_id;
+          // Tìm PO liên quan nếu có
+          const inv = invoices.find(inv => inv.invoice_id === txn.related_id);
+          if (inv && inv.purchase_order_id) po_id = inv.purchase_order_id;
+        } else if (txn.related_type === "purchase_order") {
+          po_id = txn.related_id;
+        }
         allTransactions.push({
           transaction_code: txn.transaction_code,
           transaction_date: txn.created_at,
-          type: txn.type,
-          amount: txn.amount,
+          type: "payment",
+          amount: parseFloat(txn.amount),
           description: txn.description,
-          reference: txn.related_id,
+          reference_id: txn.related_id,
+          po_id,
+          invoice_id,
+          return_id: null,
+          transaction_id: txn.transaction_id,
         });
       });
 
-      // Sắp xếp theo thời gian
-      allTransactions.sort((a, b) => new Date(a.transaction_date) - new Date(b.transaction_date));
-
-      // Tính dư nợ (running balance)
+      // 8. Sắp xếp theo thời gian tăng dần để tính balance chuẩn
+ 
+      // 9. Tính running balance từ cũ đến mới
       let runningBalance = 0;
       allTransactions.forEach(txn => {
-        if (txn.type === 'pending' || txn.type === 'invoice') {
+        if (txn.type === "pending") {
           runningBalance += txn.amount;
-        } else if (txn.type === 'refund') {
-          runningBalance -= Math.abs(txn.amount);
-        } else if (txn.type === 'payment') {
+        } else if (txn.type === "return" || txn.type === "payment") {
           runningBalance -= txn.amount;
-        } else if (txn.type === 'receipt') {
-          runningBalance += txn.amount;
         }
         txn.balance = runningBalance;
       });
 
+      // 10. Đảo ngược lại để trả về từ mới đến cũ
+      allTransactions.reverse();
+
       return allTransactions;
     } catch (error) {
-      console.error("🚀 ~ SupplierReportService: getSupplierTransactionLedger - Lỗi:", error);
+      console.error(
+        "🚀 ~ SupplierReportService: getSupplierTransactionLedger - Lỗi:",
+        error
+      );
       throw error;
     }
   },
@@ -118,7 +159,9 @@ const SupplierReportService = {
         WHERE po.supplier_id = ?
         ORDER BY po.created_at DESC;
       `;
-      const [purchaseOrders] = await db.promise().query(purchaseOrderSql, [supplier_id]);
+      const [purchaseOrders] = await db
+        .promise()
+        .query(purchaseOrderSql, [supplier_id]);
 
       // 2. Lấy tất cả đơn trả hàng cho nhà cung cấp với tổng giá trị từ items
       const supplierReturnSql = `
@@ -139,7 +182,9 @@ const SupplierReportService = {
         GROUP BY r.return_id, r.po_id, r.status, r.created_at, r.note
         ORDER BY r.created_at ASC;
       `;
-      const [supplierReturns] = await db.promise().query(supplierReturnSql, [supplier_id]);
+      const [supplierReturns] = await db
+        .promise()
+        .query(supplierReturnSql, [supplier_id]);
 
       // 3. Thêm các đơn hàng mua vào kết quả
       purchaseOrders.forEach((order) => {
@@ -168,7 +213,11 @@ const SupplierReportService = {
       supplierReturns.forEach((ret) => {
         result.push({
           order_id: ret.return_id, // Sử dụng return_id làm order_id để tương thích
-          order_code: `TH-${ret.related_order_code ? ret.related_order_code.substring(0, 8) : ret.return_id.substring(0, 8)}`, // Tạo mã từ po_id hoặc return_id
+          order_code: `TH-${
+            ret.related_order_code
+              ? ret.related_order_code.substring(0, 8)
+              : ret.return_id.substring(0, 8)
+          }`, // Tạo mã từ po_id hoặc return_id
           order_date: ret.return_created_at,
           order_status: ret.return_status,
           total_amount: parseFloat(ret.total_value || 0), // Sử dụng total_value từ return_order_items
@@ -218,12 +267,24 @@ const SupplierReportService = {
         ORDER BY issued_date ASC
       `;
       const [rows] = await db.promise().query(sql, [supplier_id]);
-      return rows;
+      // Đảm bảo các trường số là number
+      return rows.map((inv) => ({
+        ...inv,
+        final_amount:
+          inv.final_amount !== undefined ? parseFloat(inv.final_amount) : 0,
+        amount_paid:
+          inv.amount_paid !== undefined ? parseFloat(inv.amount_paid) : 0,
+        amount_due:
+          inv.amount_due !== undefined ? parseFloat(inv.amount_due) : 0,
+      }));
     } catch (error) {
-      console.error("🚀 ~ SupplierReportService: getUnpaidOrPartiallyPaidInvoices - Lỗi:", error);
+      console.error(
+        "🚀 ~ SupplierReportService: getUnpaidOrPartiallyPaidInvoices - Lỗi:",
+        error
+      );
       throw error;
     }
   },
 };
 
-module.exports = SupplierReportService; 
+module.exports = SupplierReportService;
