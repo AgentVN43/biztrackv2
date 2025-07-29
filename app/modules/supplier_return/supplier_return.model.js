@@ -74,8 +74,13 @@ const SupplierReturn = {
         values.push(filters.supplier_id);
       }
       if (filters.status) {
-        conditions.push("ro.status = ?");
-        values.push(filters.status);
+        if (Array.isArray(filters.status)) {
+          conditions.push(`ro.status IN (${filters.status.map(() => '?').join(', ')})`);
+          values.push(...filters.status);
+        } else {
+          conditions.push("ro.status = ?");
+          values.push(filters.status);
+        }
       }
       if (filters.created_at_from) {
         conditions.push("ro.created_at >= ?");

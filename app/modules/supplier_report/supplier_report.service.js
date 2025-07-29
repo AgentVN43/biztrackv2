@@ -2,6 +2,7 @@ const db = require("../../config/db.config");
 const TransactionService = require("../transactions/transaction.service");
 const InvoiceModel = require("../invoice/invoice.model");
 const PurchaseOrderModel = require("../purchaseOrder/purchaseOrder.model");
+const SupplierReturn = require("../supplier_return/supplier_return.model");
 
 const SupplierReportService = {
   /**
@@ -12,53 +13,74 @@ const SupplierReportService = {
    */
   getSupplierTransactionLedger: async (supplier_id) => {
     try {
-      // Lấy tất cả giao dịch của nhà cung cấp
-      const transactions = await TransactionService.getTransactionsBySupplierId(supplier_id);
+      const [purchaseOrders, invoices, transactions, returns] = await Promise.all([
+        // 1. Lấy tất cả PO (bỏ qua PO bị huỷ)
+        PurchaseOrderModel.getPurchaseOrdersBySupplierId(supplier_id),
+        // 2. Lấy tất cả hóa đơn của supplier
+        InvoiceModel.getDebtSupplier(supplier_id),
+        // 3. Lấy tất cả giao dịch thanh toán của supplier
+        TransactionService.getTransactionsBySupplierId(supplier_id),
+        // 4. Lấy tất cả return_orders đã approved/completed
+        SupplierReturn.getAll({ supplier_id, status: ["approved", "completed"] }),
+      ]);
 
-      // Lấy tất cả hóa đơn mua hàng của nhà cung cấp
-      const purchaseOrders = await PurchaseOrderModel.getPurchaseOrdersBySupplierId(supplier_id);
-
-      // Tạo danh sách tất cả các giao dịch
       const allTransactions = [];
 
-      // Thêm các giao dịch từ bảng transactions
-      if (transactions && transactions.length > 0) {
-        transactions.forEach(transaction => {
-          allTransactions.push({
-            date: transaction.created_at,
-            type: 'transaction',
-            description: transaction.description,
-            reference: transaction.transaction_code,
-            debit: transaction.type === 'payment' ? transaction.amount : 0,
-            credit: transaction.type === 'receipt' ? transaction.amount : 0,
-            balance: 0 // Sẽ được tính sau
-          });
+      // Xử lý từng PO (bỏ qua PO bị huỷ)
+      purchaseOrders.filter(po => po.status !== 'cancelled' && po.status !== 'Huỷ đơn').forEach(order => {
+        allTransactions.push({
+          transaction_code: order.po_id,
+          transaction_date: order.created_at,
+          type: "pending",
+          amount: order.total_amount,
+          description: `Tạo đơn hàng ${order.po_id} - ${order.status}`,
+          reference: order.po_id,
+        });
+      });
+
+      // Xử lý return_orders: mỗi lần trả là 1 record riêng biệt
+      for (const ret of returns) {
+        // Lấy tổng refund_amount cho từng lần trả hàng
+        const details = await SupplierReturn.getReturnDetails(ret.return_id);
+        const refundAmount = details.reduce((sum, d) => sum + (parseFloat(d.refund_amount) || 0), 0);
+        allTransactions.push({
+          transaction_code: ret.return_id,
+          transaction_date: ret.created_at,
+          type: "refund",
+          amount: -refundAmount,
+          description: `Trả hàng NCC #${ret.return_id} - ${ret.status}`,
+          reference: ret.return_id,
         });
       }
 
-      // Thêm các hóa đơn mua hàng
-      if (purchaseOrders && purchaseOrders.length > 0) {
-        purchaseOrders.forEach(order => {
-          allTransactions.push({
-            date: order.created_at,
-            type: 'purchase_order',
-            description: `Đơn hàng mua #PO-${order.po_id.substring(0, 8)}`,
-            reference: `PO-${order.po_id.substring(0, 8)}`,
-            debit: 0,
-            credit: order.total_amount || 0,
-            balance: 0 // Sẽ được tính sau
-          });
+      // Xử lý các giao dịch thanh toán riêng lẻ
+      transactions.forEach(txn => {
+        allTransactions.push({
+          transaction_code: txn.transaction_code,
+          transaction_date: txn.created_at,
+          type: txn.type,
+          amount: txn.amount,
+          description: txn.description,
+          reference: txn.related_id,
         });
-      }
+      });
 
       // Sắp xếp theo thời gian
-      allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+      allTransactions.sort((a, b) => new Date(a.transaction_date) - new Date(b.transaction_date));
 
-      // Tính dư nợ
+      // Tính dư nợ (running balance)
       let runningBalance = 0;
-      allTransactions.forEach(transaction => {
-        runningBalance += transaction.credit - transaction.debit;
-        transaction.balance = runningBalance;
+      allTransactions.forEach(txn => {
+        if (txn.type === 'pending' || txn.type === 'invoice') {
+          runningBalance += txn.amount;
+        } else if (txn.type === 'refund') {
+          runningBalance -= Math.abs(txn.amount);
+        } else if (txn.type === 'payment') {
+          runningBalance -= txn.amount;
+        } else if (txn.type === 'receipt') {
+          runningBalance += txn.amount;
+        }
+        txn.balance = runningBalance;
       });
 
       return allTransactions;
@@ -174,6 +196,31 @@ const SupplierReportService = {
         "🚀 ~ SupplierReportService: getSupplierOrderHistoryWithDetails - Lỗi:",
         error
       );
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy danh sách hóa đơn chưa thanh toán đủ của nhà cung cấp
+   * @param {string} supplier_id
+   * @returns {Promise<Array>} Danh sách hóa đơn chưa thanh toán đủ
+   */
+  getUnpaidOrPartiallyPaidInvoices: async (supplier_id) => {
+    try {
+      // Giả định bảng invoices có các trường: supplier_id, status, final_amount, amount_paid
+      // Lấy các hóa đơn chưa thanh toán đủ (status != 'paid' hoặc amount_paid < final_amount)
+      const sql = `
+        SELECT invoice_id, invoice_code, final_amount, amount_paid,
+          (final_amount - IFNULL(amount_paid, 0)) AS amount_due, issued_date, due_date, status
+        FROM invoices
+        WHERE supplier_id = ?
+          AND (status != 'paid' OR (final_amount - IFNULL(amount_paid, 0)) > 0.0001)
+        ORDER BY issued_date ASC
+      `;
+      const [rows] = await db.promise().query(sql, [supplier_id]);
+      return rows;
+    } catch (error) {
+      console.error("🚀 ~ SupplierReportService: getUnpaidOrPartiallyPaidInvoices - Lỗi:", error);
       throw error;
     }
   },

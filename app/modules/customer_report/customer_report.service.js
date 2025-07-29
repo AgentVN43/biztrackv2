@@ -850,19 +850,6 @@ const CustomerReportService = {
     }
   },
 
-  /**
-   * Hàm helper để chuyển đổi loại giao dịch sang tiếng Việt
-   */
-  // getTransactionTypeDisplay: (type) => {
-  //   const typeMap = {
-  //     'pending': 'Tạo đơn hàng',
-  //     'partial_paid': 'Thanh toán một phần',
-  //     'payment': 'Thanh toán thủ công',
-  //     'completed': 'Hoàn tất',
-  //     'cancelled': 'Hủy bỏ'
-  //   };
-  //   return typeMap[type] || type;
-  // },
 };
 
 // Thêm hàm tính tổng refund đúng chuẩn cho 1 order (dùng lại logic từ order.model)

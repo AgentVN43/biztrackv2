@@ -85,6 +85,28 @@ const SupplierReportController = {
       next(err);
     }
   },
+
+  /**
+   * Lấy tổng công nợ phải trả và danh sách hóa đơn chưa thanh toán đủ của nhà cung cấp
+   * GET /api/suppliers/:id/payable
+   */
+  getSupplierPayable: async (req, res, next) => {
+    const supplier_id = req.params.id;
+    try {
+      // Lấy danh sách hóa đơn chưa thanh toán đủ
+      const unpaidInvoices = await SupplierReportService.getUnpaidOrPartiallyPaidInvoices(supplier_id);
+      // Tính tổng công nợ phải trả
+      const total_payable = unpaidInvoices.reduce((sum, inv) => sum + (parseFloat(inv.amount_due) || 0), 0);
+      createResponse(res, 200, true, {
+        supplier_id,
+        total_payable,
+        unpaid_invoices: unpaidInvoices
+      }, "Supplier payable retrieved successfully.");
+    } catch (error) {
+      console.error("🚀 ~ SupplierReportController: getSupplierPayable - Lỗi:", error);
+      return errorResponse(res, error.message || "Lỗi server", 500);
+    }
+  },
 };
 
 module.exports = SupplierReportController; 
