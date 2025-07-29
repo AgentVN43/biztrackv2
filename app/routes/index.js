@@ -18,6 +18,7 @@ const transactionRoutes = require("../modules/transactions/transaction.route");
 const productReportRoutes = require("../modules/product_report/product_report.routes");
 const supplierRoutes = require("../modules/suppliers/supplier.routes");
 const customerReportRoutes = require("../modules/customer_report/customer_report.routes");
+const supplierReportRoutes = require("../modules/supplier_report/supplier_report.routes");
 const customerReturnRoutes = require("../modules/customer_return/customer_return.routes");
 const supplierReturnRoutes = require("../modules/supplier_return/supplier_return.routes");
 const cashbookRoutes = require("../modules/cashbook/cashbook.routes");
@@ -60,6 +61,7 @@ module.exports = (app) => {
   app.use("/api/v1/payments", authMiddleware, paymentRoutes);
   app.use("/api/v1/customers", authMiddleware, customerRoutes);
   app.use("/api/v1/customer-report", authMiddleware, customerReportRoutes);
+  app.use("/api/v1/supplier-report", authMiddleware, supplierReportRoutes);
   app.use("/api/v1/orders", authMiddleware, orderRoutes);
   app.use("/api/v1/order-details", authMiddleware, orderDetailRoutes);
   app.use("/api/v1/search", authMiddleware, searchRoutes);

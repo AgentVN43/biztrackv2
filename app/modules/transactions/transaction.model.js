@@ -165,6 +165,37 @@ const TransactionModel = {
   },
 
   /**
+   * Lấy tất cả giao dịch liên quan đến một nhà cung cấp cụ thể.
+   * @param {string} supplier_id - ID của nhà cung cấp.
+   * @returns {Promise<Array<Object>>} Promise giải quyết với mảng các giao dịch.
+   */
+  getTransactionsBySupplierId: (supplier_id) => {
+    return new Promise((resolve, reject) => {
+      const sql = `
+        SELECT
+          t.*,
+          s.supplier_name,
+          po.po_id as purchase_order_code
+        FROM transactions t
+        LEFT JOIN suppliers s ON t.supplier_id = s.supplier_id
+        LEFT JOIN purchase_orders po ON t.related_id = po.po_id AND t.related_type = 'purchase_order'
+        WHERE t.supplier_id = ?
+        ORDER BY t.created_at DESC;
+      `;
+      db.query(sql, [supplier_id], (err, results) => {
+        if (err) {
+          console.error(
+            "🚀 ~ transaction.model.js: getTransactionsBySupplierId - Error fetching transactions by supplier ID:",
+            err
+          );
+          return reject(err);
+        }
+        resolve(results);
+      });
+    });
+  },
+
+  /**
    * Lấy tất cả giao dịch liên quan đến một đối tượng cụ thể (order, invoice, etc.).
    * @param {string} related_id - ID của đối tượng liên quan.
    * @param {string} related_type - Loại đối tượng liên quan ('order', 'invoice', etc.).

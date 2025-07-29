@@ -195,6 +195,42 @@ const TransactionService = {
   },
 
   /**
+   * Lấy tất cả giao dịch liên quan đến một nhà cung cấp cụ thể.
+   * @param {string} supplier_id - ID của nhà cung cấp.
+   * @returns {Promise<Array<Object>>} Mảng các giao dịch đã định dạng.
+   */
+  getTransactionsBySupplierId: async (supplier_id) => {
+    try {
+      const transactions = await TransactionModel.getTransactionsBySupplierId(
+        supplier_id
+      );
+      // Bạn có thể thêm logic định dạng hoặc xử lý dữ liệu ở đây nếu cần
+      return transactions.map((t) => ({
+        transaction_id: t.transaction_id,
+        transaction_code: t.transaction_code,
+        type: t.type,
+        amount: parseFloat(t.amount), // Đảm bảo amount là số
+        description: t.description,
+        category: t.category,
+        payment_method: t.payment_method,
+        supplier_id: t.supplier_id,
+        supplier_name: t.supplier_name, // Từ JOIN
+        related_type: t.related_type,
+        related_id: t.related_id,
+        purchase_order_code: t.purchase_order_code, // Từ JOIN
+        created_at: t.created_at,
+        updated_at: t.updated_at,
+      }));
+    } catch (error) {
+      console.error(
+        "🚀 ~ transaction.service.js: getTransactionsBySupplierId - Lỗi:",
+        error
+      );
+      throw error;
+    }
+  },
+
+  /**
    * Lấy tất cả giao dịch liên quan đến một đối tượng cụ thể (order, invoice, etc.).
    * @param {string} related_id - ID của đối tượng liên quan.
    * @param {string} related_type - Loại đối tượng liên quan ('order', 'invoice', etc.).

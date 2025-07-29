@@ -548,6 +548,37 @@ const PurchaseOrderModel = {
       throw error;
     }
   },
+
+  /**
+   * Lấy tất cả đơn mua hàng của một nhà cung cấp cụ thể.
+   * @param {string} supplier_id - ID của nhà cung cấp.
+   * @returns {Promise<Array<Object>>} Promise giải quyết với mảng các đơn mua hàng.
+   */
+  getPurchaseOrdersBySupplierId: async (supplier_id) => {
+    const sql = `
+      SELECT
+        po.*,
+        s.supplier_name
+      FROM
+        purchase_orders po
+      JOIN
+        suppliers s ON po.supplier_id = s.supplier_id
+      WHERE
+        po.supplier_id = ?
+      ORDER BY
+        po.created_at DESC;
+    `;
+    try {
+      const [rows] = await db.promise().query(sql, [supplier_id]);
+      return rows;
+    } catch (error) {
+      console.error(
+        "🚀 ~ purchase_order.model.js: getPurchaseOrdersBySupplierId - Error fetching purchase orders by supplier ID:",
+        error
+      );
+      throw error;
+    }
+  },
 };
 
 module.exports = PurchaseOrderModel;
