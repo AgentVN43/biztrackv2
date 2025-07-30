@@ -172,7 +172,7 @@ const SupplierReportService = {
           r.created_at as return_created_at,
           r.note as return_note,
           r.po_id as related_order_code,
-          COALESCE(SUM(roi.quantity * roi.refund_amount), 0) as total_value
+          COALESCE(SUM(roi.refund_amount), 0) as total_value
         FROM return_orders r
         LEFT JOIN purchase_orders po ON r.po_id = po.po_id
         LEFT JOIN return_order_items roi ON r.return_id = roi.return_id
