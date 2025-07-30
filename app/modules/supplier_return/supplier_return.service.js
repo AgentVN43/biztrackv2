@@ -216,7 +216,7 @@ const SupplierReturnService = {
         const price =
           poDetail && poDetail.price ? parseFloat(poDetail.price) : 0;
         const quantity = parseInt(item.quantity) || 0;
-        const refund_amount = item.refund_amount;
+        const refund_amount = parseFloat(item.refund_amount) || 0;
 
         console.log(
           `Tính refund cho sản phẩm ${item.product_id}: price=${price}, quantity=${quantity}, refund_amount=${refund_amount}`
@@ -230,6 +230,9 @@ const SupplierReturnService = {
           );
         total_refund += refund_amount;
       }
+
+      // Đảm bảo total_refund là số và có độ chính xác phù hợp
+      total_refund = parseFloat(total_refund.toFixed(2));
 
       // 5. Tạo phiếu thu (invoice_type = 'refund_invoice')
       const invoice_id = uuidv4();
