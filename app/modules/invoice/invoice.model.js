@@ -315,7 +315,8 @@ const Invoice = {
 
   getUnPaid: async () => {
     // const query = "SELECT * FROM invoices WHERE status != 'paid' AND invoice_type = 'sale_invoice'";
-    const query = "SELECT * FROM invoices WHERE status != 'paid'";
+    const query =
+      "SELECT * FROM invoices WHERE status != 'paid' AND invoice_type Not in ('refund_invoice', 'purchase_invoice')  ";
     try {
       const [results] = await db.promise().query(query);
       return results;
@@ -499,17 +500,21 @@ const Invoice = {
 
       // 2. Nếu không cung cấp status, tự động tính toán
       if (!status) {
-        if (options.includeRefund && (options.order_id || currentInvoice.order_id)) {
+        if (
+          options.includeRefund &&
+          (options.order_id || currentInvoice.order_id)
+        ) {
           // Tính toán với refund
           const orderId = options.order_id || currentInvoice.order_id;
           const CustomerReportService = require("../customer_report/customer_report.service");
-          const totalRefund = await CustomerReportService.calculateOrderTotalRefund(orderId);
-          
+          const totalRefund =
+            await CustomerReportService.calculateOrderTotalRefund(orderId);
+
           console.log(`🔍 updateStatus with refund for invoice ${invoice_id}:`);
           console.log(`  - Amount paid: ${currentInvoice.amount_paid}`);
           console.log(`  - Final amount: ${currentInvoice.final_amount}`);
           console.log(`  - Total refund: ${totalRefund}`);
-          
+
           newStatus = Invoice.calculateStatusWithRefund(
             currentInvoice.amount_paid,
             currentInvoice.final_amount,
@@ -586,16 +591,16 @@ const Invoice = {
     const paid = parseFloat(amount_paid || 0);
     const total = parseFloat(final_amount || 0);
     const refund = parseFloat(total_refund || 0);
-    
+
     // Số tiền thực tế phải thanh toán sau khi trừ refund
     const actualAmountToPay = Math.max(0, total - refund);
-    
+
     console.log(`🔍 calculateStatusWithRefund:`);
     console.log(`  - Final amount: ${total}`);
     console.log(`  - Amount paid: ${paid}`);
     console.log(`  - Total refund: ${refund}`);
     console.log(`  - Actual amount to pay: ${actualAmountToPay}`);
-    
+
     if (actualAmountToPay <= 0) {
       return "paid"; // Trường hợp refund >= final_amount (hoàn toàn)
     } else if (paid >= actualAmountToPay) {
