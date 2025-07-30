@@ -94,7 +94,7 @@ const SupplierReportService = {
         allTransactions.push({
           transaction_code: txn.transaction_code,
           transaction_date: txn.created_at,
-          type: "payment",
+          type: txn.type,
           amount: parseFloat(txn.amount),
           description: txn.description,
           reference_id: txn.related_id,
