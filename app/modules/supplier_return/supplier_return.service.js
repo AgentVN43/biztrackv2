@@ -30,13 +30,13 @@ const SupplierReturnService = {
     const offset = (page - 1) * limit;
     const [returns, total] = await Promise.all([
       SupplierReturn.getAll(filters, { limit, offset }),
-      SupplierReturn.countAll(filters)
+      SupplierReturn.countAll(filters),
     ]);
     return {
       returns,
       total,
       page,
-      limit
+      limit,
     };
   },
 
@@ -44,6 +44,15 @@ const SupplierReturnService = {
   getReturnWithDetails: async (return_id) => {
     const main = await SupplierReturn.getById(return_id);
     const details = await SupplierReturn.getReturnDetails(return_id);
+
+    // Đảm bảo refund_amount là number
+    details.forEach((d) => {
+      if (typeof d.refund_amount === "string") {
+        d.refund_amount = parseFloat(d.refund_amount);
+      }
+      d.item_return_price = (d.refund_amount || 0) / (d.quantity || 0);
+    });
+
     return { ...main, details };
   },
 
@@ -244,7 +253,7 @@ const SupplierReturnService = {
       await db
         .promise()
         .query(
-          `INSERT INTO transactions (transaction_id, transaction_code, type, amount, supplier_id, related_type, related_id, created_at) VALUES (?, ?, 'payment', ?, ?, 'refund', ?, NOW())`,
+          `INSERT INTO transactions (transaction_id, transaction_code, type, amount, supplier_id, related_type, related_id, created_at) VALUES (?, ?, 'receipt', ?, ?, 'refund', ?, NOW())`,
           [
             transaction_id,
             transaction_code,
@@ -262,7 +271,12 @@ const SupplierReturnService = {
           [return_id]
         );
 
-      return { ...main, status: "approved", total_refund: Number(total_refund), invoice_id };
+      return {
+        ...main,
+        status: "approved",
+        total_refund: Number(total_refund),
+        invoice_id,
+      };
     } catch (error) {
       console.error("Lỗi trong approveReturn:", error);
       throw error;
@@ -282,16 +296,19 @@ const SupplierReturnService = {
       }
 
       // Cập nhật thông tin chính
-      await db.promise().query(
-        `UPDATE return_orders SET supplier_id = ?, note = ?, updated_at = NOW() WHERE return_id = ?`,
-        [supplier_id, note, return_id]
-      );
+      await db
+        .promise()
+        .query(
+          `UPDATE return_orders SET supplier_id = ?, note = ?, updated_at = NOW() WHERE return_id = ?`,
+          [supplier_id, note, return_id]
+        );
 
       // Xóa chi tiết cũ
-      await db.promise().query(
-        `DELETE FROM return_order_items WHERE return_id = ?`,
-        [return_id]
-      );
+      await db
+        .promise()
+        .query(`DELETE FROM return_order_items WHERE return_id = ?`, [
+          return_id,
+        ]);
 
       // Tạo chi tiết mới
       const detailResults = await Promise.all(
@@ -326,16 +343,16 @@ const SupplierReturnService = {
       }
 
       // Xóa chi tiết trước
-      await db.promise().query(
-        `DELETE FROM return_order_items WHERE return_id = ?`,
-        [return_id]
-      );
+      await db
+        .promise()
+        .query(`DELETE FROM return_order_items WHERE return_id = ?`, [
+          return_id,
+        ]);
 
       // Xóa đơn trả hàng
-      await db.promise().query(
-        `DELETE FROM return_orders WHERE return_id = ?`,
-        [return_id]
-      );
+      await db
+        .promise()
+        .query(`DELETE FROM return_orders WHERE return_id = ?`, [return_id]);
 
       return { return_id, message: "Xóa đơn trả hàng thành công" };
     } catch (error) {
@@ -350,12 +367,14 @@ const SupplierReturnService = {
       const offset = (page - 1) * limit;
       const filters = { supplier_id };
       const returns = await SupplierReturn.getAll(filters, { limit, offset });
-      
+
       // Đếm tổng số
-      const [countResult] = await db.promise().query(
-        `SELECT COUNT(*) as total FROM return_orders WHERE type = 'supplier_return' AND supplier_id = ?`,
-        [supplier_id]
-      );
+      const [countResult] = await db
+        .promise()
+        .query(
+          `SELECT COUNT(*) as total FROM return_orders WHERE type = 'supplier_return' AND supplier_id = ?`,
+          [supplier_id]
+        );
       const total = countResult[0].total;
 
       return {
@@ -374,12 +393,14 @@ const SupplierReturnService = {
       const offset = (page - 1) * limit;
       const filters = { status };
       const returns = await SupplierReturn.getAll(filters, { limit, offset });
-      
+
       // Đếm tổng số
-      const [countResult] = await db.promise().query(
-        `SELECT COUNT(*) as total FROM return_orders WHERE type = 'supplier_return' AND status = ?`,
-        [status]
-      );
+      const [countResult] = await db
+        .promise()
+        .query(
+          `SELECT COUNT(*) as total FROM return_orders WHERE type = 'supplier_return' AND status = ?`,
+          [status]
+        );
       const total = countResult[0].total;
 
       return {
@@ -393,20 +414,25 @@ const SupplierReturnService = {
   },
 
   // Lấy danh sách đơn trả hàng phải trả cho nhà cung cấp (payable)
-  getPayableReturns: async ({ supplier_id, status = 'approved' }) => {
+  getPayableReturns: async ({ supplier_id, status = "approved" }) => {
     const filters = { status };
     if (supplier_id) filters.supplier_id = supplier_id;
     const returns = await SupplierReturn.getAll(filters, {});
     // Lấy tổng số tiền phải trả cho từng đơn (từ chi tiết)
-    const payableList = await Promise.all(returns.map(async (r) => {
-      const details = await SupplierReturn.getReturnDetails(r.return_id);
-      const total_refund = details.reduce((sum, d) => sum + Number(d.refund_amount || 0), 0);
-      return {
-        ...r,
-        total_refund,
-        details
-      };
-    }));
+    const payableList = await Promise.all(
+      returns.map(async (r) => {
+        const details = await SupplierReturn.getReturnDetails(r.return_id);
+        const total_refund = details.reduce(
+          (sum, d) => sum + Number(d.refund_amount || 0),
+          0
+        );
+        return {
+          ...r,
+          total_refund,
+          details,
+        };
+      })
+    );
     return payableList;
   },
 };
