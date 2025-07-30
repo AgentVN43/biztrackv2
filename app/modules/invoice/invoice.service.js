@@ -278,13 +278,14 @@ const InvoiceService = {
         continue;
       }
 
+
       // 2. Tạo giao dịch với method chung
       const transactionData = {
         transaction_code: `TT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        type: "receipt",
+        type: invoice.invoice_type === 'purchase_invoice' ? 'payment' : 'receipt',
         amount: payment.amount,
-        description: `Thanh toán cho hóa đơn ${invoice.invoice_code}`,
-        category: "sale_payment",
+        description: `AnNK Thanh toán cho hóa đơn ${invoice.invoice_code}`,
+        category: invoice.invoice_type === 'purchase_invoice' ? 'purchase_payment' : 'sale_payment',
         payment_method: method, // Sử dụng method chung
         customer_id: invoice.customer_id,
         order_id: invoice.order_id,
