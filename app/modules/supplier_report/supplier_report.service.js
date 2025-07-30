@@ -17,24 +17,32 @@ const SupplierReportService = {
       // 1. Lấy dữ liệu PO và return
       const [purchaseOrders, returns, invoices] = await Promise.all([
         PurchaseOrderModel.getPurchaseOrdersBySupplierId(supplier_id),
-        SupplierReturn.getAll({ supplier_id, status: ["approved", "completed"] }),
+        SupplierReturn.getAll({
+          supplier_id,
+          status: ["approved", "completed"],
+        }),
         InvoiceModel.getDebtSupplier(supplier_id),
       ]);
-      const supplierInvoiceIds = invoices.map(inv => inv.invoice_id);
+      const supplierInvoiceIds = invoices.map((inv) => inv.invoice_id);
 
       // 2. Lấy transaction có supplier_id trực tiếp
       const db = require("../../config/db.config");
-      const [directTransactions] = await db.promise().query(
-        `SELECT * FROM transactions WHERE supplier_id = ?`,
-        [supplier_id]
-      );
+      const [directTransactions] = await db
+        .promise()
+        .query(`SELECT * FROM transactions WHERE supplier_id = ?`, [
+          supplier_id,
+        ]);
       // 3. Lấy transaction liên quan đến invoice của supplier
       let invoiceTransactions = [];
       if (supplierInvoiceIds.length > 0) {
-        const [rows] = await db.promise().query(
-          `SELECT * FROM transactions WHERE related_type = 'invoice' AND related_id IN (${supplierInvoiceIds.map(() => '?').join(',')})`,
-          supplierInvoiceIds
-        );
+        const [rows] = await db
+          .promise()
+          .query(
+            `SELECT * FROM transactions WHERE related_type = 'invoice' AND related_id IN (${supplierInvoiceIds
+              .map(() => "?")
+              .join(",")})`,
+            supplierInvoiceIds
+          );
         invoiceTransactions = rows;
       }
       // 4. Gộp tất cả transaction
@@ -44,8 +52,8 @@ const SupplierReportService = {
 
       // 5. Tạo entry cho từng PO (bỏ qua PO bị hủy)
       purchaseOrders
-        .filter(po => po.status !== "cancelled" && po.status !== "Huỷ đơn")
-        .forEach(po => {
+        .filter((po) => po.status !== "cancelled" && po.status !== "Huỷ đơn")
+        .forEach((po) => {
           allTransactions.push({
             transaction_code: po.po_id,
             transaction_date: po.created_at,
@@ -61,32 +69,36 @@ const SupplierReportService = {
         });
 
       // 6. Tạo entry cho từng lần trả hàng
-      // for (const ret of returns) {
-      //   const details = await SupplierReturn.getReturnDetails(ret.return_id);
-      //   const refundAmount = details.reduce((sum, d) => sum + (parseFloat(d.refund_amount) || 0), 0);
-      //   allTransactions.push({
-      //     transaction_code: ret.return_id,
-      //     transaction_date: ret.created_at,
-      //     type: "return",
-      //     amount: refundAmount,
-      //     description: `Trả hàng NCC #${ret.return_id} - ${ret.status}`,
-      //     reference_id: ret.return_id,
-      //     po_id: ret.po_id || null,
-      //     invoice_id: null,
-      //     return_id: ret.return_id,
-      //     transaction_id: null,
-      //   });
-      // }
+      for (const ret of returns) {
+        // Lấy tổng refund từ return_order_items
+        const details = await SupplierReturn.getReturnDetails(ret.return_id);
+        const refundAmount = details.reduce(
+          (sum, d) => sum + (parseFloat(d.refund_amount) || 0),
+          0
+        );
+        allTransactions.push({
+          transaction_code: ret.return_id,
+          transaction_date: ret.created_at,
+          type: "return",
+          amount: refundAmount,
+          description: `Trả hàng NCC #${ret.return_id} - ${ret.status}`,
+          reference_id: ret.return_id,
+          po_id: ret.po_id || null,
+          invoice_id: null,
+          return_id: ret.return_id,
+          transaction_id: null,
+        });
+      }
 
       // 7. Tạo entry cho từng transaction thanh toán
-      transactions.forEach(txn => {
+      transactions.forEach((txn) => {
         // Mapping invoice_id nếu liên quan đến invoice
         let invoice_id = null;
         let po_id = null;
         if (txn.related_type === "invoice") {
           invoice_id = txn.related_id;
           // Tìm PO liên quan nếu có
-          const inv = invoices.find(inv => inv.invoice_id === txn.related_id);
+          const inv = invoices.find((inv) => inv.invoice_id === txn.related_id);
           if (inv && inv.purchase_order_id) po_id = inv.purchase_order_id;
         } else if (txn.related_type === "purchase_order") {
           po_id = txn.related_id;
@@ -106,10 +118,13 @@ const SupplierReportService = {
       });
 
       // 8. Sắp xếp theo thời gian tăng dần để tính balance chuẩn
-      allTransactions.sort((a, b) => new Date(a.transaction_date) - new Date(b.transaction_date));
+      allTransactions.sort(
+        (a, b) => new Date(a.transaction_date) - new Date(b.transaction_date)
+      );
+
       // 9. Tính running balance từ cũ đến mới
       let runningBalance = 0;
-      allTransactions.forEach(txn => {
+      allTransactions.forEach((txn) => {
         if (txn.type === "pending") {
           runningBalance += txn.amount;
         } else if (txn.type === "return" || txn.type === "payment") {
@@ -118,10 +133,13 @@ const SupplierReportService = {
         txn.balance = runningBalance;
       });
 
+      const allTransactionsNoRefund = allTransactions.filter(
+        (txn) => txn.type !== "refund"
+      );
       // 10. Đảo ngược lại để trả về từ mới đến cũ
-      allTransactions.reverse();
+      allTransactionsNoRefund.reverse();
 
-      return allTransactions;
+      return allTransactionsNoRefund;
     } catch (error) {
       console.error(
         "🚀 ~ SupplierReportService: getSupplierTransactionLedger - Lỗi:",

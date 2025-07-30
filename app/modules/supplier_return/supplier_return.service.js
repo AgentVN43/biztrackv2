@@ -256,7 +256,7 @@ const SupplierReturnService = {
       await db
         .promise()
         .query(
-          `INSERT INTO transactions (transaction_id, transaction_code, type, amount, supplier_id, related_type, related_id, created_at) VALUES (?, ?, 'receipt', ?, ?, 'refund', ?, NOW())`,
+          `INSERT INTO transactions (transaction_id, transaction_code, type, amount, supplier_id, related_type, related_id, created_at) VALUES (?, ?, 'refund', ?, ?, 'refund', ?, NOW())`,
           [
             transaction_id,
             transaction_code,
