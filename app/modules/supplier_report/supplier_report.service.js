@@ -68,27 +68,9 @@ const SupplierReportService = {
           });
         });
 
-      // 6. Tạo entry cho từng lần trả hàng
-      for (const ret of returns) {
-        // Lấy tổng refund từ return_order_items
-        const details = await SupplierReturn.getReturnDetails(ret.return_id);
-        const refundAmount = details.reduce(
-          (sum, d) => sum + (parseFloat(d.refund_amount) || 0),
-          0
-        );
-        allTransactions.push({
-          transaction_code: ret.return_id,
-          transaction_date: ret.created_at,
-          type: "return",
-          amount: refundAmount,
-          description: `Trả hàng NCC #${ret.return_id} - ${ret.status}`,
-          reference_id: ret.return_id,
-          po_id: ret.po_id || null,
-          invoice_id: null,
-          return_id: ret.return_id,
-          transaction_id: null,
-        });
-      }
+      // 6. KHÔNG tạo entry cho từng lần trả hàng từ return_order nữa
+      // Chỉ lấy các transaction type 'refund' từ bảng transactions (đã có enrich return_id nếu cần)
+      // Nếu cần enrich thêm thông tin return, join theo related_id của transaction
 
       // 7. Tạo entry cho từng transaction thanh toán
       transactions.forEach((txn) => {
@@ -127,7 +109,7 @@ const SupplierReportService = {
       allTransactions.forEach((txn) => {
         if (txn.type === "pending") {
           runningBalance += txn.amount;
-        } else if (txn.type === "return" || txn.type === "payment") {
+        } else if (txn.type === "return" || txn.type === "payment" || txn.type === "receipt") {
           runningBalance -= txn.amount;
         }
         txn.balance = runningBalance;
@@ -281,6 +263,7 @@ const SupplierReportService = {
           (final_amount - IFNULL(amount_paid, 0)) AS amount_due, issued_date, due_date, status
         FROM invoices
         WHERE supplier_id = ?
+          AND invoice_type != 'refund_invoice'
           AND (status != 'paid' OR (final_amount - IFNULL(amount_paid, 0)) > 0.0001)
         ORDER BY issued_date ASC
       `;
