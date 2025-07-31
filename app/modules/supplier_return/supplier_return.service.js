@@ -235,9 +235,9 @@ const SupplierReturnService = {
       total_refund = parseFloat(total_refund.toFixed(2));
 
       // 5. Tạo phiếu thu (invoice_type = 'refund_invoice')
-      const invoice_id = uuidv4();
-      const invoice_code = `REF-${Date.now()}`;
-      const supplier_id = main.supplier_id;
+       const invoice_id = uuidv4();
+       const invoice_code = `REF-${Date.now()}`;
+       const supplier_id = main.supplier_id;
 
       if (!supplier_id) {
         throw new Error("Không tìm thấy supplier_id trong đơn trả hàng");
@@ -251,20 +251,20 @@ const SupplierReturnService = {
         );
 
       // 5.5. Ghi nhận transaction hoàn tiền cho nhà cung cấp
-      const transaction_id = uuidv4();
-      const transaction_code = generateTransactionCode("SUPREF");
-      await db
-        .promise()
-        .query(
-          `INSERT INTO transactions (transaction_id, transaction_code, type, amount, supplier_id, related_type, related_id, created_at) VALUES (?, ?, 'receipt', ?, ?, 'refund', ?, NOW())`,
-          [
-            transaction_id,
-            transaction_code,
-            total_refund,
-            supplier_id,
-            return_id,
-          ]
-        );
+      // const transaction_id = uuidv4();
+      // const transaction_code = generateTransactionCode("SUPREF");
+      // await db
+      //   .promise()
+      //   .query(
+      //     `INSERT INTO transactions (transaction_id, transaction_code, type, amount, supplier_id, related_type, related_id, created_at) VALUES (?, ?, 'receipt', ?, ?, 'refund', ?, NOW())`,
+      //     [
+      //       transaction_id,
+      //       transaction_code,
+      //       total_refund,
+      //       supplier_id,
+      //       return_id,
+      //     ]
+      //   );
 
       // 6. Cập nhật trạng thái đơn trả hàng
       await db
