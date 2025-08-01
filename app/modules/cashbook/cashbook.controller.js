@@ -62,27 +62,24 @@ exports.getLedger = async (req, res) => {
     let where = "WHERE 1=1";
     const params = [];
     if (from) {
-      where += " AND created_at >= ?";
+      where += " AND created_at >= ? AND type != 'refund'";
       params.push(from);
     }
     if (to) {
-      where += " AND created_at <= ?";
+      where += " AND created_at <= ? AND type != 'refund'";
       params.push(to);
     }
-    if (type) {
-      where += " AND type = ?";
-      params.push(type);
-    }
+   
     if (category) {
-      where += " AND category = ?";
+      where += " AND category = ? AND type != 'refund'";
       params.push(category);
     }
     if (customer_id) {
-      where += " AND customer_id = ?";
+      where += " AND customer_id = ? AND type != 'refund'";
       params.push(customer_id);
     }
     if (supplier_id) {
-      where += " AND supplier_id = ?";
+      where += " AND supplier_id = ? AND type != 'refund'";
       params.push(supplier_id);
     }
 
@@ -140,7 +137,7 @@ exports.getLedger = async (req, res) => {
     // Lấy tổng số bản ghi để tính tổng trang
     const [[{ total }]] = await db
       .promise()
-      .query(`SELECT COUNT(*) as total FROM transactions ${where}`, params);
+      .query(`SELECT COUNT(*) as total FROM transactions ${where} AND type != 'refund'`, params);
 
     const totalPages = Math.ceil(total / limitNum);
 
@@ -148,7 +145,7 @@ exports.getLedger = async (req, res) => {
     const [receiptRows] = await db
       .promise()
       .query(
-        `SELECT IFNULL(SUM(amount), 0) as total_receipt FROM transactions ${where} AND type = 'receipt'`,
+        `SELECT IFNULL(SUM(amount), 0) as total_receipt FROM transactions ${where} AND type = 'receipt' AND type != 'refund'`,
         params
       );
     const total_receipt = Number(receiptRows[0]?.total_receipt || 0);
@@ -157,7 +154,7 @@ exports.getLedger = async (req, res) => {
     const [paymentRows] = await db
       .promise()
       .query(
-        `SELECT IFNULL(SUM(amount), 0) as total_payment FROM transactions ${where} AND type = 'payment'`,
+        `SELECT IFNULL(SUM(amount), 0) as total_payment FROM transactions ${where} AND type = 'payment' AND type != 'refund'`,
         params
       );
     const total_payment = Number(paymentRows[0]?.total_payment || 0);
