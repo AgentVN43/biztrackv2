@@ -273,8 +273,8 @@ const AnalysisModel = {
         ${orderByClause};
       `;
 
-      // 2. Doanh thu thực thu (theo giao dịch)
-      const actualRevenueQuery = `
+      // 2a. Doanh thu thực thu từ giao dịch liên quan đơn hàng
+      const actualRevenueFromOrdersQuery = `
         SELECT
             ${selectTimePeriod}
             SUM(t.amount) AS actual_revenue
@@ -282,6 +282,7 @@ const AnalysisModel = {
         INNER JOIN invoices i ON t.related_id = i.invoice_id
         INNER JOIN orders o ON i.order_id = o.order_id
         WHERE t.type IN ('receipt')
+          AND t.related_type IN ('order', 'invoice')
           AND o.order_status = 'Hoàn tất'
           AND i.invoice_type = 'sale_invoice'
           ${conditions.length > 0 ? "AND " + conditions.join(" AND ") : ""}
@@ -289,44 +290,53 @@ const AnalysisModel = {
         ${orderByClause};
       `;
 
-      // 3. Công nợ phải thu
-      const outstandingReceivablesQuery = `
+      // 2b. Doanh thu thực thu từ giao dịch độc lập (phiếu thu trực tiếp)
+      const actualRevenueFromDirectQuery = `
         SELECT
             ${selectTimePeriod}
-            SUM(i.final_amount) - SUM(COALESCE(transaction_totals.total_paid, 0)) AS outstanding_receivables
-        FROM invoices i
-        INNER JOIN orders o ON i.order_id = o.order_id
-        LEFT JOIN (
-          SELECT 
-            t.related_id as invoice_id,
-            SUM(t.amount) as total_paid
-          FROM transactions t
-          WHERE t.type IN ('receipt')
-          GROUP BY t.related_id
-        ) transaction_totals ON i.invoice_id = transaction_totals.invoice_id
-        ${whereClause}
+            SUM(t.amount) AS actual_revenue
+        FROM transactions t
+        WHERE t.type IN ('receipt')
+          AND (t.related_type IS NULL OR t.related_id IS NULL)
+          ${conditions.length > 0 ? 
+            "AND " + conditions.map(cond => cond.replace('i.issued_date', 't.created_at')).join(" AND ") 
+            : ""
+          }
         ${groupByClause ? `GROUP BY ${groupByClause}` : ""}
         ${orderByClause};
       `;
 
+      // 3. Công nợ phải thu được tính toán từ: revenue_by_invoice - actual_revenue
+
       console.log("🚀 ~ AnalysisModel.getRevenueByTimePeriod - Executing queries:");
       console.log("1. Revenue by Invoice:", revenueByInvoiceQuery);
-      console.log("2. Actual Revenue:", actualRevenueQuery);
-      console.log("3. Outstanding Receivables:", outstandingReceivablesQuery);
+      console.log("2a. Actual Revenue from Orders:", actualRevenueFromOrdersQuery);
+      console.log("2b. Actual Revenue from Direct:", actualRevenueFromDirectQuery);
+      console.log("3. Outstanding Receivables: Calculated from revenue_by_invoice - actual_revenue");
 
       const [revenueByInvoiceResults] = await db.promise().query(revenueByInvoiceQuery);
-      const [actualRevenueResults] = await db.promise().query(actualRevenueQuery);
-      const [outstandingReceivablesResults] = await db.promise().query(outstandingReceivablesQuery);
+      const [actualRevenueFromOrdersResults] = await db.promise().query(actualRevenueFromOrdersQuery);
+      const [actualRevenueFromDirectResults] = await db.promise().query(actualRevenueFromDirectQuery);
 
       // Kết hợp kết quả
       const combinedResults = [];
       
       if (!period || period.toLowerCase() === "total_range") {
         // Trường hợp total_range - trả về tổng
+        const revenueByInvoice = parseFloat(revenueByInvoiceResults[0]?.revenue_by_invoice || 0);
+        const actualRevenueFromOrders = parseFloat(actualRevenueFromOrdersResults[0]?.actual_revenue || 0);
+        const actualRevenueFromDirect = parseFloat(actualRevenueFromDirectResults[0]?.actual_revenue || 0);
+        const totalActualRevenue = actualRevenueFromOrders + actualRevenueFromDirect;
+        
+        // Tính công nợ phải thu: Doanh thu theo invoice - Doanh thu thực thu
+        const outstandingReceivables = revenueByInvoice - totalActualRevenue;
+        
         combinedResults.push({
-          revenue_by_invoice: parseFloat(revenueByInvoiceResults[0]?.revenue_by_invoice || 0),
-          actual_revenue: parseFloat(actualRevenueResults[0]?.actual_revenue || 0),
-          outstanding_receivables: parseFloat(outstandingReceivablesResults[0]?.outstanding_receivables || 0)
+          revenue_by_invoice: revenueByInvoice,
+          actual_revenue: totalActualRevenue,
+          actual_revenue_from_orders: actualRevenueFromOrders,
+          actual_revenue_from_direct: actualRevenueFromDirect,
+          outstanding_receivables: outstandingReceivables
         });
       } else {
         // Trường hợp có period - trả về theo thời gian
@@ -338,39 +348,51 @@ const AnalysisModel = {
             time_period: row.time_period,
             revenue_by_invoice: parseFloat(row.revenue_by_invoice || 0),
             actual_revenue: 0,
+            actual_revenue_from_orders: 0,
+            actual_revenue_from_direct: 0,
             outstanding_receivables: 0
           });
         });
         
-        // Thêm actual revenue
-        actualRevenueResults.forEach(row => {
+        // Thêm actual revenue from orders
+        actualRevenueFromOrdersResults.forEach(row => {
           if (timeMap.has(row.time_period)) {
-            timeMap.get(row.time_period).actual_revenue = parseFloat(row.actual_revenue || 0);
-          } else {
-            timeMap.set(row.time_period, {
-              time_period: row.time_period,
-              revenue_by_invoice: 0,
-              actual_revenue: parseFloat(row.actual_revenue || 0),
-              outstanding_receivables: 0
-            });
-          }
-        });
-        
-        // Thêm outstanding receivables
-        outstandingReceivablesResults.forEach(row => {
-          if (timeMap.has(row.time_period)) {
-            timeMap.get(row.time_period).outstanding_receivables = parseFloat(row.outstanding_receivables || 0);
+            timeMap.get(row.time_period).actual_revenue_from_orders = parseFloat(row.actual_revenue || 0);
           } else {
             timeMap.set(row.time_period, {
               time_period: row.time_period,
               revenue_by_invoice: 0,
               actual_revenue: 0,
-              outstanding_receivables: parseFloat(row.outstanding_receivables || 0)
+              actual_revenue_from_orders: parseFloat(row.actual_revenue || 0),
+              actual_revenue_from_direct: 0,
+              outstanding_receivables: 0
             });
           }
         });
         
-        // Chuyển Map thành Array và sắp xếp
+        // Thêm actual revenue from direct
+        actualRevenueFromDirectResults.forEach(row => {
+          if (timeMap.has(row.time_period)) {
+            timeMap.get(row.time_period).actual_revenue_from_direct = parseFloat(row.actual_revenue || 0);
+          } else {
+            timeMap.set(row.time_period, {
+              time_period: row.time_period,
+              revenue_by_invoice: 0,
+              actual_revenue: 0,
+              actual_revenue_from_orders: 0,
+              actual_revenue_from_direct: parseFloat(row.actual_revenue || 0),
+              outstanding_receivables: 0
+            });
+          }
+        });
+        
+        // Tính tổng actual_revenue và outstanding_receivables cho từng time period
+        timeMap.forEach((value, key) => {
+          value.actual_revenue = value.actual_revenue_from_orders + value.actual_revenue_from_direct;
+          // Tính công nợ phải thu: Doanh thu theo invoice - Doanh thu thực thu
+          value.outstanding_receivables = value.revenue_by_invoice - value.actual_revenue;
+        });
+        
         combinedResults.push(...Array.from(timeMap.values()));
         if (orderByClause.includes("ORDER BY")) {
           combinedResults.sort((a, b) => a.time_period.localeCompare(b.time_period));
