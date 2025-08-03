@@ -293,7 +293,10 @@ const AnalysisModel = {
       // 2b. Doanh thu thực thu từ giao dịch độc lập (phiếu thu trực tiếp)
       const actualRevenueFromDirectQuery = `
         SELECT
-            ${selectTimePeriod}
+            ${period && period.toLowerCase() !== "total_range" ? 
+              `DATE_FORMAT(t.created_at, "${period === 'daily' ? '%Y-%m-%d' : '%Y-%m'}") AS time_period,` 
+              : ""
+            }
             SUM(t.amount) AS actual_revenue
         FROM transactions t
         WHERE t.type IN ('receipt')
@@ -302,8 +305,14 @@ const AnalysisModel = {
             "AND " + conditions.map(cond => cond.replace('i.issued_date', 't.created_at')).join(" AND ") 
             : ""
           }
-        ${groupByClause ? `GROUP BY ${groupByClause}` : ""}
-        ${orderByClause};
+        ${period && period.toLowerCase() !== "total_range" ? 
+          `GROUP BY DATE_FORMAT(t.created_at, "${period === 'daily' ? '%Y-%m-%d' : '%Y-%m'}")` 
+          : ""
+        }
+        ${period && period.toLowerCase() !== "total_range" ? 
+          `ORDER BY time_period` 
+          : ""
+        };
       `;
 
       // 3. Công nợ phải thu được tính toán từ: revenue_by_invoice - actual_revenue
