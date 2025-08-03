@@ -124,7 +124,7 @@ const SupplierReportService = {
         const refundAmount = parseFloat(returnOrder.total_refund) || 0;
         if (refundAmount > 0) {
           allTransactions.push({
-            transaction_code: `TR-${returnOrder.po_id}`,
+            transaction_code: `TH-PO-${returnOrder.return_id}`,
             transaction_date: new Date(returnOrder.created_at),
             type: "return",
             amount: refundAmount,

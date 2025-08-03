@@ -1,4 +1,5 @@
 const TransactionModel = require("../transactions/transaction.model");
+const CashbookService = require("./cashbook.service");
 const { createResponse, errorResponse } = require("../../utils/response");
 const db = require("../../config/db.config");
 // Tạo phiếu thu/chi
@@ -69,7 +70,7 @@ exports.getLedger = async (req, res) => {
       where += " AND created_at <= ? AND type != 'refund'";
       params.push(to);
     }
-   
+
     if (category) {
       where += " AND category = ? AND type != 'refund'";
       params.push(category);
@@ -108,19 +109,19 @@ exports.getLedger = async (req, res) => {
       ...row,
       customer: row.customer_id
         ? {
-            customer_id: row.customer_id,
-            customer_name: row.customer_name,
-            phone: row.customer_phone,
-            email: row.customer_email,
-          }
+          customer_id: row.customer_id,
+          customer_name: row.customer_name,
+          phone: row.customer_phone,
+          email: row.customer_email,
+        }
         : null,
       supplier: row.supplier_id
         ? {
-            supplier_id: row.supplier_id,
-            supplier_name: row.supplier_name,
-            phone: row.supplier_phone,
-            email: row.supplier_email,
-          }
+          supplier_id: row.supplier_id,
+          supplier_name: row.supplier_name,
+          phone: row.supplier_phone,
+          email: row.supplier_email,
+        }
         : null,
     }));
 
@@ -183,5 +184,105 @@ exports.getLedger = async (req, res) => {
     );
   } catch (err) {
     return errorResponse(res, err.message || "Lỗi lấy sổ quỹ", 500);
+  }
+};
+
+// Lấy sổ cái giao dịch tổng hợp hệ thống
+exports.getSystemTransactionLedger = async (req, res) => {
+  try {
+    const {
+      from_date,
+      to_date,
+      customer_id,
+      supplier_id,
+      transaction_type,
+      page = 1,
+      limit = 50
+    } = req.query;
+
+    const filters = {
+      from_date,
+      to_date,
+      customer_id,
+      supplier_id,
+      transaction_type,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    };
+
+    const result = await CashbookService.getSystemTransactionLedger(filters);
+
+    return createResponse(
+      res,
+      200,
+      true,
+      result.transactions,
+      "Lấy sổ cái giao dịch hệ thống thành công",
+      result.pagination.total,
+      result.pagination.page,
+      result.pagination.limit
+    );
+  } catch (err) {
+    return errorResponse(res, err.message || "Lỗi lấy sổ cái giao dịch hệ thống", 500);
+  }
+};
+
+// Lấy thống kê tổng hợp giao dịch hệ thống
+exports.getSystemTransactionSummary = async (req, res) => {
+  try {
+    const {
+      from_date,
+      to_date,
+      customer_id,
+      supplier_id
+    } = req.query;
+
+    const filters = {
+      from_date,
+      to_date,
+      customer_id,
+      supplier_id
+    };
+
+    const result = await CashbookService.getSystemTransactionSummary(filters);
+
+    return createResponse(
+      res,
+      200,
+      true,
+      result,
+      "Lấy thống kê giao dịch hệ thống thành công"
+    );
+  } catch (err) {
+    return errorResponse(res, err.message || "Lỗi lấy thống kê giao dịch hệ thống", 500);
+  }
+};
+
+// Lấy hoạt động gần đây tổng hợp
+exports.getRecentActivitiesCombined = async (req, res) => {
+  try {
+    const {
+      limit = 10,
+      hours = 24,
+      include_alerts = true
+    } = req.query;
+
+    const filters = {
+      limit: parseInt(limit),
+      hours: parseInt(hours),
+      include_alerts: include_alerts === 'true'
+    };
+
+    const result = await CashbookService.getRecentActivitiesCombined(filters);
+
+    return createResponse(
+      res,
+      200,
+      true,
+      result,
+      "Lấy hoạt động gần đây tổng hợp thành công"
+    );
+  } catch (err) {
+    return errorResponse(res, err.message || "Lỗi lấy hoạt động gần đây tổng hợp", 500);
   }
 };
