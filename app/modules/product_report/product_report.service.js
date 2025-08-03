@@ -21,7 +21,16 @@ const ProductReportService = {
         return []; // Trả về mảng rỗng nếu không có sự kiện nào
       }
 
-      const report = events.map((event) => {
+      // Tính toán tồn kho cuối chính xác dựa trên quantity_impact
+      // Sắp xếp events theo thời gian tăng dần (cũ nhất trước) để tính toán đúng
+      const sortedEvents = events.sort((a, b) => new Date(a.event_timestamp) - new Date(b.event_timestamp));
+      
+      let runningStock = 0; // Tồn kho chạy
+      const reportWithCalculatedStock = sortedEvents.map((event) => {
+        // Cập nhật tồn kho chạy dựa trên quantity_impact
+        // quantity_impact: dương = tăng kho, âm = giảm kho
+        runningStock += parseFloat(event.quantity_impact || 0);
+        
         let loai_giao_dich;
         // Map event_type sang định dạng tiếng Việt mong muốn
         switch (event.event_type) {
@@ -37,10 +46,10 @@ const ProductReportService = {
           case "STOCK_ADJUSTMENT_DECREASE":
             loai_giao_dich = "Điều chỉnh giảm kho";
             break;
-          case "RETURN_FROM_CUSTOMER": // Giả định bạn sẽ thêm event_type này sau
+          case "RETURN_FROM_CUSTOMER":
             loai_giao_dich = "Khách hàng trả hàng";
             break;
-          case "RETURN_TO_SUPPLIER": // Giả định bạn sẽ thêm event_type này sau
+          case "RETURN_TO_SUPPLIER":
             loai_giao_dich = "Trả hàng nhà cung cấp";
             break;
           default:
@@ -49,17 +58,18 @@ const ProductReportService = {
 
         return {
           chung_tu: event.reference_id,
-          thoi_gian: event.event_timestamp, // Có thể format lại theo ý muốn (ví dụ: 'DD/MM/YYYY HH:mm:ss')
+          thoi_gian: event.event_timestamp,
           loai_giao_dich: loai_giao_dich,
-          doi_tac: event.partner_name || "N/A", // Hiển thị N/A nếu không có đối tác (ví dụ: điều chỉnh kho)
-          gia_gd: event.transaction_price || 0, // Giá giao dịch, 0 nếu không có
+          doi_tac: event.partner_name || "N/A",
+          gia_gd: event.transaction_price || 0,
           so_luong: event.quantity_impact,
-          ton_cuoi: event.current_stock_after || 0, // Tồn cuối sau sự kiện, 0 nếu null
-          mo_ta: event.description, // Thêm mô tả cho chi tiết
+          ton_cuoi: runningStock, // Sử dụng tồn kho đã tính toán
+          mo_ta: event.description,
         };
       });
 
-      return report;
+      // Sắp xếp lại theo thời gian giảm dần (mới nhất trước) để hiển thị
+      return reportWithCalculatedStock.sort((a, b) => new Date(b.thoi_gian) - new Date(a.thoi_gian));
     } catch (error) {
       console.error(
         "🚀 ~ ProductReportService: getProductHistoryReport - Error:",
@@ -81,20 +91,28 @@ const ProductReportService = {
         return [];
       }
 
-      // Lấy thông tin chi tiết về sản phẩm (nếu cần hiển thị tên sản phẩm đầy đủ)
-      // Giả sử ProductModel.findById tồn tại
+      // Lấy thông tin chi tiết về sản phẩm
       const productInfo = await ProductModel.getProductById(product_id);
       const productName = productInfo
         ? productInfo.product_name
         : `Sản phẩm ${product_id}`;
 
-      // Lấy tên kho (nếu model không trả về, mặc dù chúng ta đã thêm vào model query)
-      const warehouseInfo = await WarehouseModel.getById(warehouse_id); // Giả sử WarehouseModel.findById tồn tại
+      // Lấy tên kho
+      const warehouseInfo = await WarehouseModel.getById(warehouse_id);
       const warehouseName = warehouseInfo
         ? warehouseInfo.warehouse_name
         : `Kho ${warehouse_id}`;
 
-      const report = events.map((event) => {
+      // Tính toán tồn kho cuối chính xác dựa trên quantity_impact
+      // Sắp xếp events theo thời gian tăng dần (cũ nhất trước) để tính toán đúng
+      const sortedEvents = events.sort((a, b) => new Date(a.event_timestamp) - new Date(b.event_timestamp));
+      
+      let runningStock = 0; // Tồn kho chạy
+      const reportWithCalculatedStock = sortedEvents.map((event) => {
+        // Cập nhật tồn kho chạy dựa trên quantity_impact
+        // quantity_impact: dương = tăng kho, âm = giảm kho
+        runningStock += parseFloat(event.quantity_impact || 0);
+        
         let loai_giao_dich;
         switch (event.event_type) {
           case "ORDER_SOLD":
@@ -129,15 +147,16 @@ const ProductReportService = {
           doi_tac: event.partner_name || "N/A",
           gia_gd: event.transaction_price || 0,
           so_luong: event.quantity_impact,
-          ton_cuoi: event.current_stock_after || 0,
+          ton_cuoi: runningStock, // Sử dụng tồn kho đã tính toán
           mo_ta: event.description,
-          product_name: productName, // Bao gồm tên sản phẩm
-          warehouse_name: event.warehouse_name || warehouseName, // Tên kho từ JOIN hoặc từ WarehouseModel
+          product_name: productName,
+          warehouse_name: event.warehouse_name || warehouseName,
           warehouse_id: event.warehouse_id,
         };
       });
 
-      return report;
+      // Sắp xếp lại theo thời gian giảm dần (mới nhất trước) để hiển thị
+      return reportWithCalculatedStock.sort((a, b) => new Date(b.thoi_gian) - new Date(a.thoi_gian));
     } catch (error) {
       console.error(
         "🚀 ~ ProductReportService: getProductHistoryByProductAndWarehouse - Lỗi:",

@@ -106,7 +106,7 @@
 //   });
 // };
 
-const { createResponse } = require("../../utils/response");
+const { createResponse, errorResponse } = require("../../utils/response");
 const service = require("./inventory.service"); // Đảm bảo đường dẫn đúng
 // const { handleResult } = require("../../utils/responseHelper"); // ✅ Không cần thiết nữa vì chúng ta xử lý response trực tiếp
 
@@ -339,7 +339,7 @@ exports.stockIncrease = async (req, res, next) => {
       "🚀 ~ inventory.controller.js: adjustStockIncrease - Lỗi:",
       err
     );
-    next(err); // Chuyển lỗi xuống middleware xử lý lỗi
+    return errorResponse(res, err.message || "Lỗi khi tăng tồn kho", 500);
   }
 };
 
@@ -365,6 +365,6 @@ exports.stockDecrease = async (req, res, next) => {
       "🚀 ~ inventory.controller.js: adjustStockDecrease - Lỗi:",
       err
     );
-    next(err); // Chuyển lỗi xuống middleware xử lý lỗi
+    return errorResponse(res, err.message || "Lỗi khi giảm tồn kho", 500);
   }
 };

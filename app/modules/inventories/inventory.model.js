@@ -561,7 +561,7 @@ const InventoryModel = {
           );
           return reject(err);
         }
-        resolve(result);
+        resolve({ ...result, adjustment_id }); // Trả về cả result và adjustment_id
       });
     });
   },

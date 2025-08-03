@@ -383,6 +383,7 @@
 const { v4: uuidv4 } = require("uuid");
 const InventoryModel = require("./inventory.model"); // Đổi tên biến để rõ ràng hơn
 const ProductModel = require("../../modules/product/product.model"); // Giả định đây là ProductModel chứa logic DB
+const ProductEventModel = require("../product_report/product_event.model");
 
 const InventoryService = {
   /**
@@ -802,8 +803,8 @@ const InventoryService = {
       : 0;
     console.log("current_quantity_after:", current_quantity_after);
 
-    // Bước 4: Ghi lại lịch sử điều chỉnh
-    await InventoryModel.recordAdjustment({
+    // Bước 4: Ghi lại lịch sử điều chỉnh vào inventory_adjustments
+    const adjustmentResult = await InventoryModel.recordAdjustment({
       product_id,
       warehouse_id,
       quantity_changed: quantity, // Số lượng thay đổi (luôn là số dương)
@@ -812,6 +813,22 @@ const InventoryService = {
       adjusted_by: "9bf04b0d-63be-471c-81dd-bbed309d0700",
       current_quantity_before,
       current_quantity_after,
+    });
+
+    // Bước 5: Ghi lại sự kiện vào product_events
+    const adjustment_id = adjustmentResult.adjustment_id; // Lấy ID của adjustment vừa tạo
+    await ProductEventModel.recordEvent({
+      product_id,
+      warehouse_id,
+      event_type: "STOCK_ADJUSTMENT_INCREASE",
+      quantity_impact: quantity, // Số lượng tăng (dương)
+      transaction_price: null, // Không có giá giao dịch cho điều chỉnh kho
+      partner_name: null,
+      current_stock_after: current_quantity_after,
+      reference_id: adjustment_id,
+      reference_type: "INVENTORY_ADJUSTMENT",
+      description: `Điều chỉnh tăng kho: ${reason}`,
+      initiated_by: "9bf04b0d-63be-471c-81dd-bbed309d0700",
     });
 
     return updatedInventory;
@@ -864,7 +881,8 @@ const InventoryService = {
       ? updatedInventory.total_quantity
       : 0;
 
-    await InventoryModel.recordAdjustment({
+    // Bước 4: Ghi lại lịch sử điều chỉnh vào inventory_adjustments
+    const adjustmentResult = await InventoryModel.recordAdjustment({
       product_id,
       warehouse_id,
       quantity_changed: quantity,
@@ -873,6 +891,22 @@ const InventoryService = {
       adjusted_by: "9bf04b0d-63be-471c-81dd-bbed309d0700",
       current_quantity_before,
       current_quantity_after,
+    });
+
+    // Bước 5: Ghi lại sự kiện vào product_events
+    const adjustment_id = adjustmentResult.adjustment_id; // Lấy ID của adjustment vừa tạo
+    await ProductEventModel.recordEvent({
+      product_id,
+      warehouse_id,
+      event_type: "STOCK_ADJUSTMENT_DECREASE",
+      quantity_impact: -quantity, // Số lượng giảm (âm)
+      transaction_price: null, // Không có giá giao dịch cho điều chỉnh kho
+      partner_name: null,
+      current_stock_after: current_quantity_after,
+      reference_id: adjustment_id,
+      reference_type: "INVENTORY_ADJUSTMENT",
+      description: `Điều chỉnh giảm kho: ${reason}`,
+      initiated_by: "9bf04b0d-63be-471c-81dd-bbed309d0700",
     });
 
     return updatedInventory;
