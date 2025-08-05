@@ -59,7 +59,7 @@ module.exports = (app) => {
   app.use("/api/v1/purchase-orders", authMiddleware, purchaseOrderRoutes);
   app.use("/api/v1/inventories", authMiddleware, inventoriesRoutes);
   app.use("/api/v1/payments", authMiddleware, paymentRoutes);
-  app.use("/api/v1/customers", authMiddleware, customerRoutes);
+  app.use("/api/v1/customers", customerRoutes);
   app.use("/api/v1/customer-report", authMiddleware, customerReportRoutes);
   app.use("/api/v1/supplier-report", authMiddleware, supplierReportRoutes);
   app.use("/api/v1/orders", authMiddleware, orderRoutes);

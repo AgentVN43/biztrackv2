@@ -185,3 +185,58 @@ exports.delete = async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 };
+
+exports.importFromText = async (req, res) => {
+  try {
+    const { textData, delimiter = '\t', validateOnly = false } = req.body;
+
+    if (!textData || typeof textData !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Dữ liệu text không hợp lệ'
+      });
+    }
+
+    console.log('🚀 ~ CustomerController.importFromText - Processing:', {
+      textDataLength: textData.length,
+      delimiter,
+      validateOnly
+    });
+
+    const result = await CustomerService.importFromText(textData, delimiter, validateOnly);
+    
+    const message = validateOnly 
+      ? `Validation hoàn thành: ${result.summary.valid} records hợp lệ, ${result.summary.invalid} lỗi`
+      : `Import thành công: ${result.summary.valid} records, ${result.summary.invalid} lỗi`;
+    
+    return res.status(200).json({
+      success: true,
+      data: result,
+      message: message
+    });
+
+  } catch (error) {
+    console.error('🚀 ~ CustomerController.importFromText - Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Lỗi import dữ liệu'
+    });
+  }
+};
+
+exports.downloadImportTemplate = async (req, res) => {
+  try {
+    const template = CustomerService.createImportTemplate();
+    
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="customers-import-template.txt"');
+    res.send(template);
+    
+  } catch (error) {
+    console.error('🚀 ~ CustomerController.downloadImportTemplate - Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi tạo template'
+    });
+  }
+};

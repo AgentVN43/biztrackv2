@@ -417,3 +417,66 @@ exports.calculateDebt = async (customer_id) => {
     throw error;
   }
 };
+
+/**
+ * Tìm customer theo số điện thoại
+ * @param {string} phone - Số điện thoại
+ * @returns {Object|null} - Customer object hoặc null
+ */
+exports.findByPhone = async (phone) => {
+  try {
+    const [results] = await db.query(
+      "SELECT * FROM customers WHERE phone = ?",
+      [phone]
+    );
+    return results.length > 0 ? results[0] : null;
+  } catch (error) {
+    console.error("🚀 ~ customer.model.js: findByPhone - Lỗi:", error);
+    throw error;
+  }
+};
+
+/**
+ * Bulk insert customers
+ * @param {Array} customers - Array of customer objects
+ * @returns {number} - Số lượng records đã insert
+ */
+exports.bulkInsert = async (customers) => {
+  try {
+    if (!customers || customers.length === 0) {
+      return 0;
+    }
+
+    // Tạo placeholders cho bulk insert
+    const placeholders = customers.map(() => 
+      "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).join(", ");
+
+    // Flatten data array
+    const values = customers.flatMap(customer => [
+      customer.customer_id,
+      customer.customer_name,
+      customer.email,
+      customer.phone,
+      customer.status,
+      customer.total_expenditure,
+      customer.total_orders,
+      customer.debt,
+      customer.created_at,
+      customer.updated_at
+    ]);
+
+    const query = `
+      INSERT INTO customers (
+        customer_id, customer_name, email, phone, status, 
+        total_expenditure, total_orders, debt, created_at, updated_at
+      ) VALUES ${placeholders}
+    `;
+
+    const [result] = await db.query(query, values);
+    return result.affectedRows;
+  } catch (error) {
+    console.error("🚀 ~ customer.model.js: bulkInsert - Lỗi:", error);
+    throw error;
+  }
+};
