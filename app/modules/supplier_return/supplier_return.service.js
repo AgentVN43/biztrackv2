@@ -7,10 +7,56 @@ const { generateTransactionCode } = require("../../utils/transactionUtils");
 const SupplierReturnService = {
   // Tạo đơn trả hàng nhà cung cấp với chi tiết
   createReturnWithDetails: async (returnData, details) => {
-    // Tạo đơn trả hàng (không có warehouse_id)
+    try {
+      // 1. KIỂM TRA TỒN KHO TRƯỚC KHI TẠO ĐƠN TRẢ
+      for (const item of details) {
+        // Validate dữ liệu đầu vào
+        if (!item.product_id || !item.warehouse_id || !item.quantity) {
+          throw new Error(`Dữ liệu chi tiết trả hàng không hợp lệ: ${JSON.stringify(item)}`);
+        }
+
+        // Kiểm tra sản phẩm có active không
+        const [product] = await db.promise().query(
+          `SELECT * FROM products WHERE product_id = ? AND is_active = 1`,
+          [item.product_id]
+        );
+        if (!product || product.length === 0) {
+          throw new Error(`Sản phẩm ${item.product_id} không hợp lệ hoặc không active`);
+        }
+
+        // Kiểm tra sản phẩm có thuộc về nhà cung cấp này không
+        const [poDetail] = await db.promise().query(
+          `SELECT pod.* FROM purchase_order_details pod
+           JOIN purchase_orders po ON pod.po_id = po.po_id
+           WHERE pod.product_id = ? AND po.supplier_id = ?
+           ORDER BY po.created_at DESC LIMIT 1`,
+          [item.product_id, returnData.supplier_id]
+        );
+        if (!poDetail || poDetail.length === 0) {
+          throw new Error(`Sản phẩm ${item.product_id} không thuộc về nhà cung cấp này`);
+        }
+
+        // Kiểm tra tồn kho
+        const [inventory] = await db.promise().query(
+          `SELECT quantity, reserved_stock FROM inventories WHERE product_id = ? AND warehouse_id = ?`,
+          [item.product_id, item.warehouse_id]
+        );
+        
+        if (!inventory || inventory.length === 0) {
+          throw new Error(`Không tìm thấy tồn kho cho sản phẩm ${item.product_id} tại kho ${item.warehouse_id}`);
+        }
+
+        const availableStock = inventory[0].quantity - inventory[0].reserved_stock;
+        if (availableStock < item.quantity) {
+          throw new Error(`Số lượng trả (${item.quantity}) vượt quá tồn kho khả dụng (${availableStock}) cho sản phẩm ${item.product_id} tại kho ${item.warehouse_id}`);
+        }
+      }
+
+      // 2. TẠO ĐƠN TRẢ HÀNG (chỉ khi đã kiểm tra tồn kho thành công)
     const createdReturn = await SupplierReturn.create(returnData);
     const return_id = createdReturn.return_id;
-    // Tạo chi tiết trả hàng, mỗi item phải có warehouse_id
+
+      // 3. TẠO CHI TIẾT TRẢ HÀNG
     const detailResults = await Promise.all(
       details.map(async (item) => {
         return SupplierReturn.createReturnDetail({
@@ -22,7 +68,12 @@ const SupplierReturnService = {
         });
       })
     );
+
     return { ...createdReturn, details: detailResults };
+    } catch (error) {
+      console.error('🚀 ~ SupplierReturnService.createReturnWithDetails - Error:', error);
+      throw error;
+    }
   },
 
   // Lấy danh sách đơn trả hàng
@@ -235,9 +286,9 @@ const SupplierReturnService = {
       total_refund = parseFloat(total_refund.toFixed(2));
 
       // 5. Tạo phiếu thu (invoice_type = 'refund_invoice')
-       const invoice_id = uuidv4();
-       const invoice_code = `REF-${Date.now()}`;
-       const supplier_id = main.supplier_id;
+      const invoice_id = uuidv4();
+      const invoice_code = `REF-${Date.now()}`;
+      const supplier_id = main.supplier_id;
 
       if (!supplier_id) {
         throw new Error("Không tìm thấy supplier_id trong đơn trả hàng");
@@ -289,7 +340,7 @@ const SupplierReturnService = {
   // Cập nhật đơn trả hàng nhà cung cấp
   updateReturnWithDetails: async (return_id, supplier_id, note, details) => {
     try {
-      // Kiểm tra đơn trả hàng tồn tại và có thể cập nhật
+      // 1. Kiểm tra đơn trả hàng tồn tại và có thể cập nhật
       const existingReturn = await SupplierReturn.getById(return_id);
       if (!existingReturn) {
         throw new Error("Không tìm thấy đơn trả hàng");
@@ -298,7 +349,51 @@ const SupplierReturnService = {
         throw new Error("Chỉ có thể cập nhật đơn ở trạng thái pending");
       }
 
-      // Cập nhật thông tin chính
+      // 2. KIỂM TRA TỒN KHO TRƯỚC KHI CẬP NHẬT
+      for (const item of details) {
+        // Validate dữ liệu đầu vào
+        if (!item.product_id || !item.warehouse_id || !item.quantity) {
+          throw new Error(`Dữ liệu chi tiết trả hàng không hợp lệ: ${JSON.stringify(item)}`);
+        }
+
+        // Kiểm tra sản phẩm có active không
+        const [product] = await db.promise().query(
+          `SELECT * FROM products WHERE product_id = ? AND is_active = 1`,
+          [item.product_id]
+        );
+        if (!product || product.length === 0) {
+          throw new Error(`Sản phẩm ${item.product_id} không hợp lệ hoặc không active`);
+        }
+
+        // Kiểm tra sản phẩm có thuộc về nhà cung cấp này không
+        const [poDetail] = await db.promise().query(
+          `SELECT pod.* FROM purchase_order_details pod
+           JOIN purchase_orders po ON pod.po_id = po.po_id
+           WHERE pod.product_id = ? AND po.supplier_id = ?
+           ORDER BY po.created_at DESC LIMIT 1`,
+          [item.product_id, supplier_id]
+        );
+        if (!poDetail || poDetail.length === 0) {
+          throw new Error(`Sản phẩm ${item.product_id} không thuộc về nhà cung cấp này`);
+        }
+
+        // Kiểm tra tồn kho
+        const [inventory] = await db.promise().query(
+          `SELECT quantity, reserved_stock FROM inventories WHERE product_id = ? AND warehouse_id = ?`,
+          [item.product_id, item.warehouse_id]
+        );
+        
+        if (!inventory || inventory.length === 0) {
+          throw new Error(`Không tìm thấy tồn kho cho sản phẩm ${item.product_id} tại kho ${item.warehouse_id}`);
+        }
+
+        const availableStock = inventory[0].quantity - inventory[0].reserved_stock;
+        if (availableStock < item.quantity) {
+          throw new Error(`Số lượng trả (${item.quantity}) vượt quá tồn kho khả dụng (${availableStock}) cho sản phẩm ${item.product_id} tại kho ${item.warehouse_id}`);
+        }
+      }
+
+      // 3. Cập nhật thông tin chính
       await db
         .promise()
         .query(
@@ -306,14 +401,14 @@ const SupplierReturnService = {
           [supplier_id, note, return_id]
         );
 
-      // Xóa chi tiết cũ
+      // 4. Xóa chi tiết cũ
       await db
         .promise()
         .query(`DELETE FROM return_order_items WHERE return_id = ?`, [
           return_id,
         ]);
 
-      // Tạo chi tiết mới
+      // 5. Tạo chi tiết mới
       const detailResults = await Promise.all(
         details.map(async (item) => {
           return SupplierReturn.createReturnDetail({

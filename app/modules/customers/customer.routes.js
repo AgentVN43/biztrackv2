@@ -6,6 +6,9 @@ const CustomerController = require('./customer.controller');
 router.post('/import-text', CustomerController.importFromText);
 router.get('/import-template', CustomerController.downloadImportTemplate);
 
+// Calculate debt route (phải đặt TRƯỚC các route có parameter)
+router.post('/:id/calculate-debt', CustomerController.calculateDebt);
+
 // Định nghĩa các route cho CRUD
 router.post('/', CustomerController.create);
 router.get('/', CustomerController.get);

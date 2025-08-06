@@ -311,7 +311,7 @@ exports.updateDebt = async (customer_id, amount, increase = true) => {
   }
 };
 
-// Hàm tính lại debt dựa trên các hóa đơn chưa thanh toán và đơn hàng chưa có hóa đơn
+// Hàm tính lại debt dựa trên các hóa đơn chưa thanh toán, đơn hàng chưa có hóa đơn và đơn hàng trả
 exports.calculateDebt = async (customer_id) => {
   try {
     console.log(`🔍 Bắt đầu tính debt cho customer: ${customer_id}`);
@@ -347,69 +347,83 @@ exports.calculateDebt = async (customer_id) => {
     `;
     const [orderRows] = await db.query(orderSql, [customer_id]);
     
-    // 3. Tính debt cho từng invoice (có tính đến refund)
+    // 3. Lấy tất cả customer returns đã approved/completed (TRỪ VÀO DEBT)
+    const returnSql = `
+      SELECT 
+        ro.return_id,
+        ro.order_id,
+        ro.status,
+        ro.created_at,
+        SUM(roi.refund_amount) as total_refund
+      FROM return_orders ro
+      JOIN return_order_items roi ON ro.return_id = roi.return_id
+      WHERE ro.customer_id = ?
+        AND ro.type = 'customer_return'
+        AND ro.status IN ('approved', 'completed')
+      GROUP BY ro.return_id, ro.order_id, ro.status, ro.created_at
+      ORDER BY ro.created_at ASC
+    `;
+    const [returnRows] = await db.query(returnSql, [customer_id]);
+    
+    // 4. Tính debt cho từng invoice (KHÔNG tính refund trong order nữa)
     let totalInvoiceDebt = 0;
-    const CustomerReportService = require("../customer_report/customer_report.service");
     
     for (const invoice of invoiceRows) {
       const final_amount = parseFloat(invoice.final_amount || 0);
       const amount_paid = parseFloat(invoice.amount_paid || 0);
       
-      // Tính refund cho order này (nếu có)
-      let totalRefund = 0;
-      if (invoice.order_id) {
-        totalRefund = await CustomerReportService.calculateOrderTotalRefund(invoice.order_id);
-      }
-      
-      // Debt = (final_amount - total_refund) - amount_paid
-      // Nếu trả hết hàng thì actualAmountToPay = 0
-      // Cho phép debt âm khi khách hàng đã thanh toán quá
-      const actualAmountToPay = totalRefund >= final_amount ? 0 : final_amount - totalRefund;
-      const debt = actualAmountToPay - amount_paid;
+      // ✅ CHỈ tính debt dựa trên final_amount và amount_paid
+      // ✅ KHÔNG trừ refund ở đây vì sẽ tính riêng ở bước 6
+      const debt = final_amount - amount_paid;
       
       console.log(`📊 Invoice ${invoice.invoice_id} (Order ${invoice.order_id}):`);
       console.log(`  - Final amount: ${final_amount}`);
       console.log(`  - Amount paid: ${amount_paid}`);
-      console.log(`  - Total refund: ${totalRefund}`);
-      console.log(`  - Actual amount to pay: ${actualAmountToPay}`);
       console.log(`  - Debt: ${debt}`);
       
       totalInvoiceDebt += debt;
     }
     
-    // 4. Tính debt cho từng order (có tính đến refund)
+    // 5. Tính debt cho từng order (KHÔNG tính refund trong order nữa)
     let totalOrderDebt = 0;
     
     for (const order of orderRows) {
       const final_amount = parseFloat(order.final_amount || 0);
       const amount_paid = parseFloat(order.amount_paid || 0);
       
-      // Tính refund cho order này
-      const totalRefund = await CustomerReportService.calculateOrderTotalRefund(order.order_id);
-      
-      // Debt = (final_amount - total_refund) - amount_paid
-      // Nếu trả hết hàng thì actualAmountToPay = 0
-      // Cho phép debt âm khi khách hàng đã thanh toán quá
-      const actualAmountToPay = totalRefund >= final_amount ? 0 : final_amount - totalRefund;
-      const debt = actualAmountToPay - amount_paid;
+      // ✅ CHỈ tính debt dựa trên final_amount và amount_paid
+      // ✅ KHÔNG trừ refund ở đây vì sẽ tính riêng ở bước 6
+      const debt = final_amount - amount_paid;
       
       console.log(`📊 Order ${order.order_id}:`);
       console.log(`  - Final amount: ${final_amount}`);
       console.log(`  - Amount paid: ${amount_paid}`);
-      console.log(`  - Total refund: ${totalRefund}`);
-      console.log(`  - Actual amount to pay: ${actualAmountToPay}`);
       console.log(`  - Debt: ${debt}`);
       
       totalOrderDebt += debt;
     }
     
-    // 5. Tổng debt
-    const totalDebt = totalInvoiceDebt + totalOrderDebt;
+    // 6. Tính tổng refund từ customer returns (TRỪ VÀO DEBT)
+    let totalReturnRefund = 0;
+    
+    for (const returnOrder of returnRows) {
+      const totalRefund = parseFloat(returnOrder.total_refund || 0);
+      totalReturnRefund += totalRefund;
+      
+      console.log(`📊 Customer Return ${returnOrder.return_id} (Order ${returnOrder.order_id}):`);
+      console.log(`  - Total refund: ${totalRefund}`);
+      console.log(`  - Status: ${returnOrder.status}`);
+    }
+    
+    // 7. Tổng debt = Invoice debt + Order debt - Customer returns refund
+    // ✅ CHO PHÉP DEBT ÂM khi khách hàng đã thanh toán quá hoặc có nhiều đơn trả
+    const totalDebt = totalInvoiceDebt + totalOrderDebt - totalReturnRefund;
     
     console.log(`🔍 Kết quả tính debt cho customer ${customer_id}:`);
     console.log(`  - Total invoice debt: ${totalInvoiceDebt}`);
     console.log(`  - Total order debt: ${totalOrderDebt}`);
-    console.log(`  - Final total debt: ${totalDebt}`);
+    console.log(`  - Total customer returns refund: ${totalReturnRefund}`);
+    console.log(`  - Final total debt: ${totalDebt} (có thể âm)`);
     
     return totalDebt;
   } catch (error) {
