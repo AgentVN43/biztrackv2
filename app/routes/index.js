@@ -22,12 +22,14 @@ const supplierReportRoutes = require("../modules/supplier_report/supplier_report
 const customerReturnRoutes = require("../modules/customer_return/customer_return.routes");
 const supplierReturnRoutes = require("../modules/supplier_return/supplier_return.routes");
 const cashbookRoutes = require("../modules/cashbook/cashbook.routes");
+const importRoutes = require("./import.routes");
 const { authMiddleware } = require("../middlewares/auth.middleware");
 
 module.exports = (app) => {
   // Public routes
   app.use("/api/v1/ping", pingRoutes);
   app.use("/api/v1/auth", authRoutes);
+  app.use("/api/v1/import", importRoutes);
 
   // app.use("/api/v1/users", userRoutes);
   // app.use("/api/v1/categories", categoryRoutes);

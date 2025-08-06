@@ -240,3 +240,36 @@ exports.downloadImportTemplate = async (req, res) => {
     });
   }
 };
+
+// Tính lại debt cho customer
+exports.calculateDebt = async (req, res) => {
+  try {
+    const { customer_id } = req.params;
+
+    if (!customer_id) {
+      return errorResponse(res, 'Thiếu customer_id', 400);
+    }
+
+    console.log(`🚀 ~ CustomerController.calculateDebt - Tính debt cho customer: ${customer_id}`);
+
+    // Gọi hàm tính debt từ model
+    const CustomerModel = require('./customer.model');
+    const calculatedDebt = await CustomerModel.calculateDebt(customer_id);
+
+    // Cập nhật debt vào database
+    await CustomerModel.update(customer_id, { debt: calculatedDebt });
+
+    // Lấy thông tin customer sau khi cập nhật
+    const updatedCustomer = await CustomerModel.getById(customer_id);
+
+    return createResponse(res, 200, true, {
+      customer_id,
+      calculated_debt: calculatedDebt,
+      customer: updatedCustomer
+    }, `Tính debt thành công: ${calculatedDebt}`);
+
+  } catch (error) {
+    console.error('🚀 ~ CustomerController.calculateDebt - Error:', error);
+    return errorResponse(res, error.message || 'Lỗi tính debt', 500);
+  }
+};
