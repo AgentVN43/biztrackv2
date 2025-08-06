@@ -153,6 +153,17 @@ const AnalysisController = {
     }
   },
 
+  async getFinanceManagementByPeriod(req, res) {
+    try {
+      const { type = 'month', year, month } = req.query;
+      const data = await AnalysisService.getFinanceManagementByPeriod({ type, year, month });
+      return createResponse(res, 200, true, data, "Lấy báo cáo quản lý thu chi thành công");
+    } catch (error) {
+      console.error("Lỗi khi lấy báo cáo quản lý thu chi:", error);
+      return errorResponse(res, "Lỗi khi lấy báo cáo quản lý thu chi", 500);
+    }
+  },
+
 
 };
 

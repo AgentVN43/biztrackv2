@@ -42,4 +42,6 @@ router.get("/payables/purchase", AnalysisController.getPayablePurchaseOrders); /
 // app.get('/api/v1/analysis/receivables/overdue', /* controller function */); // Báo cáo công nợ phải thu quá hạn
 // app.get('/api/v1/analysis/payables/overdue', /* controller function */); // Báo cáo công nợ phải trả quá hạn
 
+router.get("/finance/management", AnalysisController.getFinanceManagementByPeriod);
+
 module.exports = router;

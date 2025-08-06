@@ -584,31 +584,30 @@ const InventoryModel = {
     try {
       const [results] = await db.promise().query(query, [...params, limit, skip]);
       const [countResult] = await db.promise().query(countQuery, params);
-      
+
       const formattedResults = results.map((row) => ({
         inventory_id: row.inventory_id,
-        quantity: row.quantity,
-        reserved_stock: row.reserved_stock,
-        available_stock: row.available_stock,
         created_at: row.created_at,
         updated_at: row.updated_at,
         product: {
           product_id: row.product_id,
-          product_name: row.product_name,
           sku: row.sku,
           product_image: row.product_image,
+          product_name: row.product_name,
           product_retail_price: row.product_retail_price,
-          is_active: row.is_active,
+          quantity: row.quantity,
+          reserved_stock: row.reserved_stock,
+          available_stock: row.available_stock,
+          category: row.category_id
+            ? {
+              category_id: row.category_id,
+              category_name: row.category_name,
+            }
+            : null,
         },
-        category: row.category_id ? {
-          category_id: row.category_id,
-          category_name: row.category_name,
-        } : null,
         warehouse: {
           warehouse_id: row.warehouse_id,
           warehouse_name: row.warehouse_name,
-          warehouse_location: row.warehouse_location,
-          warehouse_capacity: row.warehouse_capacity,
         },
       }));
 
