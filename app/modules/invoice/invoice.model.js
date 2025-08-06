@@ -572,7 +572,7 @@ const Invoice = {
     const total = parseFloat(final_amount || 0);
 
     if (total <= 0) {
-      return "paid"; // Trường hợp hoàn trả hoặc final_amount = 0
+      return "cancelled"; // Trường hợp hoàn trả hoặc final_amount = 0
     } else if (paid >= total) {
       return "paid"; // Đã thanh toán đủ
     } else if (paid > 0) {
@@ -604,7 +604,7 @@ const Invoice = {
     console.log(`  - Actual amount to pay: ${actualAmountToPay}`);
 
     if (actualAmountToPay <= 0) {
-      return "paid"; // Trường hợp refund >= final_amount (hoàn toàn)
+      return "cancelled"; // Trường hợp refund >= final_amount (hoàn toàn)
     } else if (paid >= actualAmountToPay) {
       return "paid"; // Đã thanh toán đủ số tiền thực tế phải trả
     } else if (paid > 0) {
