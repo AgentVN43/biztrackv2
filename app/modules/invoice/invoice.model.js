@@ -318,7 +318,7 @@ const Invoice = {
     // const query =
     //   "SELECT * FROM invoices WHERE status != 'paid' AND invoice_type Not in ('refund_invoice', 'purchase_invoice')  ";
     const query =
-      "SELECT * FROM invoices WHERE invoice_type Not in ('refund_invoice', 'purchase_invoice')  ";
+      "SELECT * FROM invoices WHERE status !='cancelled' AND invoice_type Not in ('refund_invoice', 'purchase_invoice')  ";
     try {
       const [results] = await db.promise().query(query);
       return results;
