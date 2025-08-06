@@ -293,24 +293,24 @@ const AnalysisModel = {
       // 2b. Doanh thu thực thu từ giao dịch độc lập (phiếu thu trực tiếp)
       const actualRevenueFromDirectQuery = `
         SELECT
-            ${period && period.toLowerCase() !== "total_range" ? 
-              `DATE_FORMAT(t.created_at, "${period === 'daily' ? '%Y-%m-%d' : '%Y-%m'}") AS time_period,` 
-              : ""
-            }
+            ${period && period.toLowerCase() !== "total_range" ?
+          `DATE_FORMAT(t.created_at, "${period === 'daily' ? '%Y-%m-%d' : '%Y-%m'}") AS time_period,`
+          : ""
+        }
             SUM(t.amount) AS actual_revenue
         FROM transactions t
         WHERE t.type IN ('receipt')
           AND (t.related_type IS NULL OR t.related_id IS NULL)
-          ${conditions.length > 0 ? 
-            "AND " + conditions.map(cond => cond.replace('i.issued_date', 't.created_at')).join(" AND ") 
-            : ""
-          }
-        ${period && period.toLowerCase() !== "total_range" ? 
-          `GROUP BY DATE_FORMAT(t.created_at, "${period === 'daily' ? '%Y-%m-%d' : '%Y-%m'}")` 
+          ${conditions.length > 0 ?
+          "AND " + conditions.map(cond => cond.replace('i.issued_date', 't.created_at')).join(" AND ")
           : ""
         }
-        ${period && period.toLowerCase() !== "total_range" ? 
-          `ORDER BY time_period` 
+        ${period && period.toLowerCase() !== "total_range" ?
+          `GROUP BY DATE_FORMAT(t.created_at, "${period === 'daily' ? '%Y-%m-%d' : '%Y-%m'}")`
+          : ""
+        }
+        ${period && period.toLowerCase() !== "total_range" ?
+          `ORDER BY time_period`
           : ""
         };
       `;
@@ -329,17 +329,17 @@ const AnalysisModel = {
 
       // Kết hợp kết quả
       const combinedResults = [];
-      
+
       if (!period || period.toLowerCase() === "total_range") {
         // Trường hợp total_range - trả về tổng
         const revenueByInvoice = parseFloat(revenueByInvoiceResults[0]?.revenue_by_invoice || 0);
         const actualRevenueFromOrders = parseFloat(actualRevenueFromOrdersResults[0]?.actual_revenue || 0);
         const actualRevenueFromDirect = parseFloat(actualRevenueFromDirectResults[0]?.actual_revenue || 0);
         const totalActualRevenue = actualRevenueFromOrders + actualRevenueFromDirect;
-        
+
         // Tính công nợ phải thu: Doanh thu theo invoice - Doanh thu thực thu
         const outstandingReceivables = revenueByInvoice - totalActualRevenue;
-        
+
         combinedResults.push({
           revenue_by_invoice: revenueByInvoice,
           actual_revenue: totalActualRevenue,
@@ -350,7 +350,7 @@ const AnalysisModel = {
       } else {
         // Trường hợp có period - trả về theo thời gian
         const timeMap = new Map();
-        
+
         // Thêm revenue by invoice
         revenueByInvoiceResults.forEach(row => {
           timeMap.set(row.time_period, {
@@ -362,7 +362,7 @@ const AnalysisModel = {
             outstanding_receivables: 0
           });
         });
-        
+
         // Thêm actual revenue from orders
         actualRevenueFromOrdersResults.forEach(row => {
           if (timeMap.has(row.time_period)) {
@@ -378,7 +378,7 @@ const AnalysisModel = {
             });
           }
         });
-        
+
         // Thêm actual revenue from direct
         actualRevenueFromDirectResults.forEach(row => {
           if (timeMap.has(row.time_period)) {
@@ -394,14 +394,14 @@ const AnalysisModel = {
             });
           }
         });
-        
+
         // Tính tổng actual_revenue và outstanding_receivables cho từng time period
         timeMap.forEach((value, key) => {
           value.actual_revenue = value.actual_revenue_from_orders + value.actual_revenue_from_direct;
           // Tính công nợ phải thu: Doanh thu theo invoice - Doanh thu thực thu
           value.outstanding_receivables = value.revenue_by_invoice - value.actual_revenue;
         });
-        
+
         combinedResults.push(...Array.from(timeMap.values()));
         if (orderByClause.includes("ORDER BY")) {
           combinedResults.sort((a, b) => a.time_period.localeCompare(b.time_period));
@@ -534,6 +534,120 @@ const AnalysisModel = {
       );
       throw error;
     }
+  },
+
+  async getFinanceManagementByPeriod({ type = 'month', year, month }) {
+    // Xác định period và startDate
+    let period = type;
+    let startDate;
+    if (type === 'month') {
+      startDate = year ? `${year}` : undefined;
+    } else if (type === 'week') {
+      startDate = year ? `${year}` : undefined;
+    } else if (type === 'day') {
+      if (year && month) {
+        startDate = `${year}-${String(month).padStart(2, '0')}`;
+      } else if (year) {
+        startDate = `${year}`;
+      }
+    }
+    // Xác định định dạng thời gian
+    let dateFormat = '%Y-%m';
+    if (type === 'week') dateFormat = '%Y-W%v';
+    if (type === 'day') dateFormat = '%Y-%m-%d';
+    // Doanh thu: hóa đơn bán hàng
+    const revenueQuery = `
+      SELECT DATE_FORMAT(issued_date, '${dateFormat}') AS time_period, SUM(final_amount) AS revenue
+      FROM invoices
+      WHERE invoice_type = 'sale_invoice'
+        ${startDate ? `AND issued_date >= '${startDate}-01'` : ''}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+    // Hoàn trả đơn hàng
+    const refundOrderQuery = `
+      SELECT DATE_FORMAT(return_orders.created_at, '${dateFormat}') AS time_period, SUM(r.refund_amount) AS total_order_return
+      FROM return_orders
+      JOIN return_order_items r ON return_orders.return_id = r.return_id
+      WHERE type = 'customer_return' AND status = 'completed'
+        ${startDate ? `AND return_orders.created_at >= '${startDate}-01'` : ''}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+    // Chi tiêu: hóa đơn mua hàng
+    const expenseQuery = `
+      SELECT DATE_FORMAT(issued_date, '${dateFormat}') AS time_period, SUM(final_amount) AS expense
+      FROM invoices
+      WHERE invoice_type = 'purchase_invoice'
+        ${startDate ? `AND issued_date >= '${startDate}-01'` : ''}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+
+    // Hoàn trả đơn nhập hàng
+    const refundPurchaseOrderQuery = `
+       SELECT DATE_FORMAT(return_orders.created_at, '${dateFormat}') AS time_period, SUM(r.refund_amount) AS total_purchase_return
+      FROM return_orders
+      JOIN return_order_items r ON return_orders.return_id = r.return_id
+      WHERE type = 'supplier_return' AND status = 'approved'
+        ${startDate ? `AND return_orders.created_at >= '${startDate}-01'` : ''}
+      GROUP BY time_period
+      ORDER BY time_period
+      `;
+
+    // Thu trong sổ quỹ
+    const cashFlowRevenueQuery = `
+    SELECT DATE_FORMAT(created_at, '${dateFormat}') AS time_period, SUM(amount) AS cashFlowRevenue
+    FROM transactions
+    WHERE category = 'other_receipt'
+      ${startDate ? `AND created_at >= '${startDate}-01'` : ''}
+    GROUP BY time_period
+    ORDER BY time_period
+  `;
+
+    // Chi trong sổ quỹ
+    const cashFlowExpenseQuery = `
+    SELECT DATE_FORMAT(created_at, '${dateFormat}') AS time_period, SUM(amount) AS cashFlowExpense
+    FROM transactions
+    WHERE category = 'other_payment' 
+      ${startDate ? `AND created_at >= '${startDate}-01'` : ''}
+    GROUP BY time_period
+    ORDER BY time_period
+  `;
+
+    const [revenueResults] = await db.promise().query(revenueQuery);
+    const [expenseResults] = await db.promise().query(expenseQuery);
+    const [refundOrderResults] = await db.promise().query(refundOrderQuery);
+    const [refundPurchaseOrderResults] = await db.promise().query(refundPurchaseOrderQuery);
+    const [cashFlowRevenueResults] = await db.promise().query(cashFlowRevenueQuery);
+    const [cashFlowExpenseResults] = await db.promise().query(cashFlowExpenseQuery);
+
+    // Merge theo time_period
+    const merged = {};
+    revenueResults.forEach(row => {
+      merged[row.time_period] = { revenue: Number(row.revenue) || 0, expense: 0 };
+    });
+    refundOrderResults.forEach(row => {
+      if (!merged[row.time_period]) merged[row.time_period] = { revenue: 0, expense: 0 };
+      merged[row.time_period].total_order_return = Number(row.total_order_return) || 0;
+    });
+    refundPurchaseOrderResults.forEach(row => {
+      if (!merged[row.time_period]) merged[row.time_period] = { revenue: 0, expense: 0 };
+      merged[row.time_period].total_purchase_return = Number(row.total_purchase_return) || 0;
+    });
+    expenseResults.forEach(row => {
+      if (!merged[row.time_period]) merged[row.time_period] = { revenue: 0, expense: 0 };
+      merged[row.time_period].expense = Number(row.expense) || 0;
+    });
+    cashFlowRevenueResults.forEach(row => {
+      if (!merged[row.time_period]) merged[row.time_period] = { revenue: 0, expense: 0 };
+      merged[row.time_period].cashFlowRevenue = Number(row.cashFlowRevenue) || 0;
+    });
+    cashFlowExpenseResults.forEach(row => {
+      if (!merged[row.time_period]) merged[row.time_period] = { revenue: 0, expense: 0 };
+      merged[row.time_period].cashFlowExpense = Number(row.cashFlowExpense) || 0;
+    });
+    return merged;
   },
 };
 

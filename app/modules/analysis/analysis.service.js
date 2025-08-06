@@ -68,6 +68,36 @@ const AnalysisService = {
       throw error;
     }
   },
+
+  async getFinanceManagementByPeriod({ type = 'month', year, month }) {
+    const merged = await AnalysisModel.getFinanceManagementByPeriod({ type, year, month });
+    const title = [];
+    const revenue = [];
+    const expense = [];
+    Object.keys(merged).sort().forEach(period => {
+      let label;
+      if (type === 'month') {
+        const [year, m] = period.split('-');
+        label = `Tháng ${parseInt(m)}`;
+      } else if (type === 'week') {
+        label = period.replace(/\d{4}-W/, 'Tuần ');
+      } else if (type === 'day') {
+        const parts = period.split('-');
+        if (parts.length === 3) {
+          const [y, m, d] = parts;
+          label = `${d}/${m}`;
+        } else {
+          label = period;
+        }
+      } else {
+        label = period;
+      }
+      title.push(label);
+      revenue.push(Number(merged[period].revenue - merged[period].total_order_return + merged[period].cashFlowRevenue) / 1_000_000);
+      expense.push(Number(merged[period].expense - merged[period].total_purchase_return + merged[period].cashFlowExpense) / 1_000_000);
+    });
+    return { title, revenue, expense };
+  },
 };
 
 module.exports = AnalysisService;
