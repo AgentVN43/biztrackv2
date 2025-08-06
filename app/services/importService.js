@@ -205,7 +205,7 @@ class ImportService {
    * @param {string} entityType - Entity type
    * @returns {string} - Template string
    */
-  static createTemplate(entityType) {
+  static async createTemplate(entityType) {
     return ImportUtils.createTemplate(entityType);
   }
 
@@ -213,7 +213,8 @@ class ImportService {
    * Get supported entity types
    * @returns {Array} - Array of supported entity types
    */
-  static getSupportedEntityTypes() {
+  static async getSupportedEntityTypes() {
+    // Không cần await vì trả về mảng tĩnh, nhưng để đồng bộ interface với controller
     return ImportUtils.getSupportedEntityTypes();
   }
 
@@ -222,7 +223,8 @@ class ImportService {
    * @param {string} entityType - Entity type
    * @returns {Object} - Entity configuration
    */
-  static getEntityConfig(entityType) {
+  static async getEntityConfig(entityType) {
+    // Không cần await vì trả về object tĩnh, nhưng để đồng bộ interface với controller
     return ImportUtils.getEntityConfig(entityType);
   }
 }

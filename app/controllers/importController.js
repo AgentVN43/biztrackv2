@@ -15,7 +15,7 @@ class ImportController {
       const { textData, delimiter = '\t', validateOnly = false } = req.body;
 
       // Validate entity type
-      if (!ImportService.getSupportedEntityTypes().includes(entityType)) {
+      if (!(await ImportService.getSupportedEntityTypes()).includes(entityType)) {
         return errorResponse(res, `Entity type '${entityType}' không được hỗ trợ`, 400);
       }
 
@@ -34,7 +34,7 @@ class ImportController {
       // Process import
       const result = await ImportService.importFromText(textData, entityType, delimiter, validateOnly);
       
-      const entityConfig = ImportService.getEntityConfig(entityType);
+      const entityConfig = await ImportService.getEntityConfig(entityType);
       const message = validateOnly 
         ? `Validation hoàn thành cho ${entityConfig.displayName}: ${result.summary.valid} records hợp lệ, ${result.summary.invalid} lỗi`
         : `Import thành công cho ${entityConfig.displayName}: ${result.summary.valid} records, ${result.summary.invalid} lỗi`;
@@ -56,12 +56,12 @@ class ImportController {
       const { entityType } = req.params;
 
       // Validate entity type
-      if (!ImportService.getSupportedEntityTypes().includes(entityType)) {
+      if (!(await ImportService.getSupportedEntityTypes()).includes(entityType)) {
         return errorResponse(res, `Entity type '${entityType}' không được hỗ trợ`, 400);
       }
 
-      const template = ImportService.createTemplate(entityType);
-      const entityConfig = ImportService.getEntityConfig(entityType);
+      const template = await ImportService.createTemplate(entityType);
+      const entityConfig = await ImportService.getEntityConfig(entityType);
       
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${entityType}-import-template.txt"`);
@@ -79,20 +79,18 @@ class ImportController {
    */
   static async getEntityTypes(req, res) {
     try {
-      const entityTypes = ImportService.getSupportedEntityTypes();
-      const entityConfigs = entityTypes.map(type => {
-        const config = ImportService.getEntityConfig(type);
+      const entityTypes = await ImportService.getSupportedEntityTypes();
+      const entityConfigs = await Promise.all(entityTypes.map(async (type) => {
+        const config = await ImportService.getEntityConfig(type);
         return {
           type,
           displayName: config.displayName,
           tableName: config.tableName,
-          requiredFields: this.getRequiredFields(type),
-          optionalFields: this.getOptionalFields(type)
+          requiredFields: ImportController.getRequiredFields(type),
+          optionalFields: ImportController.getOptionalFields(type)
         };
-      });
-
+      }));
       return createResponse(res, 200, true, entityConfigs, 'Danh sách entity types được hỗ trợ');
-      
     } catch (error) {
       console.error('🚀 ~ ImportController.getEntityTypes - Error:', error);
       return errorResponse(res, 'Lỗi lấy danh sách entity types', 500);
@@ -108,13 +106,13 @@ class ImportController {
       const { entityType } = req.params;
 
       // Validate entity type
-      if (!ImportService.getSupportedEntityTypes().includes(entityType)) {
+      if (!(await ImportService.getSupportedEntityTypes()).includes(entityType)) {
         return errorResponse(res, `Entity type '${entityType}' không được hỗ trợ`, 400);
       }
 
-      const config = ImportService.getEntityConfig(entityType);
-      const requiredFields = this.getRequiredFields(entityType);
-      const optionalFields = this.getOptionalFields(entityType);
+      const config = await ImportService.getEntityConfig(entityType);
+      const requiredFields = ImportController.getRequiredFields(entityType);
+      const optionalFields = ImportController.getOptionalFields(entityType);
 
       const fullConfig = {
         ...config,
