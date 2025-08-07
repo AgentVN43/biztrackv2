@@ -317,7 +317,6 @@ const AnalysisModel = {
 
       // 3. Công nợ phải thu được tính toán từ: revenue_by_invoice - actual_revenue
 
-      console.log("🚀 ~ AnalysisModel.getRevenueByTimePeriod - Executing queries:");
       console.log("1. Revenue by Invoice:", revenueByInvoiceQuery);
       console.log("2a. Actual Revenue from Orders:", actualRevenueFromOrdersQuery);
       console.log("2b. Actual Revenue from Direct:", actualRevenueFromDirectQuery);
@@ -557,10 +556,10 @@ const AnalysisModel = {
     if (type === 'day') dateFormat = '%Y-%m-%d';
     // Doanh thu: hóa đơn bán hàng
     const revenueQuery = `
-      SELECT DATE_FORMAT(issued_date, '${dateFormat}') AS time_period, SUM(final_amount) AS revenue
-      FROM invoices
-      WHERE invoice_type = 'sale_invoice'
-        ${startDate ? `AND issued_date >= '${startDate}-01'` : ''}
+      SELECT DATE_FORMAT(order_date, '${dateFormat}') AS time_period, SUM(final_amount) AS revenue
+      FROM orders
+      WHERE order_status != 'Huỷ đơn'
+        ${startDate ? `AND order_date >= '${startDate}-01'` : ''}
       GROUP BY time_period
       ORDER BY time_period
     `;
@@ -625,52 +624,150 @@ const AnalysisModel = {
     // Merge theo time_period
     const merged = {};
     revenueResults.forEach(row => {
-      merged[row.time_period] = { revenue: Number(row.revenue) || 0, expense: 0 };
+      merged[row.time_period] = {
+        revenue: Number(row.revenue) || 0,
+        expense: 0,
+        total_order_return: 0,
+        total_purchase_return: 0,
+        cashFlowRevenue: 0,
+        cashFlowExpense: 0
+      };
     });
+
+    expenseResults.forEach(row => {
+      if (!merged[row.time_period]) merged[row.time_period] = {
+        revenue: 0,
+        expense: 0,
+        total_order_return: 0,
+        total_purchase_return: 0,
+        cashFlowRevenue: 0,
+        cashFlowExpense: 0
+      };
+      merged[row.time_period].expense = Number(row.expense) || 0;
+    });
+
     refundOrderResults.forEach(row => {
-      if (!merged[row.time_period]) merged[row.time_period] = { revenue: 0, expense: 0 };
+      if (!merged[row.time_period]) merged[row.time_period] = {
+        revenue: 0,
+        expense: 0,
+        total_order_return: 0,
+        total_purchase_return: 0,
+        cashFlowRevenue: 0,
+        cashFlowExpense: 0
+      };
       merged[row.time_period].total_order_return = Number(row.total_order_return) || 0;
     });
     refundPurchaseOrderResults.forEach(row => {
-      if (!merged[row.time_period]) merged[row.time_period] = { revenue: 0, expense: 0 };
+      if (!merged[row.time_period]) merged[row.time_period] = {
+        revenue: 0,
+        expense: 0,
+        total_order_return: 0,
+        total_purchase_return: 0,
+        cashFlowRevenue: 0,
+        cashFlowExpense: 0
+      };
       merged[row.time_period].total_purchase_return = Number(row.total_purchase_return) || 0;
     });
-    expenseResults.forEach(row => {
-      if (!merged[row.time_period]) merged[row.time_period] = { revenue: 0, expense: 0 };
-      merged[row.time_period].expense = Number(row.expense) || 0;
-    });
     cashFlowRevenueResults.forEach(row => {
-      if (!merged[row.time_period]) merged[row.time_period] = { revenue: 0, expense: 0 };
+      if (!merged[row.time_period]) merged[row.time_period] = {
+        revenue: 0,
+        expense: 0,
+        total_order_return: 0,
+        total_purchase_return: 0,
+        cashFlowRevenue: 0,
+        cashFlowExpense: 0
+      };
       merged[row.time_period].cashFlowRevenue = Number(row.cashFlowRevenue) || 0;
     });
     cashFlowExpenseResults.forEach(row => {
-      if (!merged[row.time_period]) merged[row.time_period] = { revenue: 0, expense: 0 };
+      if (!merged[row.time_period]) merged[row.time_period] = {
+        revenue: 0,
+        expense: 0,
+        total_order_return: 0,
+        total_purchase_return: 0,
+        cashFlowRevenue: 0,
+        cashFlowExpense: 0
+      };
       merged[row.time_period].cashFlowExpense = Number(row.cashFlowExpense) || 0;
     });
     return merged;
   },
 
-  async getTopCustomers(limit = 5) {
+  async getTopCustomers({ startDate, endDate, limit = 5 }) {
     // Lấy top khách hàng theo tổng giá trị mua hàng (final_amount), trừ đi số tiền hoàn trả từ return_order
-    const query = `
-      SELECT c.customer_id, c.customer_name, c.phone, c.email,
-        (IFNULL(SUM(CASE WHEN i.invoice_type = 'sale_invoice' THEN i.final_amount ELSE 0 END), 0)
-        - IFNULL((
-            SELECT SUM(roi.refund_amount)
-            FROM return_orders ro
-            JOIN return_order_items roi ON ro.return_id = roi.return_id
-            WHERE ro.customer_id = c.customer_id AND ro.type = 'customer_return' AND ro.status = 'completed'
-          ), 0)
-        ) AS net_spent,
-        COUNT(DISTINCT CASE WHEN i.invoice_type = 'sale_invoice' THEN i.invoice_id END) AS total_invoices
+
+    // Xây dựng điều kiện thời gian cho orders
+    let dateCondition = '';
+    if (startDate && endDate) {
+      dateCondition = ` AND o.order_date >= ${db.escape(startDate)} AND o.order_date <= ${db.escape(endDate)}`;
+    } else if (startDate) {
+      dateCondition = ` AND o.order_date >= ${db.escape(startDate)}`;
+    } else if (endDate) {
+      dateCondition = ` AND o.order_date <= ${db.escape(endDate)}`;
+    }
+
+    // Query 1: Lấy thông tin cơ bản của khách hàng và tổng doanh thu từ orders
+    const customerRevenueQuery = `
+      SELECT 
+        c.customer_id, 
+        c.customer_name, 
+        c.phone, 
+        c.email,
+        IFNULL(SUM(o.final_amount), 0) AS total_revenue,
+        COUNT(DISTINCT o.order_id) AS total_orders
       FROM customers c
-      LEFT JOIN invoices i ON i.customer_id = c.customer_id
+      LEFT JOIN orders o ON o.customer_id = c.customer_id${dateCondition}
       GROUP BY c.customer_id, c.customer_name, c.phone, c.email
+    `;
+
+    // Query 2: Lấy tổng số tiền hoàn trả cho từng khách hàng
+    const customerRefundQuery = `
+      SELECT 
+        ro.customer_id,
+        IFNULL(SUM(roi.refund_amount), 0) AS total_refund
+      FROM return_orders ro
+      JOIN return_order_items roi ON ro.return_id = roi.return_id
+      WHERE ro.type = 'customer_return' AND ro.status = 'completed'
+      GROUP BY ro.customer_id
+    `;
+
+    // Query 3: Kết hợp thông tin và tính net_spent
+    const finalQuery = `
+      SELECT 
+        cr.customer_id,
+        cr.customer_name,
+        cr.phone,
+        cr.email,
+        (cr.total_revenue - IFNULL(crf.total_refund, 0)) AS net_spent,
+        cr.total_orders
+      FROM (${customerRevenueQuery}) cr
+      LEFT JOIN (${customerRefundQuery}) crf ON cr.customer_id = crf.customer_id
       ORDER BY net_spent DESC
       LIMIT ?
     `;
-    const [results] = await db.promise().query(query, [limit]);
-    return results;
+
+    try {
+      // Chạy từng query con để debug
+      console.log('\n=== EXECUTING SUB-QUERIES ===');
+
+      // Query 1: Lấy dữ liệu doanh thu khách hàng
+      const [customerRevenueResults] = await db.promise().query(customerRevenueQuery);
+      console.log('Customer Revenue Results:', JSON.stringify(customerRevenueResults, null, 2));
+
+      // Query 2: Lấy dữ liệu hoàn trả khách hàng
+      const [customerRefundResults] = await db.promise().query(customerRefundQuery);
+      console.log('Customer Refund Results:', JSON.stringify(customerRefundResults, null, 2));
+
+      // Query cuối cùng
+      const [results] = await db.promise().query(finalQuery, [limit]);
+      console.log('Final Results:', JSON.stringify(results, null, 2));
+      console.log('=== END DEBUG ===\n');
+
+      return results;
+    } catch (error) {
+      console.error('Error in getTopCustomers:', error);
+      throw error;
+    }
   },
 };
 

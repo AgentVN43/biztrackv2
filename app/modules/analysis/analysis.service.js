@@ -99,8 +99,8 @@ const AnalysisService = {
     return { title, revenue, expense };
   },
 
-  async getTopCustomers(limit = 5) {
-    return await AnalysisModel.getTopCustomers(limit);
+  async getTopCustomers(startDate, endDate, limit = 5) {
+    return await AnalysisModel.getTopCustomers(startDate, endDate, limit);
   },
 };
 
