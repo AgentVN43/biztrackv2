@@ -789,9 +789,9 @@ const AnalysisModel = {
     // 2. Các truy vấn
     const queries = {
       revenue: `
-      SELECT DATE_FORMAT(order_date, '${dateFormat}') AS time_period, SUM(final_amount) AS revenue
+      SELECT DATE_FORMAT(created_at, '${dateFormat}') AS time_period, SUM(final_amount) AS revenue
       FROM orders
-      WHERE order_status != 'Huỷ đơn' ${condition("order_date")}
+      WHERE order_status != 'Huỷ đơn' ${condition("created_at")}
       GROUP BY time_period ORDER BY time_period
     `,
       refundOrder: `
