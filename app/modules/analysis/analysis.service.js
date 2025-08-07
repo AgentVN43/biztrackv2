@@ -98,6 +98,10 @@ const AnalysisService = {
     });
     return { title, revenue, expense };
   },
+
+  async getTopCustomers(limit = 5) {
+    return await AnalysisModel.getTopCustomers(limit);
+  },
 };
 
 module.exports = AnalysisService;

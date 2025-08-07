@@ -649,6 +649,29 @@ const AnalysisModel = {
     });
     return merged;
   },
+
+  async getTopCustomers(limit = 5) {
+    // Lấy top khách hàng theo tổng giá trị mua hàng (final_amount), trừ đi số tiền hoàn trả từ return_order
+    const query = `
+      SELECT c.customer_id, c.customer_name, c.phone, c.email,
+        (IFNULL(SUM(CASE WHEN i.invoice_type = 'sale_invoice' THEN i.final_amount ELSE 0 END), 0)
+        - IFNULL((
+            SELECT SUM(roi.refund_amount)
+            FROM return_orders ro
+            JOIN return_order_items roi ON ro.return_id = roi.return_id
+            WHERE ro.customer_id = c.customer_id AND ro.type = 'customer_return' AND ro.status = 'completed'
+          ), 0)
+        ) AS net_spent,
+        COUNT(DISTINCT CASE WHEN i.invoice_type = 'sale_invoice' THEN i.invoice_id END) AS total_invoices
+      FROM customers c
+      LEFT JOIN invoices i ON i.customer_id = c.customer_id
+      GROUP BY c.customer_id, c.customer_name, c.phone, c.email
+      ORDER BY net_spent DESC
+      LIMIT ?
+    `;
+    const [results] = await db.promise().query(query, [limit]);
+    return results;
+  },
 };
 
 module.exports = AnalysisModel;

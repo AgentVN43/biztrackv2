@@ -164,6 +164,16 @@ const AnalysisController = {
     }
   },
 
+  async getTopCustomers(req, res) {
+    try {
+      const limit = parseInt(req.query.limit) || 5;
+      const data = await AnalysisService.getTopCustomers(limit);
+      return createResponse(res, 200, true, data, "Lấy top khách hàng mua nhiều nhất thành công");
+    } catch (error) {
+      console.error("Lỗi khi lấy top khách hàng mua nhiều nhất:", error);
+      return errorResponse(res, "Lỗi khi lấy top khách hàng mua nhiều nhất", 500);
+    }
+  },
 
 };
 
