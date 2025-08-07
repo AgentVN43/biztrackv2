@@ -223,8 +223,7 @@ class ImportUtils {
         return {
           category_id: uuidv4(),
           category_name: rowData.category_name,
-          status: rowData.status || 'active',
-          ...baseData
+          status: rowData.status || 'active'
         };
 
       case 'products':
