@@ -293,44 +293,36 @@ const AnalysisModel = {
       // 2b. Doanh thu thực thu từ giao dịch độc lập (phiếu thu trực tiếp)
       const actualRevenueFromDirectQuery = `
         SELECT
-            ${
-              period && period.toLowerCase() !== "total_range"
-                ? `DATE_FORMAT(t.created_at, "${
-                    period === "daily" ? "%Y-%m-%d" : "%Y-%m"
-                  }") AS time_period,`
-                : ""
-            }
+            ${period && period.toLowerCase() !== "total_range"
+          ? `DATE_FORMAT(t.created_at, "${period === "daily" ? "%Y-%m-%d" : "%Y-%m"
+          }") AS time_period,`
+          : ""
+        }
             SUM(t.amount) AS actual_revenue
         FROM transactions t
         WHERE t.type IN ('receipt')
           AND (t.related_type IS NULL OR t.related_id IS NULL)
-          ${
-            conditions.length > 0
-              ? "AND " +
-                conditions
-                  .map((cond) => cond.replace("i.issued_date", "t.created_at"))
-                  .join(" AND ")
-              : ""
-          }
-        ${
-          period && period.toLowerCase() !== "total_range"
-            ? `GROUP BY DATE_FORMAT(t.created_at, "${
-                period === "daily" ? "%Y-%m-%d" : "%Y-%m"
-              }")`
-            : ""
+          ${conditions.length > 0
+          ? "AND " +
+          conditions
+            .map((cond) => cond.replace("i.issued_date", "t.created_at"))
+            .join(" AND ")
+          : ""
         }
-        ${
-          period && period.toLowerCase() !== "total_range"
-            ? `ORDER BY time_period`
-            : ""
+        ${period && period.toLowerCase() !== "total_range"
+          ? `GROUP BY DATE_FORMAT(t.created_at, "${period === "daily" ? "%Y-%m-%d" : "%Y-%m"
+          }")`
+          : ""
+        }
+        ${period && period.toLowerCase() !== "total_range"
+          ? `ORDER BY time_period`
+          : ""
         };
       `;
 
       // 3. Công nợ phải thu được tính toán từ: revenue_by_invoice - actual_revenue
 
-      console.log(
-        "🚀 ~ AnalysisModel.getRevenueByTimePeriod - Executing queries:"
-      );
+      console.log("🚀 ~ AnalysisModel.getRevenueByTimePeriod - Executing queries:");
       console.log("1. Revenue by Invoice:", revenueByInvoiceQuery);
       console.log(
         "2a. Actual Revenue from Orders:",
@@ -798,9 +790,9 @@ const AnalysisModel = {
     // 2. Các truy vấn
     const queries = {
       revenue: `
-      SELECT DATE_FORMAT(order_date, '${dateFormat}') AS time_period, SUM(final_amount) AS revenue
+      SELECT DATE_FORMAT(created_at, '${dateFormat}') AS time_period, SUM(final_amount) AS revenue
       FROM orders
-      WHERE order_status != 'Huỷ đơn' ${condition("order_date")}
+      WHERE order_status != 'Huỷ đơn' ${condition("created_at")}
       GROUP BY time_period ORDER BY time_period
     `,
       refundOrder: `
@@ -964,11 +956,56 @@ const AnalysisModel = {
         GROUP BY ro.customer_id
       ) r ON r.customer_id = c.customer_id
       GROUP BY c.customer_id, c.customer_name, c.phone, c.email
+    `;
+
+    // Query 2: Lấy tổng số tiền hoàn trả cho từng khách hàng
+    const customerRefundQuery = `
+      SELECT 
+        ro.customer_id,
+        IFNULL(SUM(roi.refund_amount), 0) AS total_refund
+      FROM return_orders ro
+      JOIN return_order_items roi ON ro.return_id = roi.return_id
+      WHERE ro.type = 'customer_return' AND ro.status = 'completed'
+      GROUP BY ro.customer_id
+    `;
+
+    // Query 3: Kết hợp thông tin và tính net_spent
+    const finalQuery = `
+      SELECT 
+        cr.customer_id,
+        cr.customer_name,
+        cr.phone,
+        cr.email,
+        (cr.total_revenue - IFNULL(crf.total_refund, 0)) AS net_spent,
+        cr.total_orders
+      FROM (${customerRevenueQuery}) cr
+      LEFT JOIN (${customerRefundQuery}) crf ON cr.customer_id = crf.customer_id
       ORDER BY net_spent DESC
       LIMIT ?
     `;
-    const [results] = await db.promise().query(query, [limit]);
-    return results;
+
+    try {
+      // Chạy từng query con để debug
+      console.log('\n=== EXECUTING SUB-QUERIES ===');
+
+      // Query 1: Lấy dữ liệu doanh thu khách hàng
+      const [customerRevenueResults] = await db.promise().query(customerRevenueQuery);
+      console.log('Customer Revenue Results:', JSON.stringify(customerRevenueResults, null, 2));
+
+      // Query 2: Lấy dữ liệu hoàn trả khách hàng
+      const [customerRefundResults] = await db.promise().query(customerRefundQuery);
+      console.log('Customer Refund Results:', JSON.stringify(customerRefundResults, null, 2));
+
+      // Query cuối cùng
+      const [results] = await db.promise().query(finalQuery, [limit]);
+      console.log('Final Results:', JSON.stringify(results, null, 2));
+      console.log('=== END DEBUG ===\n');
+
+      return results;
+    } catch (error) {
+      console.error('Error in getTopCustomers:', error);
+      throw error;
+    }
   },
 };
 
