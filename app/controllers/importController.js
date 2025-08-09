@@ -1,4 +1,5 @@
 const ImportService = require('../services/importService');
+const TransactionModel = require('../modules/transactions/transaction.model');
 const { createResponse, errorResponse } = require('../utils/response');
 
 /**
@@ -15,7 +16,7 @@ class ImportController {
       const { textData, delimiter = '\t', validateOnly = false } = req.body;
 
       // Validate entity type
-      if (!(await ImportService.getSupportedEntityTypes()).includes(entityType)) {
+      if (!ImportService.getSupportedEntityTypes().includes(entityType)) {
         return errorResponse(res, `Entity type '${entityType}' không được hỗ trợ`, 400);
       }
 

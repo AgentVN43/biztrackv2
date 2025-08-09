@@ -667,8 +667,9 @@ const CustomerReportService = {
             transaction_date: new Date(returnOrder.created_at),
             type: "return",
             amount: found.refund_amount,
-            description: `Trả hàng cho đơn hàng ${returnOrder.order_code || returnOrder.order_id
-              } - ${returnOrder.status}`,
+            description: `Trả hàng cho đơn hàng ${
+              returnOrder.order_code || returnOrder.order_id
+            } - ${returnOrder.status}`,
             order_id: returnOrder.order_id,
             invoice_id: null,
             transaction_id: null,
@@ -743,7 +744,8 @@ const CustomerReportService = {
       console.log("🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):");
       allTransactions.forEach((t, index) => {
         console.log(
-          `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${t.type
+          `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${
+            t.type
           } | ${t.amount}`
         );
       });
@@ -774,7 +776,10 @@ const CustomerReportService = {
       //   calculatedBalances.push(runningBalance);
       // });
       reversedTransactions.forEach((transaction, index) => {
-        if (transaction.type === "pending") {
+        if (
+          transaction.type === "pending" ||
+          transaction.type === "adjustment"
+        ) {
           runningBalance += transaction.amount;
         } else if (
           transaction.type === "partial_paid" ||
@@ -806,7 +811,8 @@ const CustomerReportService = {
       const result = allTransactionsNoRefund.map((transaction, index) => {
         // Debug: In ra từng bước tính dư nợ
         console.log(
-          `💰 ${index + 1}. ${transaction.transaction_code} | ${transaction.type
+          `💰 ${index + 1}. ${transaction.transaction_code} | ${
+            transaction.type
           } | ${transaction.amount} | Dư nợ: ${calculatedBalances[index]}`
         );
 
@@ -846,7 +852,6 @@ const CustomerReportService = {
       throw error;
     }
   },
-
 };
 
 // Thêm hàm tính tổng refund đúng chuẩn cho 1 order (dùng lại logic từ order.model)

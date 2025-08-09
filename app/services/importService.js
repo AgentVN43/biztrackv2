@@ -16,7 +16,8 @@ class ImportService {
   static async importFromText(textData, entityType, delimiter = '\t', validateOnly = false) {
     try {
       // Validate entity type
-      if (!ImportUtils.getSupportedEntityTypes().includes(entityType)) {
+      const supportedTypes = this.getSupportedEntityTypes();
+      if (!supportedTypes.includes(entityType)) {
         throw new Error(`Entity type '${entityType}' không được hỗ trợ`);
       }
 
@@ -83,12 +84,40 @@ class ImportService {
 
       // Insert valid data to database (chỉ khi không phải validateOnly)
       let insertedCount = 0;
+      let insertedCustomers = [];
       if (validData.length > 0 && !validateOnly) {
         try {
           insertedCount = await this.bulkInsert(validData, entityType);
+          // Nếu là customers, lưu lại danh sách customer_id và debt để tạo transaction opening_balance
+          if (entityType === 'customers') {
+            insertedCustomers = validData.map(c => ({
+              customer_id: c.customer_id,
+              customer_name: c.customer_name,
+              phone: c.phone,
+              debt: c.debt || 0
+            }));
+          }
         } catch (dbError) {
           console.error(`🚀 ~ ImportService.importFromText - Database insert failed for ${entityType}:`, dbError);
           throw new Error(`Lỗi lưu dữ liệu: ${dbError.message}`);
+        }
+      }
+
+      // Sau khi insert customers, tạo transaction opening_balance nếu có debt
+      if (entityType === 'customers' && !validateOnly && insertedCustomers.length > 0) {
+        const TransactionModel = require('../modules/transactions/transaction.model');
+        for (const customer of insertedCustomers) {
+          const debt = Number(customer.debt || 0);
+          if (debt !== 0) {
+            await TransactionModel.createTransaction({
+              transaction_code: `MIG-OB-${customer.phone || customer.customer_name}`,
+              type: 'adjustment',
+              amount: debt,
+              customer_id: customer.customer_id,
+              description: 'Công nợ đầu kỳ khi chuyển hệ thống',
+              created_at: new Date()
+            });
+          }
         }
       }
 
@@ -213,8 +242,7 @@ class ImportService {
    * Get supported entity types
    * @returns {Array} - Array of supported entity types
    */
-  static async getSupportedEntityTypes() {
-    // Không cần await vì trả về mảng tĩnh, nhưng để đồng bộ interface với controller
+  static getSupportedEntityTypes() {
     return ImportUtils.getSupportedEntityTypes();
   }
 
@@ -223,8 +251,7 @@ class ImportService {
    * @param {string} entityType - Entity type
    * @returns {Object} - Entity configuration
    */
-  static async getEntityConfig(entityType) {
-    // Không cần await vì trả về object tĩnh, nhưng để đồng bộ interface với controller
+  static getEntityConfig(entityType) {
     return ImportUtils.getEntityConfig(entityType);
   }
 }
