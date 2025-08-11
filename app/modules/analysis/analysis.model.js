@@ -590,7 +590,7 @@ const AnalysisModel = {
     const revenueQuery = `
       SELECT DATE_FORMAT(order_date, '${dateFormat}') AS time_period, SUM(final_amount) AS revenue
       FROM orders
-      WHERE order_status != 'Huỷ đơn'
+      WHERE order_status = 'Hoàn tất'
         ${startDate ? `AND order_date >= '${startDate}-01'` : ""}
       GROUP BY time_period
       ORDER BY time_period
@@ -607,10 +607,10 @@ const AnalysisModel = {
     `;
     // Chi tiêu: hóa đơn mua hàng
     const expenseQuery = `
-      SELECT DATE_FORMAT(issued_date, '${dateFormat}') AS time_period, SUM(final_amount) AS expense
-      FROM invoices
-      WHERE invoice_type = 'purchase_invoice'
-        ${startDate ? `AND issued_date >= '${startDate}-01'` : ""}
+      SELECT DATE_FORMAT(posted_at, '${dateFormat}') AS time_period, SUM(total_amount) AS expense
+      FROM purchase_orders
+      WHERE status = 'posted'
+        ${startDate ? `AND posted_at >= '${startDate}-01'` : ""}
       GROUP BY time_period
       ORDER BY time_period
     `;
