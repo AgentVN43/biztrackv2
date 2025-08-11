@@ -12,7 +12,7 @@ const SupplierReportService = {
    * @param {string} supplier_id - ID của nhà cung cấp
    * @returns {Array} Mảng các giao dịch với dư nợ
    */
-  getSupplierTransactionLedger: async (supplier_id) => {
+  getSupplierTransactionLedger: async (supplier_id, page = 1, limit = 10) => {
     try {
       // 1. Lấy tất cả đơn hàng mua của nhà cung cấp
       const purchaseOrdersSql = `
@@ -73,8 +73,8 @@ const SupplierReportService = {
         transactions
       );
 
-              // 3.5. ✅ Lấy tất cả return_orders đã approved/completed
-        const returnOrdersSql = `
+      // 3.5. ✅ Lấy tất cả return_orders đã approved/completed
+      const returnOrdersSql = `
           SELECT 
             ro.return_id,
             ro.po_id,
@@ -143,7 +143,7 @@ const SupplierReportService = {
         // Kiểm tra xem giao dịch này có liên quan đến PO nào không
         let isRelatedToPO = false;
         let isCancelled = false;
-        
+
         // Kiểm tra trực tiếp với PO
         if (transaction.related_type === "purchase_order") {
           const relatedPO = purchaseOrders.find(
@@ -154,7 +154,7 @@ const SupplierReportService = {
             isCancelled = true;
           }
         }
-        
+
         // Kiểm tra thông qua invoice
         if (transaction.related_type === "invoice") {
           const relatedInvoice = invoices.find(
@@ -171,10 +171,10 @@ const SupplierReportService = {
             }
           }
         }
-        
+
         // BỎ QUA TRANSACTION LIÊN QUAN ĐẾN ĐƠN HÀNG/HÓA ĐƠN BỊ HỦY
         if (isCancelled) return;
-        
+
         // Thêm tất cả giao dịch thanh toán (bao gồm cả manual payments)
         allTransactions.push({
           transaction_code: transaction.transaction_code,
@@ -206,8 +206,7 @@ const SupplierReportService = {
       console.log("🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):");
       allTransactions.forEach((t, index) => {
         console.log(
-          `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${
-            t.type
+          `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${t.type
           } | ${t.amount}`
         );
       });
@@ -230,8 +229,12 @@ const SupplierReportService = {
 
       // 8. Đảo ngược lại để trả về từ mới đến cũ
       allTransactionsNoRefund.reverse();
-
-      return allTransactionsNoRefund;
+      // 7. Tính total + phân trang
+      const total = allTransactionsNoRefund.length;
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginated = allTransactionsNoRefund.slice(startIndex, endIndex);
+      return { ledger: paginated, total };
     } catch (error) {
       console.error(
         "🚀 ~ SupplierReportService: getSupplierTransactionLedger - Lỗi:",
@@ -249,7 +252,7 @@ const SupplierReportService = {
    * @returns {Promise<Array<Object>>} Promise giải quyết với mảng các sự kiện đã định dạng.
    * @throws {Error} Nếu có lỗi trong quá trình truy vấn database.
    */
-  getSupplierOrderHistoryWithDetails: async (supplier_id) => {
+  getSupplierOrderHistoryWithDetails: async (supplier_id, page = 1, limit = 10) => {
     try {
       const result = [];
 
@@ -323,11 +326,10 @@ const SupplierReportService = {
       supplierReturns.forEach((ret) => {
         result.push({
           order_id: ret.return_id, // Sử dụng return_id làm order_id để tương thích
-          order_code: `TH-${
-            ret.related_order_code
-              ? ret.related_order_code.substring(0, 8)
-              : ret.return_id.substring(0, 8)
-          }`, // Tạo mã từ po_id hoặc return_id
+          order_code: `TH-${ret.related_order_code
+            ? ret.related_order_code.substring(0, 8)
+            : ret.return_id.substring(0, 8)
+            }`, // Tạo mã từ po_id hoặc return_id
           order_date: ret.return_created_at,
           order_status: ret.return_status,
           total_amount: parseFloat(ret.total_value || 0), // Sử dụng total_value từ return_order_items
@@ -349,7 +351,13 @@ const SupplierReportService = {
       // 5. Sắp xếp theo thời gian tạo (mới nhất trước)
       result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-      return result;
+      // 7. Tính total + phân trang
+      const total = result.length;
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginated = result.slice(startIndex, endIndex);
+
+      return { orderHistory: paginated, total };
     } catch (error) {
       console.error(
         "🚀 ~ SupplierReportService: getSupplierOrderHistoryWithDetails - Lỗi:",

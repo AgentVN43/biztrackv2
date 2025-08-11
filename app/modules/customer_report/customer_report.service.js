@@ -157,7 +157,7 @@ const CustomerReportService = {
    * @returns {Promise<Array<Object>>} Promise giải quyết với mảng các sự kiện đã định dạng.
    * @throws {Error} Nếu có lỗi trong quá trình truy vấn database.
    */
-  getOrderHistoryWithDetails: async (customer_id) => {
+  getOrderHistoryWithDetails: async (customer_id, page = 1, limit = 10) => {
     try {
       const result = [];
 
@@ -261,7 +261,13 @@ const CustomerReportService = {
       // 5. Sắp xếp theo thời gian tạo (mới nhất trước)
       result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-      return result;
+      // 7. Tính total + phân trang
+      const total = result.length;
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginated = result.slice(startIndex, endIndex);
+
+      return { orderHistory: paginated, total };
     } catch (error) {
       console.error(
         "🚀 ~ CustomerReportService: getOrderHistoryWithDetails - Lỗi:",
@@ -499,7 +505,7 @@ const CustomerReportService = {
    * @param {string} customer_id - ID của khách hàng
    * @returns {Promise<Array>} Danh sách giao dịch với dư nợ
    */
-  getCustomerTransactionLedger: async (customer_id) => {
+  getCustomerTransactionLedger: async (customer_id, page = 1, limit = 10) => {
     try {
       // 1. Lấy tất cả đơn hàng của khách hàng
       const ordersSql = `
@@ -837,7 +843,13 @@ const CustomerReportService = {
       filteredTransactions.sort(
         (a, b) => new Date(b.ngay_giao_dich) - new Date(a.ngay_giao_dich)
       );
-      return filteredTransactions;
+
+      // 7. Tính total + phân trang
+      const total = filteredTransactions.length;
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginated = filteredTransactions.slice(startIndex, endIndex);
+      return { ledger: paginated, total };
     } catch (error) {
       console.error(
         "🚀 ~ CustomerReportService: getCustomerTransactionLedger - Lỗi:",

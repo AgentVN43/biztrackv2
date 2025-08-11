@@ -59,17 +59,26 @@ const CustomerReportController = {
    * Lấy lịch sử tất cả các đơn hàng của một khách hàng, bao gồm chi tiết từng đơn hàng.
    * GET /api/customers/:id/order-history
    */
-  getCustomerOrderHistory: async (req, res, next) => {
+  getCustomerOrderHistory: async (req, res) => {
     const customer_id = req.params.id;
     try {
-      const orderHistory =
-        await CustomerReportService.getOrderHistoryWithDetails(customer_id);
+      const { page = 1, limit = 10 } = req.query;
+      const parsedPage = parseInt(page);
+      const parsedLimit = parseInt(limit);
+      const { orderHistory, total } =
+        await CustomerReportService.getOrderHistoryWithDetails(
+          customer_id,
+          parsedPage,
+          parsedLimit);
       createResponse(
         res,
         200,
         true,
         orderHistory,
-        "Customer order history retrieved successfully."
+        "Customer order history retrieved successfully.",
+        total,
+        parsedPage,
+        parsedLimit
       );
     } catch (error) {
       console.error(
@@ -193,19 +202,27 @@ const CustomerReportController = {
   getCustomerTransactionLedger: async (req, res, next) => {
     const customer_id = req.params.id;
     try {
-      const ledger = await CustomerReportService.getCustomerTransactionLedger(
-        customer_id
+      const { page = 1, limit = 10 } = req.query;
+      const parsedPage = parseInt(page);
+      const parsedLimit = parseInt(limit);
+      const { ledger, total } = await CustomerReportService.getCustomerTransactionLedger(
+        customer_id,
+        parsedPage,
+        parsedLimit
       );
-      
+
       // Trả về mảng rỗng thay vì 404 để tránh loop ở frontend
       createResponse(
         res,
         200,
         true,
         ledger || [],
-        ledger && ledger.length > 0 
+        ledger && ledger.length > 0
           ? "Sổ cái giao dịch của khách hàng đã được tải thành công."
-          : "Không có dữ liệu giao dịch cho khách hàng này."
+          : "Không có dữ liệu giao dịch cho khách hàng này.",
+        total,
+        parsedPage,
+        parsedLimit
       );
     } catch (error) {
       console.error(
