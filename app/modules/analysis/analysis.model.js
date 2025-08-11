@@ -737,6 +737,7 @@ const AnalysisModel = {
   //     merged[row.time_period].cashFlowExpense =
   //       Number(row.cashFlowExpense) || 0;
   //   });
+  //   console.log(merged);
   //   return merged;
   // },
 
@@ -906,11 +907,9 @@ const AnalysisModel = {
           item.expense - item.total_purchase_return + item.cashFlowExpense,
       };
     }
-
-    console.log(result);
     return result;
   },
-
+  
   async getTopCustomers({ startDate, endDate, limit = 5 }) {
     // Lấy top khách hàng theo tổng giá trị mua hàng (final_amount), trừ đi số tiền hoàn trả từ return_order
 
@@ -927,14 +926,24 @@ const AnalysisModel = {
     // Query 1: Lấy thông tin cơ bản của khách hàng và tổng doanh thu từ orders
     const customerRevenueQuery = `
       SELECT 
-        c.customer_id, 
-        c.customer_name, 
-        c.phone, 
+        c.customer_id,
+        c.customer_name,
+        c.phone,
         c.email,
-        IFNULL(SUM(o.final_amount), 0) AS total_revenue,
-        COUNT(DISTINCT o.order_id) AS total_orders
+        COALESCE(SUM(CASE WHEN i.invoice_type = 'sale_invoice' THEN i.final_amount ELSE 0 END), 0)
+          - COALESCE(r.total_refund, 0) AS net_spent,
+        COUNT(DISTINCT CASE WHEN i.invoice_type = 'sale_invoice' THEN i.invoice_id END) AS total_invoices
       FROM customers c
-      LEFT JOIN orders o ON o.customer_id = c.customer_id${dateCondition}
+      LEFT JOIN invoices i ON i.customer_id = c.customer_id
+      LEFT JOIN (
+        SELECT 
+          ro.customer_id,
+          SUM(roi.refund_amount) AS total_refund
+        FROM return_orders ro
+        JOIN return_order_items roi ON ro.return_id = roi.return_id
+        WHERE ro.type = 'customer_return' AND ro.status = 'completed'
+        GROUP BY ro.customer_id
+      ) r ON r.customer_id = c.customer_id
       GROUP BY c.customer_id, c.customer_name, c.phone, c.email
     `;
 

@@ -8,7 +8,7 @@ const TransactionModel = {
    *
    * @param {Object} data - Dữ liệu giao dịch.
    * @param {string} data.transaction_code - Mã giao dịch duy nhất.
-   * @param {string} data.type - Loại giao dịch ('receipt', 'payment', 'refund', v.v.).
+   * @param {string} data.type - Loại giao dịch ('receipt', 'payment', 'refund', 'opening_balance', v.v.).
    * @param {number} data.amount - Số tiền của giao dịch.
    * @param {string} [data.description] - Mô tả giao dịch.
    * @param {string} [data.category] - Danh mục giao dịch (e.g., 'sale_payment', 'purchase_payment').
@@ -17,6 +17,7 @@ const TransactionModel = {
    * @param {string} [data.supplier_id=null] - ID nhà cung cấp liên quan (cho giao dịch chi tiền).
    * @param {string} [data.related_type] - Loại đối tượng liên quan (e.g., 'order', 'invoice').
    * @param {string} [data.related_id] - ID của đối tượng liên quan.
+   * @param {string} [data.status='pending'] - Trạng thái giao dịch ('pending', 'completed', 'cancelled').
    * @param {string} [data.initiated_by] - Người dùng/hệ thống đã tạo giao dịch.
    * @returns {Promise<Object>} Promise giải quyết với kết quả tạo giao dịch.
    */

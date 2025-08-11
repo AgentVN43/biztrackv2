@@ -188,7 +188,10 @@ exports.getAll = async (skip, limit, filters = {}) => {
     );
 
     const total = countResult[0].total;
-    return { customers: results.map(c => ({ ...c, debt: Number(c.debt) })), total: total };
+    return {
+      customers: results.map((c) => ({ ...c, debt: Number(c.debt) })),
+      total: total,
+    };
   } catch (err) {
     console.error("Lỗi khi lấy tất cả khách hàng:", err.message);
     throw err;
@@ -197,7 +200,10 @@ exports.getAll = async (skip, limit, filters = {}) => {
 
 exports.getById = async (customer_id) => {
   try {
-    const [results] = await db.query("SELECT * FROM customers WHERE customer_id = ?", [customer_id]);
+    const [results] = await db.query(
+      "SELECT * FROM customers WHERE customer_id = ?",
+      [customer_id]
+    );
     if (results.length === 0) return null;
     return { ...results[0], debt: Number(results[0].debt) };
   } catch (err) {
@@ -241,24 +247,31 @@ exports.getById = async (customer_id) => {
 exports.update = async (customer_id, data) => {
   // Lấy thông tin hiện tại
   const current = await exports.getById(customer_id);
-  if (!current) throw new Error('Customer not found');
+  if (!current) throw new Error("Customer not found");
   // Chỉ update các trường được truyền vào, giữ nguyên các trường còn lại
   const fields = [];
   const values = [];
   const allowedFields = [
-    'customer_name', 'email', 'phone', 'total_expenditure', 'status', 'total_orders', 'debt', 'updated_at'
+    "customer_name",
+    "email",
+    "phone",
+    "total_expenditure",
+    "status",
+    "total_orders",
+    "debt",
+    "updated_at",
   ];
   for (const key of allowedFields) {
-    if (key === 'updated_at') continue; // sẽ cập nhật cuối cùng
+    if (key === "updated_at") continue; // sẽ cập nhật cuối cùng
     if (data[key] !== undefined) {
       fields.push(`${key} = ?`);
       values.push(data[key]);
     }
   }
-  fields.push('updated_at = CURRENT_TIMESTAMP');
+  fields.push("updated_at = CURRENT_TIMESTAMP");
   values.push(customer_id);
   if (fields.length === 1) return current; // Không có gì để update ngoài updated_at
-  const sql = `UPDATE customers SET ${fields.join(', ')} WHERE customer_id = ?`;
+  const sql = `UPDATE customers SET ${fields.join(", ")} WHERE customer_id = ?`;
   const [result] = await db.query(sql, values);
   if (result.affectedRows === 0) return null;
   return await exports.getById(customer_id);
@@ -301,7 +314,9 @@ exports.updateDebt = async (customer_id, amount, increase = true) => {
   // increase: true => tăng, false => giảm
   try {
     const [result] = await db.query(
-      `UPDATE customers SET debt = debt ${increase ? "+" : "-"} ? WHERE customer_id = ?`,
+      `UPDATE customers SET debt = debt ${
+        increase ? "+" : "-"
+      } ? WHERE customer_id = ?`,
       [amount, customer_id]
     );
     return result.affectedRows;
@@ -315,7 +330,7 @@ exports.updateDebt = async (customer_id, amount, increase = true) => {
 exports.calculateDebt = async (customer_id) => {
   try {
     console.log(`🔍 Bắt đầu tính debt cho customer: ${customer_id}`);
-    
+
     // 1. Lấy tất cả invoices của customer
     const invoiceSql = `
       SELECT 
@@ -330,7 +345,7 @@ exports.calculateDebt = async (customer_id) => {
         AND status != 'cancelled'
     `;
     const [invoiceRows] = await db.query(invoiceSql, [customer_id]);
-    
+
     // 2. Lấy tất cả orders chưa có invoice
     const orderSql = `
       SELECT 
@@ -346,7 +361,7 @@ exports.calculateDebt = async (customer_id) => {
         AND i.order_id IS NULL
     `;
     const [orderRows] = await db.query(orderSql, [customer_id]);
-    
+
     // 3. Lấy tất cả customer returns đã approved/completed (TRỪ VÀO DEBT)
     const returnSql = `
       SELECT 
@@ -364,67 +379,97 @@ exports.calculateDebt = async (customer_id) => {
       ORDER BY ro.created_at ASC
     `;
     const [returnRows] = await db.query(returnSql, [customer_id]);
-    
+
     // 4. Tính debt cho từng invoice (KHÔNG tính refund trong order nữa)
     let totalInvoiceDebt = 0;
-    
+
     for (const invoice of invoiceRows) {
       const final_amount = parseFloat(invoice.final_amount || 0);
       const amount_paid = parseFloat(invoice.amount_paid || 0);
-      
+
       // ✅ CHỈ tính debt dựa trên final_amount và amount_paid
       // ✅ KHÔNG trừ refund ở đây vì sẽ tính riêng ở bước 6
       const debt = final_amount - amount_paid;
-      
-      console.log(`📊 Invoice ${invoice.invoice_id} (Order ${invoice.order_id}):`);
+
+      console.log(
+        `📊 Invoice ${invoice.invoice_id} (Order ${invoice.order_id}):`
+      );
       console.log(`  - Final amount: ${final_amount}`);
       console.log(`  - Amount paid: ${amount_paid}`);
       console.log(`  - Debt: ${debt}`);
-      
+
       totalInvoiceDebt += debt;
     }
-    
+
     // 5. Tính debt cho từng order (KHÔNG tính refund trong order nữa)
     let totalOrderDebt = 0;
-    
+
     for (const order of orderRows) {
       const final_amount = parseFloat(order.final_amount || 0);
       const amount_paid = parseFloat(order.amount_paid || 0);
-      
+
       // ✅ CHỈ tính debt dựa trên final_amount và amount_paid
       // ✅ KHÔNG trừ refund ở đây vì sẽ tính riêng ở bước 6
       const debt = final_amount - amount_paid;
-      
+
       console.log(`📊 Order ${order.order_id}:`);
       console.log(`  - Final amount: ${final_amount}`);
       console.log(`  - Amount paid: ${amount_paid}`);
       console.log(`  - Debt: ${debt}`);
-      
+
       totalOrderDebt += debt;
     }
-    
+
     // 6. Tính tổng refund từ customer returns (TRỪ VÀO DEBT)
     let totalReturnRefund = 0;
-    
+
     for (const returnOrder of returnRows) {
       const totalRefund = parseFloat(returnOrder.total_refund || 0);
       totalReturnRefund += totalRefund;
-      
-      console.log(`📊 Customer Return ${returnOrder.return_id} (Order ${returnOrder.order_id}):`);
+
+      console.log(
+        `📊 Customer Return ${returnOrder.return_id} (Order ${returnOrder.order_id}):`
+      );
       console.log(`  - Total refund: ${totalRefund}`);
       console.log(`  - Status: ${returnOrder.status}`);
     }
-    
-    // 7. Tổng debt = Invoice debt + Order debt - Customer returns refund
-    // ✅ CHO PHÉP DEBT ÂM khi khách hàng đã thanh toán quá hoặc có nhiều đơn trả
-    const totalDebt = totalInvoiceDebt + totalOrderDebt - totalReturnRefund;
-    
+
+    // 7. ✅ Lấy tất cả adjustment transactions (bao gồm opening_balance từ migration)
+    const adjustmentSql = `
+      SELECT 
+        transaction_id,
+        type,
+        amount,
+        description,
+        created_at
+      FROM transactions
+      WHERE customer_id = ?
+        AND type IN ('adjustment')
+      ORDER BY created_at ASC
+    `;
+    const [adjustmentRows] = await db.query(adjustmentSql, [customer_id]);
+
+    let totalAdjustmentDebt = 0;
+    for (const adjustment of adjustmentRows) {
+      const amount = parseFloat(adjustment.amount || 0);
+      totalAdjustmentDebt += amount;
+
+      console.log(`📊 Adjustment Transaction ${adjustment.transaction_id}:`);
+      console.log(`  - Type: ${adjustment.type}`);
+      console.log(`  - Amount: ${amount}`);
+      console.log(`  - Description: ${adjustment.description}`);
+    }
+
+    // ✅ TÍNH TỔNG DEBT từ: invoices + orders + adjustments - returns
+    const totalDebt = totalInvoiceDebt + totalOrderDebt + totalAdjustmentDebt - totalReturnRefund;
+
     console.log(`🔍 Kết quả tính debt cho customer ${customer_id}:`);
     console.log(`  - Total invoice debt: ${totalInvoiceDebt}`);
     console.log(`  - Total order debt: ${totalOrderDebt}`);
+    console.log(`  - Total adjustment debt (bao gồm opening_balance): ${totalAdjustmentDebt}`);
     console.log(`  - Total customer returns refund: ${totalReturnRefund}`);
     console.log(`  - Final total debt: ${totalDebt} (có thể âm)`);
-    
+
     return totalDebt;
   } catch (error) {
     console.error("🚀 ~ customer.model.js: calculateDebt - Lỗi:", error);
@@ -462,12 +507,12 @@ exports.bulkInsert = async (customers) => {
     }
 
     // Tạo placeholders cho bulk insert
-    const placeholders = customers.map(() => 
-      "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    ).join(", ");
+    const placeholders = customers
+      .map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .join(", ");
 
     // Flatten data array
-    const values = customers.flatMap(customer => [
+    const values = customers.flatMap((customer) => [
       customer.customer_id,
       customer.customer_name,
       customer.email,
@@ -477,7 +522,7 @@ exports.bulkInsert = async (customers) => {
       customer.total_orders,
       customer.debt,
       customer.created_at,
-      customer.updated_at
+      customer.updated_at,
     ]);
 
     const query = `
