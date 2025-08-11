@@ -45,4 +45,13 @@ router.get("/payables/purchase", AnalysisController.getPayablePurchaseOrders); /
 router.get("/finance/management", AnalysisController.getFinanceManagementByPeriod);
 router.get("/finance/top-customers", AnalysisController.getTopCustomers);
 
+// Thống kê Top 10 sản phẩm bán chạy nhất
+router.get("/products/top-selling", AnalysisController.getTopSellingProducts);
+
+// Thống kê Top nhà cung cấp nhập hàng nhiều nhất
+router.get("/suppliers/top-purchasing", AnalysisController.getTopPurchasingSuppliers);
+
+// Thống kê lấy doanh thu theo danh mục
+router.get("/category/revenue", AnalysisController.getRevenueByCategory);
+
 module.exports = router;

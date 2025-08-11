@@ -91,7 +91,7 @@ const AnalysisController = {
     }
   },
 
-    async getTotalProducts(req, res) {
+  async getTotalProducts(req, res) {
     try {
       const total = await getTotalCount("products");
       return createResponse(res, 200, true, { total }, "Lấy tổng số sản phẩm thành công");
@@ -174,6 +174,44 @@ const AnalysisController = {
     } catch (error) {
       console.error("Lỗi khi lấy top khách hàng mua nhiều nhất:", error);
       return errorResponse(res, "Lỗi khi lấy top khách hàng mua nhiều nhất", 500);
+    }
+  },
+
+  async getTopSellingProducts(req, res) {
+    try {
+      const limit = parseInt(req.query.limit) || 10;
+      const startDate = req.query.startDate;
+      const endDate = req.query.endDate;
+      const data = await AnalysisService.getTopSellingProducts({ startDate, endDate, limit });
+      return createResponse(res, 200, true, data, "Lấy top 10 sản phẩm bán chạy nhất thành công");
+    } catch (error) {
+      console.error("Lỗi khi lấy top 10 sản phẩm bán chạy nhất:", error);
+      return errorResponse(res, "Lỗi khi lấy top 10 sản phẩm bán chạy nhất", 500);
+    }
+  },
+
+  async getTopPurchasingSuppliers(req, res) {
+    try {
+      const limit = parseInt(req.query.limit) || 10;
+      const startDate = req.query.startDate;
+      const endDate = req.query.endDate;
+      const data = await AnalysisService.getTopPurchasingSuppliers({ startDate, endDate, limit });
+      return createResponse(res, 200, true, data, "Lấy top nhà cung cấp nhập hàng nhiều nhất thành công");
+    } catch (error) {
+      console.error("Lỗi khi lấy top nhà cung cấp nhập hàng nhiều nhất:", error);
+      return errorResponse(res, "Lỗi khi lấy top nhà cung cấp nhập hàng nhiều nhất", 500);
+    }
+  },
+
+  async getRevenueByCategory(req, res) {
+    try {
+      const startDate = req.query.startDate;
+      const endDate = req.query.endDate;
+      const data = await AnalysisService.getRevenueByCategory({ startDate, endDate });
+      return createResponse(res, 200, true, data, "Lấy doanh thu theo danh mục thành công");
+    } catch (error) {
+      console.error("Lỗi khi lấy doanh thu theo danh mục:", error);
+      return errorResponse(res, "Lỗi khi lấy doanh thu theo danh mục", 500);
     }
   },
 
