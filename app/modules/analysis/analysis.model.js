@@ -322,7 +322,6 @@ const AnalysisModel = {
 
       // 3. Công nợ phải thu được tính toán từ: revenue_by_invoice - actual_revenue
 
-      console.log("🚀 ~ AnalysisModel.getRevenueByTimePeriod - Executing queries:");
       console.log("1. Revenue by Invoice:", revenueByInvoiceQuery);
       console.log(
         "2a. Actual Revenue from Orders:",
@@ -791,7 +790,7 @@ const AnalysisModel = {
       revenue: `
       SELECT DATE_FORMAT(created_at, '${dateFormat}') AS time_period, SUM(final_amount) AS revenue
       FROM orders
-      WHERE order_status != 'Huỷ đơn' ${condition("created_at")}
+      WHERE order_status = 'Hoàn tất' ${condition("created_at")}
       GROUP BY time_period ORDER BY time_period
     `,
       refundOrder: `
@@ -911,7 +910,7 @@ const AnalysisModel = {
     console.log(result);
     return result;
   },
-  
+
   async getTopCustomers({ startDate, endDate, limit = 5 }) {
     // Lấy top khách hàng theo tổng giá trị mua hàng (final_amount), trừ đi số tiền hoàn trả từ return_order
 
@@ -988,6 +987,251 @@ const AnalysisModel = {
       throw error;
     }
   },
+
+  async getTopSellingProducts({ startDate, endDate, limit = 10 }) {
+    try {
+      // Xây dựng điều kiện thời gian cho orders
+      let dateCondition = '';
+      if (startDate && endDate) {
+        dateCondition = ` AND o.order_date >= ${db.escape(startDate)} AND o.order_date <= ${db.escape(endDate)}`;
+      } else if (startDate) {
+        dateCondition = ` AND o.order_date >= ${db.escape(startDate)}`;
+      } else if (endDate) {
+        dateCondition = ` AND o.order_date <= ${db.escape(endDate)}`;
+      }
+
+      // Query 1: Lấy thông tin sản phẩm và tổng số lượng bán từ order_details
+      const productSalesQuery = `
+        SELECT 
+          p.product_id,
+          p.product_name,
+          p.category_id,
+          c.category_name,
+          IFNULL(SUM(od.quantity), 0) AS total_quantity_sold,
+          IFNULL(SUM(od.quantity * od.price), 0) AS total_revenue,
+          COUNT(DISTINCT o.order_id) AS total_orders
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.category_id
+        LEFT JOIN order_details od ON p.product_id = od.product_id
+        LEFT JOIN orders o ON od.order_id = o.order_id${dateCondition}
+        WHERE o.order_status = 'Hoàn tất' OR o.order_status IS NULL
+        GROUP BY p.product_id, p.product_name, p.category_id, c.category_name
+      `;
+
+      // Query 2: Lấy tổng số lượng hoàn trả cho từng sản phẩm
+      const productReturnQuery = `
+        SELECT 
+          roi.product_id,
+          IFNULL(SUM(roi.quantity), 0) AS total_quantity_returned,
+          IFNULL(SUM(roi.refund_amount), 0) AS total_refund_amount
+        FROM return_order_items roi
+        JOIN return_orders ro ON roi.return_id = ro.return_id
+        WHERE ro.type = 'customer_return' AND ro.status = 'completed'
+        GROUP BY roi.product_id
+      `;
+
+      // Query 3: Kết hợp thông tin và tính net sales
+      const finalQuery = `
+        SELECT 
+          ps.product_id,
+          ps.product_name,
+          ps.category_id,
+          ps.category_name,
+          (ps.total_quantity_sold - IFNULL(pr.total_quantity_returned, 0)) AS net_quantity_sold,
+          (ps.total_revenue - IFNULL(pr.total_refund_amount, 0)) AS net_revenue,
+          ps.total_orders,
+          IFNULL(pr.total_quantity_returned, 0) AS total_quantity_returned,
+          IFNULL(pr.total_refund_amount, 0) AS total_refund_amount,
+          IFNULL(ps.total_revenue, 0) AS total_revenue
+        FROM (${productSalesQuery}) ps
+        LEFT JOIN (${productReturnQuery}) pr ON ps.product_id = pr.product_id
+        WHERE (ps.total_quantity_sold - IFNULL(pr.total_quantity_returned, 0)) > 0
+        ORDER BY net_quantity_sold DESC, net_revenue DESC
+        LIMIT ?
+      `;
+
+      console.log('\n=== EXECUTING TOP SELLING PRODUCTS QUERIES ===');
+
+      // Query 1: Lấy dữ liệu bán hàng sản phẩm
+      const [productSalesResults] = await db.promise().query(productSalesQuery);
+      console.log('Product Sales Results Count:', productSalesResults.length);
+
+      // Query 2: Lấy dữ liệu hoàn trả sản phẩm
+      const [productReturnResults] = await db.promise().query(productReturnQuery);
+      console.log('Product Return Results Count:', productReturnResults.length);
+
+      // Query cuối cùng
+      const [results] = await db.promise().query(finalQuery, [limit]);
+      console.log('Final Top Selling Products Results:', JSON.stringify(results, null, 2));
+      console.log('=== END TOP SELLING PRODUCTS DEBUG ===\n');
+
+      return results;
+    } catch (error) {
+      console.error('Error in getTopSellingProducts:', error);
+      throw error;
+    }
+  },
+
+  async getTopPurchasingSuppliers({ startDate, endDate, limit = 10 }) {
+    try {
+      // Xây dựng điều kiện thời gian cho purchase orders
+      let dateCondition = '';
+      if (startDate && endDate) {
+        dateCondition = ` AND po.created_at >= ${db.escape(startDate)} AND po.created_at <= ${db.escape(endDate)}`;
+      } else if (startDate) {
+        dateCondition = ` AND po.created_at >= ${db.escape(startDate)}`;
+      } else if (endDate) {
+        dateCondition = ` AND po.created_at <= ${db.escape(endDate)}`;
+      }
+
+      // Query 1: Lấy thông tin nhà cung cấp và tổng giá trị nhập hàng từ purchase_orders
+      const supplierPurchaseQuery = `
+        SELECT 
+          s.supplier_id,
+          s.supplier_name,
+          s.phone,
+          s.email,
+          s.address,
+          IFNULL(SUM(po.total_amount), 0) AS total_purchase_amount,
+          COUNT(DISTINCT po.po_id) AS total_purchase_orders,
+          IFNULL(SUM(pod.quantity), 0) AS total_quantity_purchased
+        FROM suppliers s
+        LEFT JOIN purchase_orders po ON s.supplier_id = po.supplier_id${dateCondition}
+        LEFT JOIN purchase_order_details pod ON po.po_id = pod.po_id
+        WHERE po.status = 'posted' OR po.status IS NULL
+        GROUP BY s.supplier_id, s.supplier_name, s.phone, s.email, s.address
+      `;
+
+      // Query 2: Lấy tổng số lượng và giá trị hoàn trả cho từng nhà cung cấp
+      const supplierReturnQuery = `
+        SELECT 
+          ro.supplier_id,
+          IFNULL(SUM(roi.quantity), 0) AS total_quantity_returned,
+          IFNULL(SUM(roi.refund_amount), 0) AS total_refund_amount
+        FROM return_orders ro
+        JOIN return_order_items roi ON ro.return_id = roi.return_id
+        WHERE ro.type = 'supplier_return' AND ro.status = 'approved'
+        GROUP BY ro.supplier_id
+      `;
+
+      // Query 3: Kết hợp thông tin và tính net purchase
+      const finalQuery = `
+        SELECT 
+          sp.supplier_id,
+          sp.supplier_name,
+          sp.phone,
+          sp.email,
+          sp.address,
+          (sp.total_purchase_amount - IFNULL(sr.total_refund_amount, 0)) AS net_purchase_amount,
+          sp.total_purchase_orders,
+          (sp.total_quantity_purchased - IFNULL(sr.total_quantity_returned, 0)) AS net_quantity_purchased,
+          IFNULL(sr.total_quantity_returned, 0) AS total_quantity_returned,
+          IFNULL(sr.total_refund_amount, 0) AS total_refund_amount,
+          IFNULL(sp.total_purchase_amount, 0) AS total_purchase_amount
+        FROM (${supplierPurchaseQuery}) sp
+        LEFT JOIN (${supplierReturnQuery}) sr ON sp.supplier_id = sr.supplier_id
+        WHERE (sp.total_purchase_amount - IFNULL(sr.total_refund_amount, 0)) > 0
+        ORDER BY net_purchase_amount DESC, net_quantity_purchased DESC
+        LIMIT ?
+      `;
+
+      console.log('\n=== EXECUTING TOP PURCHASING SUPPLIERS QUERIES ===');
+
+      // Query 1: Lấy dữ liệu nhập hàng nhà cung cấp
+      const [supplierPurchaseResults] = await db.promise().query(supplierPurchaseQuery);
+      console.log('Supplier Purchase Results Count:', supplierPurchaseResults.length);
+
+      // Query 2: Lấy dữ liệu hoàn trả nhà cung cấp
+      const [supplierReturnResults] = await db.promise().query(supplierReturnQuery);
+      console.log('Supplier Return Results Count:', supplierReturnResults.length);
+
+      // Query cuối cùng
+      const [results] = await db.promise().query(finalQuery, [limit]);
+      console.log('Final Top Purchasing Suppliers Results:', JSON.stringify(results, null, 2));
+      console.log('=== END TOP PURCHASING SUPPLIERS DEBUG ===\n');
+
+      return results;
+    } catch (error) {
+      console.error('Error in getTopPurchasingSuppliers:', error);
+      throw error;
+    }
+  },
+
+  async getRevenueByCategory({ startDate, endDate }) {
+    try {
+      // Điều kiện thời gian cho orders
+      let dateCondition = '';
+      if (startDate && endDate) {
+        dateCondition = ` AND o.order_date >= ${db.escape(startDate)} AND o.order_date <= ${db.escape(endDate)}`;
+      } else if (startDate) {
+        dateCondition = ` AND o.order_date >= ${db.escape(startDate)}`;
+      } else if (endDate) {
+        dateCondition = ` AND o.order_date <= ${db.escape(endDate)}`;
+      }
+
+      // Query 1: Doanh thu bán hàng theo danh mục
+      const categorySalesQuery = `
+        SELECT 
+          c.category_id,
+          c.category_name,
+          IFNULL(SUM(od.quantity * od.price - od.discount), 0) AS total_sales
+        FROM categories c
+        JOIN products p ON c.category_id = p.category_id
+        JOIN order_details od ON p.product_id = od.product_id
+        JOIN orders o ON od.order_id = o.order_id
+        WHERE o.order_status = 'Hoàn tất'
+          AND o.is_active = 1
+          ${dateCondition}
+        GROUP BY c.category_id, c.category_name
+      `;
+
+      // Query 2: Hoàn trả theo danh mục
+      const categoryRefundQuery = `
+        SELECT 
+          p.category_id,
+          IFNULL(SUM(roi.refund_amount), 0) AS total_refund
+        FROM return_orders ro
+        JOIN return_order_items roi ON ro.return_id = roi.return_id
+        JOIN products p ON roi.product_id = p.product_id
+        WHERE ro.type = 'customer_return'
+          AND ro.status = 'completed'
+          ${dateCondition.replace(/o\.order_date/g, 'ro.return_date')}
+        GROUP BY p.category_id
+      `;
+
+      // Query 3: Kết hợp và tính doanh thu thuần (net revenue)
+      const finalQuery = `
+        SELECT 
+          cs.category_id,
+          cs.category_name,
+          (cs.total_sales - IFNULL(cr.total_refund, 0)) AS net_revenue,
+          cs.total_sales,
+          IFNULL(cr.total_refund, 0) AS total_refund
+        FROM (${categorySalesQuery}) cs
+        LEFT JOIN (${categoryRefundQuery}) cr ON cs.category_id = cr.category_id
+        WHERE (cs.total_sales - IFNULL(cr.total_refund, 0)) > 0
+        ORDER BY net_revenue DESC
+      `;
+
+      console.log('\n=== EXECUTING REVENUE BY CATEGORY QUERIES ===');
+
+      const [salesResults] = await db.promise().query(categorySalesQuery);
+      console.log('Category Sales Results Count:', salesResults.length);
+
+      const [refundResults] = await db.promise().query(categoryRefundQuery);
+      console.log('Category Refund Results Count:', refundResults.length);
+
+      const [results] = await db.promise().query(finalQuery);
+      console.log('Final Revenue by Category Results:', JSON.stringify(results, null, 2));
+      console.log('=== END REVENUE BY CATEGORY DEBUG ===\n');
+
+      return results;
+    } catch (error) {
+      console.error('Error in getRevenueByCategory:', error);
+      throw error;
+    }
+  }
+
 };
 
 module.exports = AnalysisModel;

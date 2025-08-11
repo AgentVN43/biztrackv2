@@ -102,6 +102,33 @@ const AnalysisService = {
   async getTopCustomers(startDate, endDate, limit = 5) {
     return await AnalysisModel.getTopCustomers(startDate, endDate, limit);
   },
+
+  async getTopSellingProducts({ startDate, endDate, limit = 10 }) {
+    try {
+      return await AnalysisModel.getTopSellingProducts({ startDate, endDate, limit });
+    } catch (error) {
+      console.error("Lỗi ở Service khi lấy top sản phẩm bán chạy nhất:", error);
+      throw error;
+    }
+  },
+
+  async getTopPurchasingSuppliers({ startDate, endDate, limit = 10 }) {
+    try {
+      return await AnalysisModel.getTopPurchasingSuppliers({ startDate, endDate, limit });
+    } catch (error) {
+      console.error("Lỗi ở Service khi lấy top nhà cung cấp nhập hàng nhiều nhất:", error);
+      throw error;
+    }
+  },
+
+  async getRevenueByCategory({ startDate, endDate }) {
+    try {
+      return await AnalysisModel.getRevenueByCategory({ startDate, endDate });
+    } catch (error) {
+      console.error("Lỗi ở Service khi lấy doanh thu theo danh mục:", error);
+      throw error;
+    }
+  },
 };
 
 module.exports = AnalysisService;
