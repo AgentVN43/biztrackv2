@@ -218,12 +218,50 @@ const SupplierReportService = {
 
       // 6. Tính running balance từ cũ đến mới
       let runningBalance = 0;
+
+      // Chuẩn hóa mapping kiểu giao dịch cho nhà cung cấp (công nợ phải trả)
+      // Quy ước: tăng balance = tăng phải trả; giảm balance = giảm phải trả
+      const INCREASE_TYPES = new Set([
+        "pending",           // PO tạo nợ
+        "purchase_invoice",  // Hóa đơn mua làm tăng phải trả
+        "debit_note",        // Ghi nợ từ NCC
+        "adj_increase"       // Điều chỉnh tăng phải trả
+      ]);
+
+      const DECREASE_TYPES = new Set([
+        "payment",           // Trả tiền NCC
+        "receipt",           // Trường hợp nhận tiền lại (ít gặp) coi như giảm phải trả
+        "return",            // Trả hàng NCC
+        "credit_note",       // NCC ghi có cho mình
+        "refund",            // NCC hoàn lại
+        "transfer",          // Điều chuyển giảm phải trả
+        "partial_paid",
+        "advance_payment",
+        "refund_invoice",
+        "adj_decrease"       // Điều chỉnh giảm phải trả
+      ]);
+
+      const SIGNED_TYPES = new Set([
+        "adjustment",
+        "opening_balance",
+        "adj_migration"      // Điều chỉnh từ hệ thống cũ
+      ]);
+
       allTransactionsNoRefund.forEach((txn) => {
-        if (txn.type === "pending") {
-          runningBalance += txn.amount;
-        } else if (txn.type === "return" || txn.type === "payment" || txn.type === "receipt") {
-          runningBalance -= txn.amount;
+        const amount = Number(txn.amount) || 0;
+        const type = txn.type;
+
+        if (INCREASE_TYPES.has(type)) {
+          runningBalance += amount;
+        } else if (DECREASE_TYPES.has(type)) {
+          runningBalance -= amount;
+        } else if (SIGNED_TYPES.has(type)) {
+          runningBalance += amount; // amount có thể âm/dương
+        } else {
+          console.warn("⚠️ Supplier ledger: Transaction type lạ:", type, txn);
+          runningBalance += amount; // fallback
         }
+
         txn.balance = runningBalance;
       });
 
