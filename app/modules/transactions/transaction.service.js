@@ -104,11 +104,17 @@ const TransactionService = {
       // ✅ Truyền customer_id và supplier_id xuống model
       const transaction = await TransactionModel.createTransaction(data);
       // Sau khi tạo transaction, nếu có customer_id thì cập nhật lại debt
-      if (transaction && transaction.customer_id) {
+      if (data && data.customer_id) {
         const CustomerModel = require("../customers/customer.model");
-        const newDebt = await CustomerModel.calculateDebt(transaction.customer_id);
-        await CustomerModel.update(transaction.customer_id, { debt: newDebt });
-        console.log(`✅ Đã cập nhật debt mới cho customer ${transaction.customer_id}: ${newDebt}`);
+        const newDebt = await CustomerModel.calculateDebt(data.customer_id);
+        await CustomerModel.update(data.customer_id, { debt: newDebt });
+        console.log(`✅ Đã cập nhật debt mới cho customer ${data.customer_id}: ${newDebt}`);
+      }
+      // Nếu có supplier_id thì cập nhật payable NCC
+      if (data && data.supplier_id) {
+        const SupplierModel = require("../suppliers/supplier.model");
+        await SupplierModel.recalculatePayable(data.supplier_id);
+        console.log(`✅ Đã cập nhật payable mới cho supplier ${data.supplier_id}`);
       }
       return transaction;
     } catch (error) {

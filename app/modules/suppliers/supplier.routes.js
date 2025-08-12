@@ -15,6 +15,10 @@ router.get('/:id', supplierController.getSupplierById);
 router.put('/:id', supplierController.updateSupplier);
 router.delete('/:id', supplierController.deleteSupplier);
 
+// NEW: Recalc payable
+router.post('/:id/recalculate-payable', supplierController.recalcPayable);
+router.post('/recalculate-all-payables', supplierController.recalcAllPayables);
+
 // NEW: Route với search/filter functionality
 router.get('/search/filter', supplierSearchFilter, supplierController.searchSuppliersWithFilter);
 

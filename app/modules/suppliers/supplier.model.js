@@ -46,7 +46,11 @@ const SupplierModel = {
           console.error("🚀 ~ supplier.model.js: getAll - Error fetching all suppliers:", err);
           return reject(err);
         }
-        resolve(results);
+        const casted = (results || []).map((r) => ({
+          ...r,
+          payable: r.payable !== undefined && r.payable !== null ? parseFloat(r.payable) : r.payable,
+        }));
+        resolve(casted);
       });
     });
   },
@@ -81,7 +85,13 @@ const SupplierModel = {
           console.error("🚀 ~ supplier.model.js: findById - Error fetching supplier by ID:", err);
           return reject(err);
         }
-        resolve(results.length ? results[0] : null);
+        const row = results.length ? results[0] : null;
+        if (!row) return resolve(null);
+        const casted = {
+          ...row,
+          payable: row.payable !== undefined && row.payable !== null ? parseFloat(row.payable) : row.payable,
+        };
+        resolve(casted);
       });
     });
   },
@@ -134,6 +144,104 @@ const SupplierModel = {
         resolve({ supplier_id, message: 'Supplier deleted successfully' });
       });
     });
+  },
+
+  /**
+   * Cập nhật trường payable cho một nhà cung cấp.
+   * @param {string} supplier_id
+   * @param {number} payable
+   */
+  updatePayable: async (supplier_id, payable) => {
+    try {
+      const sql = `UPDATE suppliers SET payable = ?, updated_at = CURRENT_TIMESTAMP WHERE supplier_id = ?`;
+      await db.promise().query(sql, [parseFloat(payable || 0), supplier_id]);
+      return { supplier_id, payable: parseFloat(payable || 0) };
+    } catch (error) {
+      console.error("🚀 ~ supplier.model.js: updatePayable - Error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tính lại payable dựa trên invoices và transactions liên quan đến NCC.
+   * Quy ước:
+   *  - Tăng phải trả: purchase_invoice, debit_note, adj_increase
+   *  - Giảm phải trả: credit_note, refund_invoice, payment, receipt, return, refund, transfer, partial_paid, advance_payment, adj_decrease
+   *  - Điều chỉnh migration: adj_migration (dùng dấu trực tiếp)
+   */
+  recalculatePayable: async (supplier_id) => {
+    try {
+      // 1) Công nợ còn lại từ hóa đơn mua và debit_note
+      const [rowsOutstanding] = await db.promise().query(
+        `SELECT COALESCE(SUM(final_amount - IFNULL(amount_paid, 0)), 0) AS outstanding
+         FROM invoices
+         WHERE supplier_id = ?
+           AND invoice_type IN ('purchase_invoice', 'debit_note')
+           AND status != 'cancelled'`,
+        [supplier_id]
+      );
+      const outstanding = parseFloat(rowsOutstanding[0]?.outstanding || 0);
+
+      // 2) Giảm trừ bởi credit_note và refund_invoice (tính toàn bộ giá trị)
+      const [rowsNegativeInvoices] = await db.promise().query(
+        `SELECT COALESCE(SUM(final_amount), 0) AS negatives
+         FROM invoices
+         WHERE supplier_id = ?
+           AND invoice_type IN ('credit_note', 'refund_invoice')
+           AND status != 'cancelled'`,
+        [supplier_id]
+      );
+      const negatives = parseFloat(rowsNegativeInvoices[0]?.negatives || 0);
+
+      // 3) Các giao dịch trực tiếp không gắn invoice làm giảm phải trả (payment/receipt/...)
+      const [rowsDirectDecrease] = await db.promise().query(
+        `SELECT COALESCE(SUM(amount), 0) AS total
+         FROM transactions
+         WHERE supplier_id = ?
+           AND type IN ('payment','receipt','refund','return','transfer','partial_paid','advance_payment')
+           AND (related_type IS NULL OR related_type <> 'invoice')`,
+        [supplier_id]
+      );
+      const directDecrease = parseFloat(rowsDirectDecrease[0]?.total || 0);
+
+      // 4) Điều chỉnh: adj_increase, adj_decrease, adj_migration
+      const [rowsAdj] = await db.promise().query(
+        `SELECT type, COALESCE(SUM(amount), 0) AS sum_amount
+         FROM transactions
+         WHERE supplier_id = ? AND type IN ('adj_increase','adj_decrease','adj_migration')
+         GROUP BY type`,
+        [supplier_id]
+      );
+      let adjIncrease = 0, adjDecrease = 0, adjMigration = 0;
+      for (const r of rowsAdj) {
+        if (r.type === 'adj_increase') adjIncrease = parseFloat(r.sum_amount || 0);
+        if (r.type === 'adj_decrease') adjDecrease = parseFloat(r.sum_amount || 0);
+        if (r.type === 'adj_migration') adjMigration = parseFloat(r.sum_amount || 0);
+      }
+
+      const payable = outstanding - negatives - directDecrease + adjIncrease - adjDecrease + adjMigration;
+      await SupplierModel.updatePayable(supplier_id, payable);
+      return payable;
+    } catch (error) {
+      console.error("🚀 ~ supplier.model.js: recalculatePayable - Error:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tính lại payable cho tất cả NCC.
+   */
+  recalculateAllPayables: async () => {
+    try {
+      const [suppliers] = await db.promise().query(`SELECT supplier_id FROM suppliers`);
+      for (const s of suppliers) {
+        await SupplierModel.recalculatePayable(s.supplier_id);
+      }
+      return { updated: suppliers.length };
+    } catch (error) {
+      console.error("🚀 ~ supplier.model.js: recalculateAllPayables - Error:", error);
+      throw error;
+    }
   },
 };
 

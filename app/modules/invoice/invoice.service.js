@@ -2,6 +2,7 @@ const InvoiceModel = require("./invoice.model"); // Đảm bảo đường dẫn
 const TransactionService = require("../transactions/transaction.service");
 const CustomerModel = require("../customers/customer.model");
 const { generateTransactionCode } = require('../../utils/transactionUtils');
+const SupplierModel = require("../suppliers/supplier.model");
 
 const InvoiceService = {
   // Đổi tên từ 'const create' sang 'const InvoiceService'
@@ -35,6 +36,11 @@ const InvoiceService = {
           });
           console.log(`🚀 ~ InvoiceService: create - Đã tạo transaction cho amount_paid của order: ${order.amount_paid}`);
         }
+      }
+      
+      // Nếu là hóa đơn liên quan NCC thì cập nhật payable
+      if (invoice && invoice.supplier_id) {
+        await SupplierModel.recalculatePayable(invoice.supplier_id);
       }
       
       return invoice;
@@ -180,6 +186,11 @@ const InvoiceService = {
         invoice_id,
         paymentAmount
       );
+
+      // Cập nhật payable NCC nếu là hóa đơn mua
+      if (invoice.supplier_id) {
+        await SupplierModel.recalculatePayable(invoice.supplier_id);
+      }
 
       // 4. CẬP NHẬT LẠI DEBT CHO KHÁCH HÀNG
       if (invoice.customer_id) {

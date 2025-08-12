@@ -301,6 +301,10 @@ const SupplierReturnService = {
           [invoice_id, invoice_code, supplier_id, total_refund, total_refund]
         );
 
+      // Cập nhật payable NCC sau khi ghi nhận refund_invoice
+      const SupplierModel = require("../suppliers/supplier.model");
+      await SupplierModel.recalculatePayable(supplier_id);
+
       // 5.5. Ghi nhận transaction hoàn tiền cho nhà cung cấp
       // const transaction_id = uuidv4();
       // const transaction_code = generateTransactionCode("SUPREF");
@@ -404,9 +408,7 @@ const SupplierReturnService = {
       // 4. Xóa chi tiết cũ
       await db
         .promise()
-        .query(`DELETE FROM return_order_items WHERE return_id = ?`, [
-          return_id,
-        ]);
+        .query(`DELETE FROM return_order_items WHERE return_id = ?`, [return_id]);
 
       // 5. Tạo chi tiết mới
       const detailResults = await Promise.all(
@@ -424,37 +426,6 @@ const SupplierReturnService = {
       return { return_id, supplier_id, note, details: detailResults };
     } catch (error) {
       console.error("Lỗi trong updateReturnWithDetails:", error);
-      throw error;
-    }
-  },
-
-  // Xóa đơn trả hàng nhà cung cấp
-  deleteReturn: async (return_id) => {
-    try {
-      // Kiểm tra đơn trả hàng tồn tại và có thể xóa
-      const existingReturn = await SupplierReturn.getById(return_id);
-      if (!existingReturn) {
-        throw new Error("Không tìm thấy đơn trả hàng");
-      }
-      if (existingReturn.status !== "pending") {
-        throw new Error("Chỉ có thể xóa đơn ở trạng thái pending");
-      }
-
-      // Xóa chi tiết trước
-      await db
-        .promise()
-        .query(`DELETE FROM return_order_items WHERE return_id = ?`, [
-          return_id,
-        ]);
-
-      // Xóa đơn trả hàng
-      await db
-        .promise()
-        .query(`DELETE FROM return_orders WHERE return_id = ?`, [return_id]);
-
-      return { return_id, message: "Xóa đơn trả hàng thành công" };
-    } catch (error) {
-      console.error("Lỗi trong deleteReturn:", error);
       throw error;
     }
   },
@@ -483,55 +454,6 @@ const SupplierReturnService = {
       console.error("Lỗi trong getReturnBySupplierId:", error);
       throw error;
     }
-  },
-
-  // Lấy danh sách đơn trả hàng theo trạng thái
-  getReturnByStatus: async (status, page = 1, limit = 10) => {
-    try {
-      const offset = (page - 1) * limit;
-      const filters = { status };
-      const returns = await SupplierReturn.getAll(filters, { limit, offset });
-
-      // Đếm tổng số
-      const [countResult] = await db
-        .promise()
-        .query(
-          `SELECT COUNT(*) as total FROM return_orders WHERE type = 'supplier_return' AND status = ?`,
-          [status]
-        );
-      const total = countResult[0].total;
-
-      return {
-        returns,
-        pagination: { page, limit, total },
-      };
-    } catch (error) {
-      console.error("Lỗi trong getReturnByStatus:", error);
-      throw error;
-    }
-  },
-
-  // Lấy danh sách đơn trả hàng phải trả cho nhà cung cấp (payable)
-  getPayableReturns: async ({ supplier_id, status = "approved" }) => {
-    const filters = { status };
-    if (supplier_id) filters.supplier_id = supplier_id;
-    const returns = await SupplierReturn.getAll(filters, {});
-    // Lấy tổng số tiền phải trả cho từng đơn (từ chi tiết)
-    const payableList = await Promise.all(
-      returns.map(async (r) => {
-        const details = await SupplierReturn.getReturnDetails(r.return_id);
-        const total_refund = details.reduce(
-          (sum, d) => sum + Number(d.refund_amount || 0),
-          0
-        );
-        return {
-          ...r,
-          total_refund,
-          details,
-        };
-      })
-    );
-    return payableList;
   },
 };
 

@@ -1016,6 +1016,12 @@ const PurchaseOrderService = {
         invoice
       );
 
+      // Cập nhật payable NCC sau khi tạo purchase_invoice
+      if (invoice && invoice.supplier_id) {
+        const SupplierModel = require("../suppliers/supplier.model");
+        await SupplierModel.recalculatePayable(invoice.supplier_id);
+      }
+
       // ❌ KHÔNG tạo Transaction ở bước này
 
       return {

@@ -5,6 +5,7 @@ const {
   EntityHelpers,
   SearchFilterService,
 } = require("../../utils/searchFilterService");
+const SupplierModel = require('./supplier.model');
 
 const SupplierController = {
   /**
@@ -177,6 +178,29 @@ const SupplierController = {
         error
       );
       next(error);
+    }
+  },
+
+  /** Recalculate payable for one supplier */
+  recalcPayable: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const payable = await SupplierModel.recalculatePayable(id);
+      createResponse(res, 200, true, { supplier_id: id, payable }, "Recalculated supplier payable successfully.");
+    } catch (error) {
+      console.error("🚀 ~ supplier.controller.js: recalcPayable - Error:", error);
+      return errorResponse(res, error.message || "Lỗi server", 500);
+    }
+  },
+
+  /** Recalculate payable for all suppliers */
+  recalcAllPayables: async (req, res, next) => {
+    try {
+      const result = await SupplierModel.recalculateAllPayables();
+      createResponse(res, 200, true, result, "Recalculated all suppliers' payable successfully.");
+    } catch (error) {
+      console.error("🚀 ~ supplier.controller.js: recalcAllPayables - Error:", error);
+      return errorResponse(res, error.message || "Lỗi server", 500);
     }
   },
 };
