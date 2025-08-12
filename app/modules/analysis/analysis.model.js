@@ -568,84 +568,89 @@ const AnalysisModel = {
     }
   },
 
-  async getFinanceManagementByPeriod({ type = "month", year, month }) {
-    // Xác định period và startDate
-    let period = type;
-    let startDate;
-    if (type === "month") {
-      startDate = year ? `${year}` : undefined;
-    } else if (type === "week") {
-      startDate = year ? `${year}` : undefined;
-    } else if (type === "day") {
-      if (year && month) {
-        startDate = `${year}-${String(month).padStart(2, "0")}`;
-      } else if (year) {
-        startDate = `${year}`;
-      }
-    }
-    // Xác định định dạng thời gian
-    let dateFormat = "%Y-%m";
-    if (type === "week") dateFormat = "%Y-W%v";
-    if (type === "day") dateFormat = "%Y-%m-%d";
-    // Doanh thu: hóa đơn bán hàng
+  async getFinanceManagementByPeriod(query) {
+    // 1. Xử lý ngày tháng
+    const { effectiveStartDate, effectiveEndDate } = processDateFilters(query);
+
+    // 2. Điều kiện riêng cho từng bảng
+    const orderDateConditionParts = [];
+    if (effectiveStartDate) orderDateConditionParts.push(`DATE(order_date) >= ${db.escape(effectiveStartDate)}`);
+    if (effectiveEndDate) orderDateConditionParts.push(`DATE(order_date) <= ${db.escape(effectiveEndDate)}`);
+    const orderDateCondition = orderDateConditionParts.length
+      ? " AND " + orderDateConditionParts.join(" AND ")
+      : "";
+
+    const returnDateConditionParts = [];
+    if (effectiveStartDate) returnDateConditionParts.push(`DATE(return_orders.created_at) >= ${db.escape(effectiveStartDate)}`);
+    if (effectiveEndDate) returnDateConditionParts.push(`DATE(return_orders.created_at) <= ${db.escape(effectiveEndDate)}`);
+    const returnDateCondition = returnDateConditionParts.length
+      ? " AND " + returnDateConditionParts.join(" AND ")
+      : "";
+
+    const purchaseDateConditionParts = [];
+    if (effectiveStartDate) purchaseDateConditionParts.push(`DATE(posted_at) >= ${db.escape(effectiveStartDate)}`);
+    if (effectiveEndDate) purchaseDateConditionParts.push(`DATE(posted_at) <= ${db.escape(effectiveEndDate)}`);
+    const purchaseDateCondition = purchaseDateConditionParts.length
+      ? " AND " + purchaseDateConditionParts.join(" AND ")
+      : "";
+
+    const transactionDateConditionParts = [];
+    if (effectiveStartDate) transactionDateConditionParts.push(`DATE(created_at) >= ${db.escape(effectiveStartDate)}`);
+    if (effectiveEndDate) transactionDateConditionParts.push(`DATE(created_at) <= ${db.escape(effectiveEndDate)}`);
+    const transactionDateCondition = transactionDateConditionParts.length
+      ? " AND " + transactionDateConditionParts.join(" AND ")
+      : "";
+
+    // 3. Query con
     const revenueQuery = `
-      SELECT DATE_FORMAT(order_date, '${dateFormat}') AS time_period, SUM(final_amount) AS revenue
+      SELECT DATE(order_date) AS time_period, SUM(final_amount) AS revenue
       FROM orders
-      WHERE order_status = 'Hoàn tất'
-        ${startDate ? `AND order_date >= '${startDate}-01'` : ""}
+      WHERE order_status = 'Hoàn tất'${orderDateCondition}
       GROUP BY time_period
       ORDER BY time_period
     `;
-    // Hoàn trả đơn hàng
+
     const refundOrderQuery = `
-      SELECT DATE_FORMAT(return_orders.created_at, '${dateFormat}') AS time_period, SUM(r.refund_amount) AS total_order_return
+      SELECT DATE(return_orders.created_at) AS time_period, SUM(roi.refund_amount) AS total_order_return
       FROM return_orders
-      JOIN return_order_items r ON return_orders.return_id = r.return_id
-      WHERE type = 'customer_return' AND status = 'completed'
-        ${startDate ? `AND return_orders.created_at >= '${startDate}-01'` : ""}
+      JOIN return_order_items roi ON return_orders.return_id = roi.return_id
+      WHERE type = 'customer_return' AND status = 'completed'${returnDateCondition}
       GROUP BY time_period
       ORDER BY time_period
     `;
-    // Chi tiêu: hóa đơn mua hàng
+
     const expenseQuery = `
-      SELECT DATE_FORMAT(posted_at, '${dateFormat}') AS time_period, SUM(total_amount) AS expense
+      SELECT DATE(posted_at) AS time_period, SUM(total_amount) AS expense
       FROM purchase_orders
-      WHERE status = 'posted'
-        ${startDate ? `AND posted_at >= '${startDate}-01'` : ""}
+      WHERE status = 'posted'${purchaseDateCondition}
       GROUP BY time_period
       ORDER BY time_period
     `;
 
-    // Hoàn trả đơn nhập hàng
     const refundPurchaseOrderQuery = `
-       SELECT DATE_FORMAT(return_orders.created_at, '${dateFormat}') AS time_period, SUM(r.refund_amount) AS total_purchase_return
+      SELECT DATE(return_orders.created_at) AS time_period, SUM(roi.refund_amount) AS total_purchase_return
       FROM return_orders
-      JOIN return_order_items r ON return_orders.return_id = r.return_id
-      WHERE type = 'supplier_return' AND status = 'approved'
-        ${startDate ? `AND return_orders.created_at >= '${startDate}-01'` : ""}
+      JOIN return_order_items roi ON return_orders.return_id = roi.return_id
+      WHERE type = 'supplier_return' AND status = 'approved'${returnDateCondition}
       GROUP BY time_period
       ORDER BY time_period
-      `;
+    `;
 
-    // Thu trong sổ quỹ
     const cashFlowRevenueQuery = `
-    SELECT DATE_FORMAT(created_at, '${dateFormat}') AS time_period, SUM(amount) AS cashFlowRevenue
-    FROM transactions
-    WHERE category = 'other_receipt'
-      ${startDate ? `AND created_at >= '${startDate}-01'` : ""}
-    GROUP BY time_period
-    ORDER BY time_period
-  `;
-
-    // Chi trong sổ quỹ
-    const cashFlowExpenseQuery = `
-    SELECT DATE_FORMAT(created_at, '${dateFormat}') AS time_period, SUM(amount) AS cashFlowExpense
-    FROM transactions
-    WHERE category = 'other_payment'
-      ${startDate ? `AND created_at >= '${startDate}-01'` : ""}
+      SELECT DATE(created_at) AS time_period, SUM(amount) AS cashFlowRevenue
+      FROM transactions
+      WHERE category = 'other_receipt'${transactionDateCondition}
       GROUP BY time_period
-    ORDER BY time_period
-  `;
+      ORDER BY time_period
+    `;
+
+    const cashFlowExpenseQuery = `
+      SELECT DATE(created_at) AS time_period, SUM(amount) AS cashFlowExpense
+      FROM transactions
+      WHERE category = 'other_payment'${transactionDateCondition}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
 
     // 3. Thực thi song song
     const [
@@ -663,7 +668,7 @@ const AnalysisModel = {
       db.promise().query(cashFlowRevenueQuery),
       db.promise().query(cashFlowExpenseQuery),
     ]);
-    // Merge theo time_period
+    // Merge theo time_period, format lại time_period về dạng YYYY-MM-DD
     const getDefaultRow = () => ({
       revenue: 0,
       expense: 0,
@@ -684,13 +689,27 @@ const AnalysisModel = {
 
     const merged = {};
 
+    const formatDate = (dateStr) => {
+      // Nếu đã đúng ISO thì trả về, nếu không thì cố gắng parse
+      if (!dateStr) return dateStr;
+      // Nếu đã là YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+      // Nếu là Date object
+      const d = new Date(dateStr);
+      if (!isNaN(d)) {
+        return d.toISOString().slice(0, 10);
+      }
+      return dateStr;
+    };
+
     datasets.forEach(({ data, key }) => {
       data.forEach((row) => {
-        if (!merged[row.time_period]) {
-          merged[row.time_period] = getDefaultRow();
+        const formattedTime = formatDate(row.time_period);
+        if (!merged[formattedTime]) {
+          merged[formattedTime] = getDefaultRow();
         }
-        merged[row.time_period] = {
-          ...merged[row.time_period],
+        merged[formattedTime] = {
+          ...merged[formattedTime],
           [key]: Number(row[key]) || 0,
         };
       });
