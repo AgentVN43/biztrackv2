@@ -99,31 +99,31 @@ const AnalysisService = {
     return { title, revenue, expense };
   },
 
-  async getTopCustomers(startDate, endDate, limit = 5) {
-    return await AnalysisModel.getTopCustomers(startDate, endDate, limit);
+  async getTopCustomers(query) {
+    return await AnalysisModel.getTopCustomers(query);
   },
 
-  async getTopSellingProducts({ startDate, endDate, limit = 10 }) {
+  async getTopSellingProducts(query) {
     try {
-      return await AnalysisModel.getTopSellingProducts({ startDate, endDate, limit });
+      return await AnalysisModel.getTopSellingProducts(query);
     } catch (error) {
       console.error("Lỗi ở Service khi lấy top sản phẩm bán chạy nhất:", error);
       throw error;
     }
   },
 
-  async getTopPurchasingSuppliers({ startDate, endDate, limit = 10 }) {
+  async getTopPurchasingSuppliers(query) {
     try {
-      return await AnalysisModel.getTopPurchasingSuppliers({ startDate, endDate, limit });
+      return await AnalysisModel.getTopPurchasingSuppliers(query);
     } catch (error) {
       console.error("Lỗi ở Service khi lấy top nhà cung cấp nhập hàng nhiều nhất:", error);
       throw error;
     }
   },
 
-  async getRevenueByCategory({ startDate, endDate }) {
+  async getRevenueByCategory(query) {
     try {
-      return await AnalysisModel.getRevenueByCategory({ startDate, endDate });
+      return await AnalysisModel.getRevenueByCategory(query);
     } catch (error) {
       console.error("Lỗi ở Service khi lấy doanh thu theo danh mục:", error);
       throw error;
