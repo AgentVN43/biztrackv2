@@ -166,10 +166,7 @@ const AnalysisController = {
 
   async getTopCustomers(req, res) {
     try {
-      const limit = parseInt(req.query.limit) || 5;
-      const startDate = req.query.startDate;
-      const endDate = req.query.endDate;
-      const data = await AnalysisService.getTopCustomers({ startDate, endDate, limit });
+      const data = await AnalysisService.getTopCustomers(req.query);
       return createResponse(res, 200, true, data, "Lấy top khách hàng mua nhiều nhất thành công");
     } catch (error) {
       console.error("Lỗi khi lấy top khách hàng mua nhiều nhất:", error);
@@ -179,10 +176,7 @@ const AnalysisController = {
 
   async getTopSellingProducts(req, res) {
     try {
-      const limit = parseInt(req.query.limit) || 10;
-      const startDate = req.query.startDate;
-      const endDate = req.query.endDate;
-      const data = await AnalysisService.getTopSellingProducts({ startDate, endDate, limit });
+      const data = await AnalysisService.getTopSellingProducts(req.query);
       return createResponse(res, 200, true, data, "Lấy top 10 sản phẩm bán chạy nhất thành công");
     } catch (error) {
       console.error("Lỗi khi lấy top 10 sản phẩm bán chạy nhất:", error);
@@ -192,10 +186,7 @@ const AnalysisController = {
 
   async getTopPurchasingSuppliers(req, res) {
     try {
-      const limit = parseInt(req.query.limit) || 10;
-      const startDate = req.query.startDate;
-      const endDate = req.query.endDate;
-      const data = await AnalysisService.getTopPurchasingSuppliers({ startDate, endDate, limit });
+      const data = await AnalysisService.getTopPurchasingSuppliers(req.query);
       return createResponse(res, 200, true, data, "Lấy top nhà cung cấp nhập hàng nhiều nhất thành công");
     } catch (error) {
       console.error("Lỗi khi lấy top nhà cung cấp nhập hàng nhiều nhất:", error);
@@ -207,7 +198,7 @@ const AnalysisController = {
     try {
       const startDate = req.query.startDate;
       const endDate = req.query.endDate;
-      const data = await AnalysisService.getRevenueByCategory({ startDate, endDate });
+      const data = await AnalysisService.getRevenueByCategory(req.query);
       return createResponse(res, 200, true, data, "Lấy doanh thu theo danh mục thành công");
     } catch (error) {
       console.error("Lỗi khi lấy doanh thu theo danh mục:", error);

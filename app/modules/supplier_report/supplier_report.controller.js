@@ -13,19 +13,27 @@ const SupplierReportController = {
   getSupplierTransactionLedger: async (req, res, next) => {
     const supplier_id = req.params.id;
     try {
-      const ledger = await SupplierReportService.getSupplierTransactionLedger(
-        supplier_id
+      const { page = 1, limit = 10 } = req.query;
+      const parsedPage = parseInt(page);
+      const parsedLimit = parseInt(limit);
+      const { ledger, total } = await SupplierReportService.getSupplierTransactionLedger(
+        supplier_id,
+        parsedPage,
+        parsedLimit
       );
-      
+
       // Trả về mảng rỗng thay vì 404 để tránh loop ở frontend
       createResponse(
         res,
         200,
         true,
         ledger || [],
-        ledger && ledger.length > 0 
+        ledger && ledger.length > 0
           ? "Sổ cái giao dịch của nhà cung cấp đã được tải thành công."
-          : "Không có dữ liệu giao dịch cho nhà cung cấp này."
+          : "Không có dữ liệu giao dịch cho nhà cung cấp này.",
+        total,
+        parsedPage,
+        parsedLimit
       );
     } catch (error) {
       console.error(
@@ -43,13 +51,23 @@ const SupplierReportController = {
   getSupplierOrderHistory: async (req, res, next) => {
     const supplier_id = req.params.id;
     try {
-      const orderHistory = await SupplierReportService.getSupplierOrderHistoryWithDetails(supplier_id);
+      const { page = 1, limit = 10 } = req.query;
+      const parsedPage = parseInt(page);
+      const parsedLimit = parseInt(limit);
+      const { orderHistory, total } = await SupplierReportService.getSupplierOrderHistoryWithDetails(
+        supplier_id,
+        parsedPage,
+        parsedLimit
+      );
       createResponse(
         res,
         200,
         true,
         orderHistory,
-        "Supplier order history retrieved successfully."
+        "Supplier order history retrieved successfully.",
+        total,
+        parsedPage,
+        parsedLimit
       );
     } catch (error) {
       console.error(
@@ -159,7 +177,7 @@ const SupplierReportController = {
 
       // 4. Lấy danh sách hóa đơn chưa thanh toán đủ
       const unpaidInvoices = await SupplierReportService.getUnpaidOrPartiallyPaidInvoices(supplier_id);
-      
+
       // 5. Tính remaining_payable và total_refund cho từng invoice
       const invoicesWithRemaining = await Promise.all(unpaidInvoices.map(async (invoice) => {
         // Tính refund cho từng invoice dựa trên supplier_id
@@ -174,7 +192,7 @@ const SupplierReportController = {
         `;
         const [refundRows] = await db.promise().query(refundSql, [supplier_id]);
         invoiceRefund = parseFloat(refundRows[0].total_refund || 0);
-        
+
         const remaining_payable = Math.max(0, parseFloat(invoice.amount_due) - invoiceRefund);
         return {
           ...invoice,
