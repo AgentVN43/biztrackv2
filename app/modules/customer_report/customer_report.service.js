@@ -273,7 +273,7 @@ const CustomerReportService = {
 
   /**
    * Tính toán tổng công nợ cần thu từ một khách hàng.
-   * Công nợ được tính bằng tổng các hóa đơn chưa thanh toán.
+   * Công nợ được tính bằng tổng các hóa đơn chưa thanh toán + công nợ đầu kỳ từ migration.
    *
    * @param {string} customer_id - ID của khách hàng.
    * @returns {Promise<number>} Promise giải quyết với tổng công nợ.
@@ -305,7 +305,17 @@ const CustomerReportService = {
       const [orderRows] = await db.promise().query(orderSql, [customer_id]);
       const orderDebt = parseFloat(orderRows[0].total_orders_debt || 0);
 
-      // 3. Lấy tổng số tiền đã trả hàng từ return_orders
+      // 3. ✅ Lấy tổng công nợ đầu kỳ từ transactions type 'adjustment' (migration từ hệ thống cũ)
+      const adjustmentSql = `
+        SELECT COALESCE(SUM(amount), 0) AS total_adjustment_debt
+        FROM transactions
+        WHERE customer_id = ?
+          AND type = 'adjustment'     
+      `;
+      const [adjustmentRows] = await db.promise().query(adjustmentSql, [customer_id]);
+      const adjustmentDebt = parseFloat(adjustmentRows[0].total_adjustment_debt || 0);
+
+      // 4. Lấy tổng số tiền đã trả hàng từ return_orders
       const returnSql = `
         SELECT DISTINCT ro.order_id
         FROM return_orders ro
@@ -320,15 +330,14 @@ const CustomerReportService = {
         }
       }
 
-      // Tổng công nợ = Công nợ invoices + Công nợ orders - Tổng tiền đã trả hàng
-      // Nếu totalRefund >= (invoiceDebt + orderDebt) thì totalReceivables = 0
-      const totalDebt = invoiceDebt + orderDebt;
-      const totalReceivables =
-        totalRefund >= totalDebt ? 0 : totalDebt - totalRefund;
+      // Tổng công nợ = Công nợ invoices + Công nợ orders + Công nợ adjustment - Tổng tiền đã trả hàng
+      const totalDebt = invoiceDebt + orderDebt + adjustmentDebt;
+      const totalReceivables = totalRefund >= totalDebt ? 0 : totalDebt - totalRefund;
 
       console.log(`🔍 getReceivables cho customer ${customer_id}:`);
       console.log(`  - Invoice debt: ${invoiceDebt}`);
       console.log(`  - Order debt: ${orderDebt}`);
+      console.log(`  - Adjustment debt (opening_balance): ${adjustmentDebt}`);
       console.log(`  - Total debt: ${totalDebt}`);
       console.log(`  - Total refund: ${totalRefund}`);
       console.log(`  - Total receivables: ${totalReceivables}`);
@@ -362,7 +371,17 @@ const CustomerReportService = {
       `;
       const [rows] = await db.promise().query(sql, [customer_id]);
 
-      // 2. Tính toán remaining_receivable cho từng hóa đơn (có trừ refund)
+      // 2. ✅ Lấy tổng công nợ đầu kỳ từ adjustment transactions
+      const adjustmentSql = `
+        SELECT COALESCE(SUM(amount), 0) AS total_adjustment_debt
+        FROM transactions
+        WHERE customer_id = ?
+          AND type = 'adjustment'
+      `;
+      const [adjustmentRows] = await db.promise().query(adjustmentSql, [customer_id]);
+      const totalAdjustmentDebt = parseFloat(adjustmentRows[0].total_adjustment_debt || 0);
+
+      // 3. Tính toán remaining_receivable cho từng hóa đơn (có trừ refund)
       const invoicesWithRefund = await Promise.all(
         rows.map(async (invoice) => {
           let totalRefundForInvoice = 0;
@@ -395,6 +414,25 @@ const CustomerReportService = {
           };
         })
       );
+
+      // 4. ✅ Thêm một "invoice ảo" để hiển thị công nợ đầu kỳ từ migration
+      if (totalAdjustmentDebt > 0) {
+        const adjustmentInvoice = {
+          invoice_id: 'MIGRATION_OPENING_BALANCE',
+          invoice_code: 'MIGRATION-OB',
+          invoice_type: 'opening_balance',
+          order_id: null,
+          final_amount: totalAdjustmentDebt,
+          amount_paid: 0,
+          status: 'pending',
+          issued_date: new Date(),
+          due_date: new Date(),
+          note: 'Công nợ đầu kỳ từ hệ thống cũ',
+          remaining_receivable: totalAdjustmentDebt,
+          total_refund: 0,
+        };
+        invoicesWithRefund.unshift(adjustmentInvoice); // Thêm vào đầu danh sách
+      }
 
       return invoicesWithRefund;
     } catch (error) {
@@ -545,7 +583,26 @@ const CustomerReportService = {
         transactions
       );
 
-      // 3.5. ✅ Lấy tất cả return_orders đã approved/completed
+      // 3.5. ✅ Lấy tất cả adjustment transactions (opening_balance từ migration)
+      const adjustmentSql = `
+        SELECT 
+          transaction_id,
+          transaction_code,
+          type,
+          amount,
+          description,
+          created_at
+        FROM transactions
+        WHERE customer_id = ?
+          AND type = 'adjustment'
+        ORDER BY created_at ASC
+      `;
+      const [adjustmentTransactions] = await db.promise().query(adjustmentSql, [customer_id]);
+
+      // 3.6. ✅ Lọc bỏ adjustment transactions khỏi transactions array để tránh duplicate
+      const nonAdjustmentTransactions = transactions.filter(tx => tx.type !== 'adjustment');
+
+      // 3.7. ✅ Lấy tất cả return_orders đã approved/completed
       const returnOrdersSql = `
         SELECT 
           ro.return_id,
@@ -679,8 +736,28 @@ const CustomerReportService = {
         }
       }
 
+      // ✅ Thêm các adjustment transactions (opening_balance từ migration) vào timeline
+      // Các transactions này sẽ được sắp xếp theo thời gian cùng với các transactions khác
+      adjustmentTransactions.forEach((transaction) => {
+        allTransactions.push({
+          transaction_code: transaction.transaction_code,
+          transaction_date: new Date(transaction.created_at),
+          type: transaction.type,
+          amount: parseFloat(transaction.amount),
+          description:
+            transaction.description ||
+            `Công nợ đầu kỳ: ${transaction.transaction_code}`,
+          order_id: null,
+          invoice_id: null,
+          transaction_id: transaction.transaction_id,
+          status: "completed",
+          payment_method: null,
+          is_manual_payment: false, // Không phải thanh toán manual, mà là công nợ đầu kỳ
+        });
+      });
+
       // Thêm các giao dịch thanh toán riêng lẻ (không liên quan đến đơn hàng cụ thể)
-      transactions.forEach((transaction) => {
+      nonAdjustmentTransactions.forEach((transaction) => {
         // Kiểm tra xem giao dịch này có liên quan đến order nào không
         let isRelatedToOrder = false;
         let isCancelled = false;
@@ -778,7 +855,7 @@ const CustomerReportService = {
       reversedTransactions.forEach((transaction, index) => {
         if (
           transaction.type === "pending" ||
-          transaction.type === "adjustment"
+          transaction.type === "adjustment" // ✅ adjustment tăng công nợ (giống pending)
         ) {
           runningBalance += transaction.amount;
         } else if (
