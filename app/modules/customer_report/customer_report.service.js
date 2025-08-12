@@ -844,47 +844,49 @@ const CustomerReportService = {
       let runningBalance = 0;
       const calculatedBalances = [];
 
-      // Tính dư nợ từ cũ đến mới
-      // reversedTransactions.forEach((transaction, index) => {
-      //   if (transaction.type === 'pending') {
-      //     runningBalance += transaction.amount;
-      //   } else if (transaction.type === 'partial_paid' || transaction.type === 'payment' || transaction.type === 'receipt') {
-      //     runningBalance -= transaction.amount;
-      //   } else if (transaction.type === 'return') {
-      //     runningBalance -= transaction.amount;
-      //   } else {
-      //     // Log các type lạ để debug
-      //     console.warn('⚠️ Transaction type lạ:', transaction.type, transaction);
-      //   }
-      //   calculatedBalances.push(runningBalance);
-      // });
-      reversedTransactions.forEach((transaction, index) => {
-        if (
-          transaction.type === "pending" ||
-          transaction.type === "adjustment" // ✅ adjustment tăng công nợ (giống pending)
-        ) {
-          runningBalance += transaction.amount;
-        } else if (
-          transaction.type === "partial_paid" ||
-          transaction.type === "payment" ||
-          transaction.type === "receipt" ||
-          transaction.type === "return" ||
-          transaction.type === "transfer"
-        ) {
-          // Nếu đang dư nợ âm (doanh nghiệp nợ khách), thì cộng vào để giảm nợ
-          if (runningBalance < 0) {
-            runningBalance += transaction.amount;
-          } else {
-            runningBalance -= transaction.amount;
-          }
+      // Chuẩn hóa mapping kiểu giao dịch -> hướng tác động công nợ
+      const INCREASE_TYPES = new Set([
+        "pending",
+        "sale_invoice",
+        "debit_note",
+        "adj_increase" // điều chỉnh tăng
+      ]);
+
+      const DECREASE_TYPES = new Set([
+        "receipt",
+        "partial_paid",
+        "advance_payment",
+        "payment",
+        "refund",
+        "return",
+        "credit_note",
+        "transfer",
+        "refund_invoice",
+        "adj_decrease" // điều chỉnh giảm
+      ]);
+
+      // Các loại sử dụng trực tiếp dấu của amount (âm/dương)
+      const SIGNED_TYPES = new Set([
+        "adjustment",
+        "opening_balance",
+        "adj_migration" // điều chỉnh công nợ từ hệ thống cũ
+      ]);
+
+      reversedTransactions.forEach((transaction) => {
+        const amount = Number(transaction.amount) || 0;
+        const type = transaction.type;
+
+        if (INCREASE_TYPES.has(type)) {
+          runningBalance += amount;
+        } else if (DECREASE_TYPES.has(type)) {
+          runningBalance -= amount;
+        } else if (SIGNED_TYPES.has(type)) {
+          runningBalance += amount; // amount có thể âm/dương
         } else {
-          // Log các type lạ để debug
-          console.warn(
-            "⚠️ Transaction type lạ:",
-            transaction.type,
-            transaction
-          );
+          console.warn("⚠️ Transaction type lạ:", type, transaction);
+          runningBalance += amount; // fallback
         }
+
         calculatedBalances.push(runningBalance);
       });
 
