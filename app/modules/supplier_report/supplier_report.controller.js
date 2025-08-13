@@ -90,7 +90,7 @@ const SupplierReportController = {
         return res.status(400).json({ success: false, message: "amount và type là bắt buộc" });
       }
       // type: 'receipt' (phiếu thu), 'payment' (phiếu chi)
-      const transaction = await TransactionModel.createTransaction({
+      const transaction = await TransactionService.createTransaction({
         transaction_code: `TXN-${Date.now()}`,
         type,
         amount,

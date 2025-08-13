@@ -313,16 +313,69 @@ exports.updateDebt = async (customer_id, amount, increase = true) => {
   // amount: số tiền tăng/giảm
   // increase: true => tăng, false => giảm
   try {
+    // Cách 1: Update trực tiếp (cũ)
+    // const [result] = await db.query(
+    //   `UPDATE customers SET debt = debt ${
+    //     increase ? "+" : "-"
+    //   } ? WHERE customer_id = ?`,
+    //   [amount, customer_id]
+    // );
+    // return result.affectedRows;
+
+    // ✅ Cách 2: Tính lại toàn bộ debt để đảm bảo đồng bộ
+    console.log(`🔄 updateDebt: Đang đồng bộ debt cho customer ${customer_id}`);
+    
+    // Tính lại debt chính xác
+    const calculatedDebt = await exports.calculateDebt(customer_id);
+    
+    // Update trường debt trong database
     const [result] = await db.query(
-      `UPDATE customers SET debt = debt ${
-        increase ? "+" : "-"
-      } ? WHERE customer_id = ?`,
-      [amount, customer_id]
+      `UPDATE customers SET debt = ? WHERE customer_id = ?`,
+      [calculatedDebt, customer_id]
     );
+    
+    console.log(`✅ updateDebt: Đã đồng bộ debt từ ${calculatedDebt} cho customer ${customer_id}`);
+    
     return result.affectedRows;
   } catch (err) {
-    console.error("Lỗi khi cập nhật debt cho khách hàng:", err.message);
+    console.error("🚀 ~ customer.model.js: updateDebt - Lỗi:", err);
     throw err;
+  }
+};
+
+// ✅ Hàm mới: Đồng bộ debt cho tất cả customers
+exports.syncAllDebts = async () => {
+  try {
+    console.log("🔄 Bắt đầu đồng bộ debt cho tất cả customers...");
+    
+    // Lấy tất cả customer IDs
+    const [customers] = await db.query("SELECT customer_id FROM customers");
+    
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const customer of customers) {
+      try {
+        const calculatedDebt = await exports.calculateDebt(customer.customer_id);
+        
+        await db.query(
+          `UPDATE customers SET debt = ? WHERE customer_id = ?`,
+          [calculatedDebt, customer.customer_id]
+        );
+        
+        successCount++;
+        console.log(`✅ Đã đồng bộ debt cho customer ${customer.customer_id}: ${calculatedDebt}`);
+      } catch (error) {
+        errorCount++;
+        console.error(`❌ Lỗi khi đồng bộ debt cho customer ${customer.customer_id}:`, error.message);
+      }
+    }
+    
+    console.log(`🎯 Kết quả đồng bộ: ${successCount} thành công, ${errorCount} lỗi`);
+    return { successCount, errorCount };
+  } catch (error) {
+    console.error("🚀 ~ customer.model.js: syncAllDebts - Lỗi:", error);
+    throw error;
   }
 };
 
@@ -460,13 +513,34 @@ exports.calculateDebt = async (customer_id) => {
       console.log(`  - Description: ${adjustment.description}`);
     }
 
-    // ✅ TÍNH TỔNG DEBT từ: invoices + orders + adjustments - returns
-    const totalDebt = totalInvoiceDebt + totalOrderDebt + totalAdjustmentDebt - totalReturnRefund;
+    // 8. ✅ Lấy tổng điều chỉnh tăng (adj_increase) và điều chỉnh giảm (adj_decrease)
+    const adjIncreaseSql = `
+      SELECT COALESCE(SUM(amount), 0) AS total_adj_increase
+      FROM transactions
+      WHERE customer_id = ?
+        AND type = 'adj_increase'
+    `;
+    const [adjIncreaseRows] = await db.query(adjIncreaseSql, [customer_id]);
+    const adjIncreaseDebt = parseFloat(adjIncreaseRows[0].total_adj_increase || 0);
+
+    const adjDecreaseSql = `
+      SELECT COALESCE(SUM(amount), 0) AS total_adj_decrease
+      FROM transactions
+      WHERE customer_id = ?
+        AND type = 'adj_decrease'
+    `;
+    const [adjDecreaseRows] = await db.query(adjDecreaseSql, [customer_id]);
+    const adjDecreaseDebt = parseFloat(adjDecreaseRows[0].total_adj_decrease || 0);
+
+    // ✅ TÍNH TỔNG DEBT từ: invoices + orders + adjustments + adj_increase - adj_decrease - returns
+    const totalDebt = totalInvoiceDebt + totalOrderDebt + totalAdjustmentDebt + adjIncreaseDebt - adjDecreaseDebt - totalReturnRefund;
 
     console.log(`🔍 Kết quả tính debt cho customer ${customer_id}:`);
     console.log(`  - Total invoice debt: ${totalInvoiceDebt}`);
     console.log(`  - Total order debt: ${totalOrderDebt}`);
     console.log(`  - Total adjustment debt (bao gồm opening_balance): ${totalAdjustmentDebt}`);
+    console.log(`  - Adjustment increase (adj_increase): ${adjIncreaseDebt}`);
+    console.log(`  - Adjustment decrease (adj_decrease): ${adjDecreaseDebt}`);
     console.log(`  - Total customer returns refund: ${totalReturnRefund}`);
     console.log(`  - Final total debt: ${totalDebt} (có thể âm)`);
 

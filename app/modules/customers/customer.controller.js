@@ -273,3 +273,82 @@ exports.calculateDebt = async (req, res) => {
     return errorResponse(res, error.message || 'Lỗi tính debt', 500);
   }
 };
+
+const CustomerController = {
+  /**
+   * Đồng bộ debt cho tất cả customers
+   * @param {Object} req - Express request object.
+   * @param {Object} res - Express response object.
+   * @param {Function} next - Express next middleware function.
+   */
+  syncAllDebts: async (req, res, next) => {
+    try {
+      console.log("🔄 CustomerController: Bắt đầu đồng bộ debt cho tất cả customers...");
+      
+      const CustomerModel = require('./customer.model');
+      const result = await CustomerModel.syncAllDebts();
+      
+      createResponse(
+        res,
+        200,
+        true,
+        result,
+        `Đã đồng bộ debt thành công cho ${result.successCount} customers. ${result.errorCount > 0 ? `${result.errorCount} customers có lỗi.` : ''}`
+      );
+    } catch (error) {
+      console.error(
+        "🚀 ~ customer.controller.js: syncAllDebts - Error:",
+        error
+      );
+      next(error);
+    }
+  },
+
+  /**
+   * Đồng bộ debt cho một customer cụ thể
+   * @param {Object} req - Express request object.
+   * @param {Object} res - Express response object.
+   * @param {Function} next - Express next middleware function.
+   */
+  syncCustomerDebt: async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      console.log(`🔄 CustomerController: Đang đồng bộ debt cho customer ${id}...`);
+      
+      const CustomerModel = require('./customer.model');
+      // Gọi updateDebt để trigger tính toán lại và đồng bộ
+      const result = await CustomerModel.updateDebt(id, 0, true);
+      
+      if (result > 0) {
+        // Lấy thông tin customer sau khi update
+        const updatedCustomer = await CustomerModel.getById(id);
+        
+        createResponse(
+          res,
+          200,
+          true,
+          {
+            customer_id: id,
+            current_debt: updatedCustomer.debt,
+            sync_status: "success"
+          },
+          `Đã đồng bộ debt thành công cho customer ${id}. Debt hiện tại: ${updatedCustomer.debt}`
+        );
+      } else {
+        createResponse(
+          res,
+          404,
+          false,
+          null,
+          `Không tìm thấy customer với ID: ${id}`
+        );
+      }
+    } catch (error) {
+      console.error(
+        "🚀 ~ customer.controller.js: syncCustomerDebt - Error:",
+        error
+      );
+      next(error);
+    }
+  }
+};
