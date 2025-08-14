@@ -572,7 +572,25 @@ const AnalysisModel = {
     // 1. Xử lý ngày tháng
     const { effectiveStartDate, effectiveEndDate } = processDateFilters(query);
 
-    // 2. Điều kiện riêng cho từng bảng
+    // 2. Xác định loại nhóm thời gian (ngày/tháng/năm)
+    let timeGroupFormat = 'DATE'; // Mặc định nhóm theo ngày
+    let timePeriodFormat = 'YYYY-MM-DD'; // Mặc định format ngày
+    
+    if (query.year && !query.month && !query.day) {
+      // Nếu chỉ có năm, nhóm theo tháng
+      timeGroupFormat = 'YEAR_MONTH';
+      timePeriodFormat = 'YYYY-MM';
+    } else if (query.year && query.month && !query.day) {
+      // Nếu có năm và tháng, nhóm theo ngày
+      timeGroupFormat = 'DATE';
+      timePeriodFormat = 'YYYY-MM-DD';
+    } else if (query.year && query.month && query.day) {
+      // Nếu có đầy đủ ngày tháng năm, nhóm theo ngày
+      timeGroupFormat = 'DATE';
+      timePeriodFormat = 'YYYY-MM-DD';
+    }
+
+    // 3. Điều kiện riêng cho từng bảng
     const orderDateConditionParts = [];
     if (effectiveStartDate) orderDateConditionParts.push(`DATE(order_date) >= ${db.escape(effectiveStartDate)}`);
     if (effectiveEndDate) orderDateConditionParts.push(`DATE(order_date) <= ${db.escape(effectiveEndDate)}`);
@@ -601,9 +619,16 @@ const AnalysisModel = {
       ? " AND " + transactionDateConditionParts.join(" AND ")
       : "";
 
-    // 3. Query con
+    // 4. Query con với nhóm thời gian động
+    const getTimeGroupClause = (dateColumn) => {
+      if (timeGroupFormat === 'YEAR_MONTH') {
+        return `DATE_FORMAT(${dateColumn}, '%Y-%m')`;
+      }
+      return `DATE(${dateColumn})`;
+    };
+
     const revenueQuery = `
-      SELECT DATE(order_date) AS time_period, SUM(final_amount) AS revenue
+      SELECT ${getTimeGroupClause('order_date')} AS time_period, SUM(final_amount) AS revenue
       FROM orders
       WHERE order_status = 'Hoàn tất'${orderDateCondition}
       GROUP BY time_period
@@ -611,7 +636,7 @@ const AnalysisModel = {
     `;
 
     const refundOrderQuery = `
-      SELECT DATE(return_orders.created_at) AS time_period, SUM(roi.refund_amount) AS total_order_return
+      SELECT ${getTimeGroupClause('return_orders.created_at')} AS time_period, SUM(roi.refund_amount) AS total_order_return
       FROM return_orders
       JOIN return_order_items roi ON return_orders.return_id = roi.return_id
       WHERE type = 'customer_return' AND status = 'completed'${returnDateCondition}
@@ -620,7 +645,7 @@ const AnalysisModel = {
     `;
 
     const expenseQuery = `
-      SELECT DATE(posted_at) AS time_period, SUM(total_amount) AS expense
+      SELECT ${getTimeGroupClause('posted_at')} AS time_period, SUM(total_amount) AS expense
       FROM purchase_orders
       WHERE status = 'posted'${purchaseDateCondition}
       GROUP BY time_period
@@ -628,7 +653,7 @@ const AnalysisModel = {
     `;
 
     const refundPurchaseOrderQuery = `
-      SELECT DATE(return_orders.created_at) AS time_period, SUM(roi.refund_amount) AS total_purchase_return
+      SELECT ${getTimeGroupClause('return_orders.created_at')} AS time_period, SUM(roi.refund_amount) AS total_purchase_return
       FROM return_orders
       JOIN return_order_items roi ON return_orders.return_id = roi.return_id
       WHERE type = 'supplier_return' AND status = 'approved'${returnDateCondition}
@@ -637,7 +662,7 @@ const AnalysisModel = {
     `;
 
     const cashFlowRevenueQuery = `
-      SELECT DATE(created_at) AS time_period, SUM(amount) AS cashFlowRevenue
+      SELECT ${getTimeGroupClause('created_at')} AS time_period, SUM(amount) AS cashFlowRevenue
       FROM transactions
       WHERE category = 'other_receipt'${transactionDateCondition}
       GROUP BY time_period
@@ -645,7 +670,7 @@ const AnalysisModel = {
     `;
 
     const cashFlowExpenseQuery = `
-      SELECT DATE(created_at) AS time_period, SUM(amount) AS cashFlowExpense
+      SELECT ${getTimeGroupClause('created_at')} AS time_period, SUM(amount) AS cashFlowExpense
       FROM transactions
       WHERE category = 'other_payment'${transactionDateCondition}
       GROUP BY time_period
@@ -668,7 +693,7 @@ const AnalysisModel = {
       db.promise().query(cashFlowRevenueQuery),
       db.promise().query(cashFlowExpenseQuery),
     ]);
-    // Merge theo time_period, format lại time_period về dạng YYYY-MM-DD
+    // Merge theo time_period, format lại time_period theo loại nhóm thời gian
     const getDefaultRow = () => ({
       revenue: 0,
       expense: 0,
@@ -689,22 +714,32 @@ const AnalysisModel = {
 
     const merged = {};
 
-    const formatDate = (dateStr) => {
-      // Nếu đã đúng ISO thì trả về, nếu không thì cố gắng parse
-      if (!dateStr) return dateStr;
-      // Nếu đã là YYYY-MM-DD
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-      // Nếu là Date object
-      const d = new Date(dateStr);
+    const formatTimePeriod = (timeStr) => {
+      if (!timeStr) return timeStr;
+      
+      // Nếu đã là YYYY-MM (nhóm theo tháng)
+      if (/^\d{4}-\d{2}$/.test(timeStr)) return timeStr;
+      
+      // Nếu đã là YYYY-MM-DD (nhóm theo ngày)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(timeStr)) return timeStr;
+      
+      // Nếu là Date object hoặc string khác, cố gắng parse
+      const d = new Date(timeStr);
       if (!isNaN(d)) {
-        return d.toISOString().slice(0, 10);
+        if (timeGroupFormat === 'YEAR_MONTH') {
+          // Format theo local time để tránh vấn đề timezone
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        } else {
+          // Format theo local time để tránh vấn đề timezone
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
       }
-      return dateStr;
+      return timeStr;
     };
 
     datasets.forEach(({ data, key }) => {
       data.forEach((row) => {
-        const formattedTime = formatDate(row.time_period);
+        const formattedTime = formatTimePeriod(row.time_period);
         if (!merged[formattedTime]) {
           merged[formattedTime] = getDefaultRow();
         }
