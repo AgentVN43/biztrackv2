@@ -1,5 +1,6 @@
 const ImportUtils = require('../utils/importUtils');
 const db = require('../config/db.config');
+const TransactionService = require('../modules/transactions/transaction.service');
 
 /**
  * Generic Import Service - Hỗ trợ import cho tất cả entity types
@@ -105,7 +106,6 @@ class ImportService {
 
       // Sau khi insert customers, tạo transaction opening_balance nếu có debt
       if (entityType === 'customers' && !validateOnly && insertedCustomers.length > 0) {
-        const TransactionModel = require('../modules/transactions/transaction.model');
         for (const customer of insertedCustomers) {
           const debt = Number(customer.debt || 0);
           if (debt !== 0) {
@@ -114,8 +114,7 @@ class ImportService {
               type: 'adjustment',
               amount: debt,
               customer_id: customer.customer_id,
-              description: 'Công nợ đầu kỳ khi chuyển hệ thống',
-              created_at: new Date()
+              description: 'Công nợ đầu kỳ khi chuyển hệ thống'
             });
           }
         }
@@ -222,7 +221,6 @@ class ImportService {
 
     try {
       const [result] = await db.promise().query(query, values);
-const TransactionService = require('../transactions/transaction.service');
       return result.affectedRows;
     } catch (error) {
       //console.error(`Bulk insert error for ${entityType}:`, error);
