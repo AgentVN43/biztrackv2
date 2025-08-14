@@ -14,7 +14,7 @@
 //   //       // Truyền callback vào đây
 //   //       if (paymentErr) {
 //   //         // Xử lý lỗi khi tạo phiếu chi
-//   //         console.error("Error creating payment:", paymentErr);
+//   //         //console.error("Error creating payment:", paymentErr);
 //   //         // *Quan trọng*:  Bạn CẦN gọi res.status và res.json ở ĐÂY để kết thúc request
 //   //         res.status(201).json({
 //   //           // Hoặc 500, tùy logic
@@ -40,7 +40,7 @@
 //       result.total_amount || 0,
 //       (paymentErr, payment) => {
 //         if (paymentErr) {
-//           console.error("Error creating payment:", paymentErr);
+//           //console.error("Error creating payment:", paymentErr);
 
 //           // Có thể chọn không dừng flow mà vẫn trả về PO + báo lỗi ở payment
 //           return res.status(201).json({
@@ -66,7 +66,7 @@
 //           transactionData,
 //           (transactionErr, transaction) => {
 //             if (transactionErr) {
-//               console.error(
+//               //console.error(
 //                 "Lỗi khi tạo transaction từ payment:",
 //                 transactionErr.message
 //               );
@@ -233,7 +233,7 @@ exports.postOrder = async (req, res, next) => {
       message: "Purchase order confirmed successfully. Invoice created. Transaction will be created only when payment is made."
     });
   } catch (err) {
-    console.error("🚀 ~ purchaseOrder.controller.js: postOrder - Lỗi:", err);
+    //console.error("🚀 ~ purchaseOrder.controller.js: postOrder - Lỗi:", err);
     next(err);
   }
 };

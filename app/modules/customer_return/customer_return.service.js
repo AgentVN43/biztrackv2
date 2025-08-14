@@ -42,9 +42,9 @@ const CustomerReturnService = {
       }
 
       // Tạo chi tiết trả hàng, tự động tính refund_amount dựa trên order gốc, KHÔNG lấy từ request body
-      console.log(
-        "⚠️ Lưu ý: refund_amount từ Frontend sẽ bị ignore, Backend sẽ tự tính lại!"
-      );
+      // //console.log(
+      //   "⚠️ Lưu ý: refund_amount từ Frontend sẽ bị ignore, Backend sẽ tự tính lại!"
+      // );
 
       const detailsResults = await Promise.all(
         returnDetails.map(async (detail) => {
@@ -61,18 +61,18 @@ const CustomerReturnService = {
 
           // Log để debug
           if (detail.refund_amount && detail.refund_amount !== refund_amount) {
-            console.log(
-              `🔄 Ignore refund_amount từ Frontend cho ${detail.product_id}:`
-            );
-            console.log(
-              `  - Frontend gửi: ${detail.refund_amount.toLocaleString()}`
-            );
-            console.log(`  - Backend tính: ${refund_amount.toLocaleString()}`);
-            console.log(
-              `  - Chênh lệch: ${(
-                detail.refund_amount - refund_amount
-              ).toLocaleString()}`
-            );
+            // //console.log(
+            //   `🔄 Ignore refund_amount từ Frontend cho ${detail.product_id}:`
+            // );
+            //console.log(
+            //   `  - Frontend gửi: ${detail.refund_amount.toLocaleString()}`
+            // );
+            //console.log(`  - Backend tính: ${refund_amount.toLocaleString()}`);
+            //console.log(
+            //   `  - Chênh lệch: ${(
+            //     detail.refund_amount - refund_amount
+            //   ).toLocaleString()}`
+            // );
           }
 
           return {
@@ -134,20 +134,20 @@ const CustomerReturnService = {
         allocated_order_discount =
           Math.round(allocated_order_discount * 100) / 100;
 
-        console.log(`📊 Phân bổ discount cho return:`);
-        console.log(
-          `  - Tổng giá trị đơn hàng: ${total_order_gross.toLocaleString()}`
-        );
-        console.log(
-          `  - Tổng giá trị hàng trả: ${total_return_gross.toLocaleString()}`
-        );
-        console.log(`  - Tỷ lệ: ${(return_ratio * 100).toFixed(2)}%`);
-        console.log(
-          `  - Order discount: ${order_level_discount.toLocaleString()}`
-        );
-        console.log(
-          `  - Discount được phân bổ: ${allocated_order_discount.toLocaleString()}`
-        );
+        //console.log(`📊 Phân bổ discount cho return:`);
+        //console.log(
+        //   `  - Tổng giá trị đơn hàng: ${total_order_gross.toLocaleString()}`
+        // );
+        //console.log(
+        //   `  - Tổng giá trị hàng trả: ${total_return_gross.toLocaleString()}`
+        // );
+        //console.log(`  - Tỷ lệ: ${(return_ratio * 100).toFixed(2)}%`);
+        //console.log(
+        //   `  - Order discount: ${order_level_discount.toLocaleString()}`
+        // );
+        //console.log(
+        //   `  - Discount được phân bổ: ${allocated_order_discount.toLocaleString()}`
+        // );
       }
 
       // Tổng hoàn trả thực tế cho lần này (làm tròn 2 chữ số)
@@ -237,19 +237,19 @@ const CustomerReturnService = {
         // Làm tròn xuống 2 chữ số thập phân
         total_refund_final = Math.floor(total_refund_final * 100) / 100;
 
-        console.log(`🎯 Lần trả cuối cùng:`);
-        console.log(
-          `  - Tổng refund trước đó: ${total_refund_before.toLocaleString()}`
-        );
-        console.log(`  - Final amount: ${final_amount.toLocaleString()}`);
-        console.log(
-          `  - Refund lần này: ${total_refund_final.toLocaleString()}`
-        );
-        console.log(
-          `  - Tổng refund sau lần này: ${(
-            total_refund_before + total_refund_final
-          ).toLocaleString()}`
-        );
+        //console.log(`🎯 Lần trả cuối cùng:`);
+        //console.log(
+        //   `  - Tổng refund trước đó: ${total_refund_before.toLocaleString()}`
+        // );
+        //console.log(`  - Final amount: ${final_amount.toLocaleString()}`);
+        //console.log(
+        //   `  - Refund lần này: ${total_refund_final.toLocaleString()}`
+        // );
+        //console.log(
+        //   `  - Tổng refund sau lần này: ${(
+        //     total_refund_before + total_refund_final
+        //   ).toLocaleString()}`
+        // );
 
         // Phân bổ lại refund_amount cho từng item theo tỷ lệ giá trị (sau discount sản phẩm)
         // Sử dụng logic đơn giản như calculateRefund để tránh sai số làm tròn
@@ -280,13 +280,13 @@ const CustomerReturnService = {
             sumAllocated += item_refund;
           }
 
-          console.log(
-            `📋 Phân bổ lại refund_amount cho từng item (logic chuẩn):`
-          );
+          //console.log(
+          //   `📋 Phân bổ lại refund_amount cho từng item (logic chuẩn):`
+          // );
           detailsResults.forEach((d, index) => {
-            console.log(
-              `  - Item ${index + 1}: ${d.refund_amount.toLocaleString()}`
-            );
+            //console.log(
+            //   `  - Item ${index + 1}: ${d.refund_amount.toLocaleString()}`
+            // );
           });
         }
       } else {
@@ -321,13 +321,13 @@ const CustomerReturnService = {
             sumAllocated += item_refund;
           }
 
-          console.log(
-            `📋 Phân bổ refund_amount cho từng item (lần trả thường):`
-          );
+          //console.log(
+          //   `📋 Phân bổ refund_amount cho từng item (lần trả thường):`
+          // );
           detailsResults.forEach((d, index) => {
-            console.log(
-              `  - Item ${index + 1}: ${d.refund_amount.toLocaleString()}`
-            );
+            //console.log(
+            //   `  - Item ${index + 1}: ${d.refund_amount.toLocaleString()}`
+            // );
           });
         }
       }
@@ -476,7 +476,7 @@ const CustomerReturnService = {
             initiated_by: processed_by,
           });
 
-          console.log(`✅ Đã ghi nhận sự kiện trả hàng cho sản phẩm ${detail.product_id}, tồn kho sau: ${current_stock_after}`);
+          //console.log(`✅ Đã ghi nhận sự kiện trả hàng cho sản phẩm ${detail.product_id}, tồn kho sau: ${current_stock_after}`);
         }
       }
 
@@ -537,11 +537,11 @@ const CustomerReturnService = {
         allocated_order_discount =
           Math.round(allocated_order_discount * 100) / 100;
 
-        console.log(`📊 ProcessReturn - Phân bổ discount:`);
-        console.log(`  - Tỷ lệ: ${(return_ratio * 100).toFixed(2)}%`);
-        console.log(
-          `  - Discount được phân bổ: ${allocated_order_discount.toLocaleString()}`
-        );
+        //console.log(`📊 ProcessReturn - Phân bổ discount:`);
+        //console.log(`  - Tỷ lệ: ${(return_ratio * 100).toFixed(2)}%`);
+        // //console.log(
+        //   `  - Discount được phân bổ: ${allocated_order_discount.toLocaleString()}`
+        // );
       }
 
       // Tổng hoàn trả thực tế (làm tròn 2 chữ số)
@@ -572,24 +572,24 @@ const CustomerReturnService = {
       // ✅ LUÔN cập nhật debt của khách hàng sau khi process return_order
       // (dù có hoàn tiền hay không, vì có thể ảnh hưởng đến công nợ từ các đơn hàng liên quan)
       try {
-        console.log(
-          `🔄 Đang cập nhật debt cho customer_id: ${returnInfo.customer_id}`
-        );
+        //console.log(
+        //   `🔄 Đang cập nhật debt cho customer_id: ${returnInfo.customer_id}`
+        // );
         const newDebt = await CustomerModel.calculateDebt(
           returnInfo.customer_id
         );
-        console.log(`📊 Debt mới được tính: ${newDebt}`);
+        //console.log(`📊 Debt mới được tính: ${newDebt}`);
         await CustomerModel.update(returnInfo.customer_id, { debt: newDebt });
-        console.log(
-          `✅ Đã cập nhật debt thành công cho customer_id: ${returnInfo.customer_id}`
-        );
+        //console.log(
+        //   `✅ Đã cập nhật debt thành công cho customer_id: ${returnInfo.customer_id}`
+        // );
 
         // Log thêm thông tin về debt âm nếu có
         if (newDebt < 0) {
-          console.log(`💰 Khách hàng có debt âm (${newDebt}), cần hoàn tiền!`);
+          //console.log(`💰 Khách hàng có debt âm (${newDebt}), cần hoàn tiền!`);
         }
       } catch (debtError) {
-        console.error(`❌ Lỗi khi cập nhật debt:`, debtError);
+        //console.error(`❌ Lỗi khi cập nhật debt:`, debtError);
         // Không throw error để không ảnh hưởng đến việc process return_order
       }
 
@@ -610,8 +610,8 @@ const CustomerReturnService = {
           customerOverview.total_expenditure || 0
         );
 
-        console.log(`📊 Total orders mới: ${newTotalOrders}`);
-        console.log(`📊 Total expenditure mới: ${newTotalExpenditure}`);
+        //console.log(`📊 Total orders mới: ${newTotalOrders}`);
+        //console.log(`📊 Total expenditure mới: ${newTotalExpenditure}`);
 
         // Cập nhật customer với thông tin mới
         await CustomerModel.update(returnInfo.customer_id, {
@@ -633,9 +633,9 @@ const CustomerReturnService = {
       // ✅ Cập nhật status invoice sau khi process return (để đảm bảo tính toán chính xác)
       try {
         if (returnInfo.order_id) {
-          console.log(
-            `🔍 ProcessReturn - Updating invoice status for order ${returnInfo.order_id}`
-          );
+          // console.log(
+          //   `🔍 ProcessReturn - Updating invoice status for order ${returnInfo.order_id}`
+          // );
 
           // Tìm invoice liên quan và cập nhật status với refund
           const invoice = await InvoiceModel.findByOrderId(returnInfo.order_id);
@@ -650,7 +650,7 @@ const CustomerReturnService = {
           }
         }
       } catch (invoiceError) {
-        console.error(`❌ Lỗi khi cập nhật status invoice:`, invoiceError);
+        //console.error(`❌ Lỗi khi cập nhật status invoice:`, invoiceError);
         // Không throw error để không ảnh hưởng đến việc process return_order
       }
 
@@ -721,10 +721,10 @@ const CustomerReturnService = {
               initiated_by: null
             });
           }
-          console.log(`✅ Đã ghi nhận sự kiện từ chối đơn trả hàng ${return_id}`);
+          //console.log(`✅ Đã ghi nhận sự kiện từ chối đơn trả hàng ${return_id}`);
         }
       } catch (eventError) {
-        console.error('❌ Lỗi ghi nhận sự kiện từ chối đơn trả hàng:', eventError);
+        //console.error('❌ Lỗi ghi nhận sự kiện từ chối đơn trả hàng:', eventError);
         // Không throw error để không ảnh hưởng đến việc reject return
       }
 
@@ -787,10 +787,10 @@ const CustomerReturnService = {
             //   initiated_by: null
             // });
           }
-          console.log(`✅ Đã ghi nhận sự kiện phê duyệt đơn trả hàng ${return_id}`);
+          //console.log(`✅ Đã ghi nhận sự kiện phê duyệt đơn trả hàng ${return_id}`);
         }
       } catch (eventError) {
-        console.error('❌ Lỗi ghi nhận sự kiện phê duyệt đơn trả hàng:', eventError);
+        //console.error('❌ Lỗi ghi nhận sự kiện phê duyệt đơn trả hàng:', eventError);
         // Không throw error để không ảnh hưởng đến việc approve return
       }
 
@@ -799,7 +799,7 @@ const CustomerReturnService = {
       // await InvoiceModel.updateStatus(invoice.invoice_id, "partial_paid"); // hoặc "paid", tùy logic
 
       const invoice = await InvoiceModel.findByOrderId(returnInfo.order_id);
-      console.log("🚀 ~ approveReturn: ~ invoice:", invoice);
+      //console.log("🚀 ~ approveReturn: ~ invoice:", invoice);
 
       let returnDetails = await CustomerReturn.getReturnDetails(return_id);
       if (!Array.isArray(returnDetails)) returnDetails = [];
@@ -819,15 +819,15 @@ const CustomerReturnService = {
 
       // ✅ Cập nhật debt ngay sau khi approve return
       try {
-        console.log(
-          `🔄 ApproveReturn - Đang cập nhật debt cho customer_id: ${returnInfo.customer_id}`
-        );
+        // //console.log(
+        //   `🔄 ApproveReturn - Đang cập nhật debt cho customer_id: ${returnInfo.customer_id}`
+        // );
         const newDebt = await CustomerModel.calculateDebt(
           returnInfo.customer_id
         );
-        console.log(`📊 ApproveReturn - Debt mới được tính: ${newDebt}`);
+        //console.log(`📊 ApproveReturn - Debt mới được tính: ${newDebt}`);
         await CustomerModel.update(returnInfo.customer_id, { debt: newDebt });
-        console.log(`✅ ApproveReturn - Đã cập nhật debt thành công`);
+        //console.log(`✅ ApproveReturn - Đã cập nhật debt thành công`);
 
         if (newDebt < 0) {
           console.log(
@@ -835,7 +835,7 @@ const CustomerReturnService = {
           );
         }
       } catch (debtError) {
-        console.error(`❌ ApproveReturn - Lỗi khi cập nhật debt:`, debtError);
+        //console.error(`❌ ApproveReturn - Lỗi khi cập nhật debt:`, debtError);
         // Không throw error để không ảnh hưởng đến việc approve return
       }
 

@@ -168,12 +168,12 @@ const SupplierReportController = {
       const totalDebt = invoiceDebt + orderDebt;
       const total_payable = Math.max(0, totalDebt - totalRefund);
 
-      console.log(`🔍 getSupplierPayable cho supplier ${supplier_id}:`);
-      console.log(`  - Invoice debt: ${invoiceDebt}`);
-      console.log(`  - Order debt: ${orderDebt}`);
-      console.log(`  - Total debt: ${totalDebt}`);
-      console.log(`  - Total refund: ${totalRefund}`);
-      console.log(`  - Total payable: ${total_payable}`);
+      //console.log(`🔍 getSupplierPayable cho supplier ${supplier_id}:`);
+      //console.log(`  - Invoice debt: ${invoiceDebt}`);
+      //console.log(`  - Order debt: ${orderDebt}`);
+      //console.log(`  - Total debt: ${totalDebt}`);
+      //console.log(`  - Total refund: ${totalRefund}`);
+      //console.log(`  - Total payable: ${total_payable}`);
 
       // 4. Lấy danh sách hóa đơn chưa thanh toán đủ
       const unpaidInvoices = await SupplierReportService.getUnpaidOrPartiallyPaidInvoices(supplier_id);
@@ -207,7 +207,7 @@ const SupplierReportController = {
         unpaid_invoices: invoicesWithRemaining
       }, "Supplier payable retrieved successfully.");
     } catch (error) {
-      console.error("🚀 ~ SupplierReportController: getSupplierPayable - Lỗi:", error);
+      //console.error("🚀 ~ SupplierReportController: getSupplierPayable - Lỗi:", error);
       return errorResponse(res, error.message || "Lỗi server", 500);
     }
   },

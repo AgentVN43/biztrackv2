@@ -16,7 +16,7 @@ const ProductService = {
       );
       return { products, total };
     } catch (error) {
-      console.error("🚀 ~ product.service.js: getAllProducts - Lỗi:", error);
+      //console.error("🚀 ~ product.service.js: getAllProducts - Lỗi:", error);
       throw error; // Ném lỗi để controller xử lý
     }
   },
@@ -31,7 +31,7 @@ const ProductService = {
       const product = await ProductModel.getProductById(id);
       return product;
     } catch (error) {
-      console.error("🚀 ~ product.service.js: getProductById - Lỗi:", error);
+      //console.error("🚀 ~ product.service.js: getProductById - Lỗi:", error);
       throw error;
     }
   },
@@ -55,7 +55,7 @@ const ProductService = {
       const result = await ProductModel.createProduct(productData);
       return result;
     } catch (error) {
-      console.error("🚀 ~ product.service.js: createProduct - Lỗi:", error);
+      //console.error("🚀 ~ product.service.js: createProduct - Lỗi:", error);
       throw error;
     }
   },
@@ -80,7 +80,7 @@ const ProductService = {
       const result = await ProductModel.updateProduct(id, productData);
       return result;
     } catch (error) {
-      console.error("🚀 ~ product.service.js: updateProduct - Lỗi:", error);
+      //console.error("🚀 ~ product.service.js: updateProduct - Lỗi:", error);
       throw error;
     }
   },
@@ -96,7 +96,7 @@ const ProductService = {
       const result = await ProductModel.deleteProduct(id);
       return result;
     } catch (error) {
-      console.error("🚀 ~ product.service.js: deleteProduct - Lỗi:", error);
+      //console.error("🚀 ~ product.service.js: deleteProduct - Lỗi:", error);
       throw error;
     }
   },
@@ -124,7 +124,7 @@ const ProductService = {
       );
       return result;
     } catch (error) {
-      console.error("🚀 ~ product.service.js: updateStockFields - Lỗi:", error);
+      //console.error("🚀 ~ product.service.js: updateStockFields - Lỗi:", error);
       throw error;
     }
   },

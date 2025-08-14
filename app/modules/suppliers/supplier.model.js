@@ -19,7 +19,7 @@ const SupplierModel = {
 
       db.query(sql, values, (err, result) => {
         if (err) {
-          console.error("🚀 ~ supplier.model.js: create - Error creating supplier:", err);
+          //console.error("🚀 ~ supplier.model.js: create - Error creating supplier:", err);
           return reject(err);
         }
         resolve({ supplier_id, ...supplierData }); // Return the created supplier data
@@ -43,7 +43,7 @@ const SupplierModel = {
       }
       db.query(sql, params, (err, results) => {
         if (err) {
-          console.error("🚀 ~ supplier.model.js: getAll - Error fetching all suppliers:", err);
+          //console.error("🚀 ~ supplier.model.js: getAll - Error fetching all suppliers:", err);
           return reject(err);
         }
         const casted = (results || []).map((r) => ({
@@ -64,7 +64,7 @@ const SupplierModel = {
       const sql = `SELECT COUNT(*) AS total FROM suppliers`;
       db.query(sql, (err, results) => {
         if (err) {
-          console.error("🚀 ~ supplier.model.js: countAll - Error:", err);
+          //console.error("🚀 ~ supplier.model.js: countAll - Error:", err);
           return reject(err);
         }
         resolve(results && results.length ? results[0].total : 0);
@@ -82,7 +82,7 @@ const SupplierModel = {
       const sql = `SELECT * FROM suppliers WHERE supplier_id = ?`;
       db.query(sql, [supplier_id], (err, results) => {
         if (err) {
-          console.error("🚀 ~ supplier.model.js: findById - Error fetching supplier by ID:", err);
+          //console.error("🚀 ~ supplier.model.js: findById - Error fetching supplier by ID:", err);
           return reject(err);
         }
         const row = results.length ? results[0] : null;
@@ -114,7 +114,7 @@ const SupplierModel = {
 
       db.query(sql, values, (err, result) => {
         if (err) {
-          console.error("🚀 ~ supplier.model.js: update - Error updating supplier:", err);
+          //console.error("🚀 ~ supplier.model.js: update - Error updating supplier:", err);
           return reject(err);
         }
         if (result.affectedRows === 0) {
@@ -135,7 +135,7 @@ const SupplierModel = {
       const sql = `DELETE FROM suppliers WHERE supplier_id = ?`;
       db.query(sql, [supplier_id], (err, result) => {
         if (err) {
-          console.error("🚀 ~ supplier.model.js: delete - Error deleting supplier:", err);
+          //console.error("🚀 ~ supplier.model.js: delete - Error deleting supplier:", err);
           return reject(err);
         }
         if (result.affectedRows === 0) {
@@ -157,7 +157,7 @@ const SupplierModel = {
       await db.promise().query(sql, [parseFloat(payable || 0), supplier_id]);
       return { supplier_id, payable: parseFloat(payable || 0) };
     } catch (error) {
-      console.error("🚀 ~ supplier.model.js: updatePayable - Error:", error);
+      //console.error("🚀 ~ supplier.model.js: updatePayable - Error:", error);
       throw error;
     }
   },
@@ -223,7 +223,7 @@ const SupplierModel = {
       await SupplierModel.updatePayable(supplier_id, payable);
       return payable;
     } catch (error) {
-      console.error("🚀 ~ supplier.model.js: recalculatePayable - Error:", error);
+      //console.error("🚀 ~ supplier.model.js: recalculatePayable - Error:", error);
       throw error;
     }
   },
@@ -239,7 +239,7 @@ const SupplierModel = {
       }
       return { updated: suppliers.length };
     } catch (error) {
-      console.error("🚀 ~ supplier.model.js: recalculateAllPayables - Error:", error);
+      //console.error("🚀 ~ supplier.model.js: recalculateAllPayables - Error:", error);
       throw error;
     }
   },

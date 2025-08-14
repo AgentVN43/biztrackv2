@@ -120,7 +120,7 @@ exports.create = async (req, res, next) => {
       message: "Inventory created successfully",
     });
   } catch (err) {
-    console.error("🚀 ~ inventory.controller.js: create - Lỗi:", err);
+    //console.error("🚀 ~ inventory.controller.js: create - Lỗi:", err);
     next(err);
   }
 };
@@ -144,7 +144,7 @@ exports.update = async (req, res, next) => {
       data: updatedInventory,
     });
   } catch (err) {
-    console.error("🚀 ~ inventory.controller.js: update - Lỗi:", err);
+    //console.error("🚀 ~ inventory.controller.js: update - Lỗi:", err);
     next(err);
   }
 };
@@ -171,7 +171,7 @@ exports.getAll = async (req, res, next) => {
       createResponse(res, 200, true, result);
     }
   } catch (err) {
-    console.error("🚀 ~ inventory.controller.js: getAll - Lỗi:", err);
+    //console.error("🚀 ~ inventory.controller.js: getAll - Lỗi:", err);
     next(err);
   }
 };
@@ -187,7 +187,7 @@ exports.getById = async (req, res, next) => {
     }
     res.json({ success: true, data: inventory });
   } catch (err) {
-    console.error("🚀 ~ inventory.controller.js: getById - Lỗi:", err);
+    //console.error("🚀 ~ inventory.controller.js: getById - Lỗi:", err);
     next(err);
   }
 };
@@ -215,7 +215,7 @@ exports.getByWareHouseId = async (req, res, next) => {
       createResponse(res, 200, true, result);
     }
   } catch (err) {
-    console.error("🚀 ~ inventory.controller.js: getByWareHouseId - Lỗi:", err);
+    //console.error("🚀 ~ inventory.controller.js: getByWareHouseId - Lỗi:", err);
     next(err);
   }
 };
@@ -238,7 +238,7 @@ exports.checkAll = async (req, res, next) => {
     }
     res.json({ success: true, data: inventories });
   } catch (err) {
-    console.error("🚀 ~ inventory.controller.js: checkAll - Lỗi:", err);
+    //console.error("🚀 ~ inventory.controller.js: checkAll - Lỗi:", err);
     next(err);
   }
 };
@@ -256,7 +256,7 @@ exports.remove = async (req, res, next) => {
     }
     res.json({ success: true, message: "Deleted successfully" });
   } catch (err) {
-    console.error("🚀 ~ inventory.controller.js: remove - Lỗi:", err);
+    //console.error("🚀 ~ inventory.controller.js: remove - Lỗi:", err);
     next(err);
   }
 };
@@ -273,7 +273,7 @@ exports.increaseStock = async (req, res, next) => {
     await service.increaseStockFromPurchaseOrder(orderDetails, warehouse_id); // ✅ Sử dụng await
     res.json({ success: true, message: "Đã cập nhật tồn kho từ đơn mua" });
   } catch (err) {
-    console.error("🚀 ~ inventory.controller.js: increaseStock - Lỗi:", err);
+    //console.error("🚀 ~ inventory.controller.js: increaseStock - Lỗi:", err);
     next(err);
   }
 };
@@ -286,7 +286,7 @@ exports.reserveStock = async (req, res, next) => {
     await service.reserveStockFromOrderDetails(orderDetails, warehouse_id); // ✅ Sử dụng await
     res.json({ success: true, message: "Đã tạm giữ hàng trong tồn kho" });
   } catch (err) {
-    console.error("🚀 ~ inventory.controller.js: reserveStock - Lỗi:", err);
+    //console.error("🚀 ~ inventory.controller.js: reserveStock - Lỗi:", err);
     next(err);
   }
 };
@@ -299,7 +299,7 @@ exports.confirmStock = async (req, res, next) => {
     await service.confirmStockReservation(orderDetails, warehouse_id);
     res.json({ success: true, message: "Đã xác nhận tồn kho" });
   } catch (err) {
-    console.error("🚀 ~ inventory.controller.js: confirmStock - Lỗi:", err);
+    //console.error("🚀 ~ inventory.controller.js: confirmStock - Lỗi:", err);
     next(err);
   }
 };
@@ -312,7 +312,7 @@ exports.releaseStock = async (req, res, next) => {
     await service.releaseReservedStock(orderDetails, warehouse_id); // ✅ Sử dụng await
     res.json({ success: true, message: "Đã giải phóng hàng tồn kho" });
   } catch (err) {
-    console.error("🚀 ~ inventory.controller.js: releaseStock - Lỗi:", err);
+    //console.error("🚀 ~ inventory.controller.js: releaseStock - Lỗi:", err);
     next(err);
   }
 };

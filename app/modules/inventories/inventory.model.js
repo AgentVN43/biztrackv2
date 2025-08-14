@@ -212,7 +212,7 @@ const InventoryModel = {
       }
       db.query(sql, params, (err, results) => {
         if (err) {
-          console.error("🚀 ~ inventory.model.js: findAll - Error:", err);
+          //console.error("🚀 ~ inventory.model.js: findAll - Error:", err);
           return reject(err);
         }
         const formattedResults = results.map((row) => ({
@@ -257,7 +257,7 @@ const InventoryModel = {
         [inventory_id],
         (err, results) => {
           if (err) {
-            console.error("🚀 ~ inventory.model.js: findById - Error:", err);
+            //console.error("🚀 ~ inventory.model.js: findById - Error:", err);
             return reject(err);
           }
           resolve(results && results.length ? results[0] : null);
@@ -278,7 +278,7 @@ const InventoryModel = {
         [inventory_id],
         (err, result) => {
           if (err) {
-            console.error("🚀 ~ inventory.model.js: deleteById - Error:", err);
+            //console.error("🚀 ~ inventory.model.js: deleteById - Error:", err);
             return reject(err);
           }
           resolve(result);
@@ -596,7 +596,7 @@ const InventoryModel = {
       const sql = `SELECT COUNT(*) AS total FROM inventories`;
       db.query(sql, (err, results) => {
         if (err) {
-          console.error("🚀 ~ inventory.model.js: countAll - Error:", err);
+          //console.error("🚀 ~ inventory.model.js: countAll - Error:", err);
           return reject(err);
         }
         resolve(results && results.length ? results[0].total : 0);
@@ -637,7 +637,7 @@ const InventoryModel = {
       `;
       db.query(sql, [warehouse_id, limit, skip], (err, results) => {
         if (err) {
-          console.error("[Inventory.findByWareHouseIdWithPagination] Lỗi khi truy vấn:", err.message);
+          //console.error("[Inventory.findByWareHouseIdWithPagination] Lỗi khi truy vấn:", err.message);
           return reject(err);
         }
         const formattedResults = results.map((row) => ({
@@ -680,7 +680,7 @@ const InventoryModel = {
       const sql = `SELECT COUNT(DISTINCT product_id) AS total FROM inventories WHERE warehouse_id = ?`;
       db.query(sql, [warehouse_id], (err, results) => {
         if (err) {
-          console.error("🚀 ~ inventory.model.js: countByWareHouseId - Error:", err);
+          //console.error("🚀 ~ inventory.model.js: countByWareHouseId - Error:", err);
           return reject(err);
         }
         resolve(results && results.length ? results[0].total : 0);

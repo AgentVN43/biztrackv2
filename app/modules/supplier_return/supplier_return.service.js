@@ -71,7 +71,7 @@ const SupplierReturnService = {
 
     return { ...createdReturn, details: detailResults };
     } catch (error) {
-      console.error('🚀 ~ SupplierReturnService.createReturnWithDetails - Error:', error);
+      //console.error('🚀 ~ SupplierReturnService.createReturnWithDetails - Error:', error);
       throw error;
     }
   },
@@ -269,9 +269,9 @@ const SupplierReturnService = {
         const quantity = parseInt(item.quantity) || 0;
         const refund_amount = parseFloat(item.refund_amount) || 0;
 
-        console.log(
-          `Tính refund cho sản phẩm ${item.product_id}: price=${price}, quantity=${quantity}, refund_amount=${refund_amount}`
-        );
+        //console.log(
+        //   `Tính refund cho sản phẩm ${item.product_id}: price=${price}, quantity=${quantity}, refund_amount=${refund_amount}`
+        // );
 
         await db
           .promise()
@@ -336,7 +336,7 @@ const SupplierReturnService = {
         invoice_id,
       };
     } catch (error) {
-      console.error("Lỗi trong approveReturn:", error);
+      //console.error("Lỗi trong approveReturn:", error);
       throw error;
     }
   },
@@ -425,7 +425,7 @@ const SupplierReturnService = {
 
       return { return_id, supplier_id, note, details: detailResults };
     } catch (error) {
-      console.error("Lỗi trong updateReturnWithDetails:", error);
+      //console.error("Lỗi trong updateReturnWithDetails:", error);
       throw error;
     }
   },
@@ -451,7 +451,7 @@ const SupplierReturnService = {
         pagination: { page, limit, total },
       };
     } catch (error) {
-      console.error("Lỗi trong getReturnBySupplierId:", error);
+      //console.error("Lỗi trong getReturnBySupplierId:", error);
       throw error;
     }
   },

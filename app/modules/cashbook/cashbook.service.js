@@ -476,7 +476,7 @@ const CashbookService = {
         }
       };
     } catch (error) {
-      console.error("🚀 ~ CashbookService: getSystemTransactionLedger - Lỗi:", error);
+      //console.error("🚀 ~ CashbookService: getSystemTransactionLedger - Lỗi:", error);
       throw error;
     }
   },
@@ -561,7 +561,7 @@ const CashbookService = {
         summary_notification: summary_notification
       };
     } catch (error) {
-      console.error("🚀 ~ CashbookService: getSystemTransactionSummary - Lỗi:", error);
+      //console.error("🚀 ~ CashbookService: getSystemTransactionSummary - Lỗi:", error);
       throw error;
     }
   },
@@ -754,7 +754,7 @@ const CashbookService = {
         }
       };
     } catch (error) {
-      console.error("🚀 ~ CashbookService: getRecentActivitiesCombined - Lỗi:", error);
+      //console.error("🚀 ~ CashbookService: getRecentActivitiesCombined - Lỗi:", error);
       throw error;
     }
   }

@@ -67,7 +67,7 @@ class SearchFilterService {
         totalPages: Math.ceil(total / searchParams.limit)
       };
     } catch (error) {
-      console.error('🚀 ~ SearchFilterService.searchAndFilter - Error:', error);
+      //console.error('🚀 ~ SearchFilterService.searchAndFilter - Error:', error);
       throw error;
     }
   }

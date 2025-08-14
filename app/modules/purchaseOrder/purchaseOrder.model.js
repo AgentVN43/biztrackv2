@@ -54,11 +54,11 @@
 // };
 
 // exports.findById = (po_id, callback) => {
-//   console.log("PO models:", po_id);
+//   //console.log("PO models:", po_id);
 //   const sql = "SELECT * FROM purchase_orders WHERE po_id = ?";
 //   db.query(sql, [po_id], (err, order) => {
 //     callback(err, order ? order[0] : null);
-//     console.log("FidById:", order);
+//     //console.log("FidById:", order);
 //   });
 // };
 
@@ -134,17 +134,17 @@ const PurchaseOrderModel = {
   //   ]; // ✅ Cập nhật các giá trị
 
   //   try {
-  //     console.log("🚀 ~ purchase_order.model.js: create - SQL Query:", query);
-  //     console.log("🚀 ~ purchase_order.model.js: create - SQL Values:", values);
+  //     //console.log("🚀 ~ purchase_order.model.js: create - SQL Query:", query);
+  //     //console.log("🚀 ~ purchase_order.model.js: create - SQL Values:", values);
   //     const [results] = await db.promise().query(query, values);
   //     const purchaseOrderResult = { po_id, ...data }; // Trả về dữ liệu gốc kèm po_id
-  //     console.log(
+  //     //console.log(
   //       "🚀 ~ purchase_order.model.js: create - Purchase Order created successfully:",
   //       purchaseOrderResult
   //     );
   //     return purchaseOrderResult;
   //   } catch (error) {
-  //     console.error(
+  //     //console.error(
   //       "🚀 ~ purchase_order.model.js: create - Lỗi khi tạo đơn mua hàng (DB error):",
   //       error
   //     );
@@ -180,14 +180,14 @@ const PurchaseOrderModel = {
     ];
 
     try {
-      console.log("🚀 ~ purchase_order.model.js: create - SQL Query:", query);
-      console.log("🚀 ~ purchase_order.model.js: create - SQL Values:", values);
+      //console.log("🚀 ~ purchase_order.model.js: create - SQL Query:", query);
+      //console.log("🚀 ~ purchase_order.model.js: create - SQL Values:", values);
       const [results] = await db.promise().query(query, values);
       const purchaseOrderResult = { po_id, ...data }; // Return original data with po_id
-      console.log(
-        "🚀 ~ purchase_order.model.js: create - Purchase Order created successfully:",
-        purchaseOrderResult
-      );
+      //console.log(
+      //   "🚀 ~ purchase_order.model.js: create - Purchase Order created successfully:",
+      //   purchaseOrderResult
+      // );
       return purchaseOrderResult;
     } catch (error) {
       console.error(
@@ -253,7 +253,7 @@ const PurchaseOrderModel = {
   //     }
   //     return { po_id, ...data }; // Trả về thông tin đã cập nhật
   //   } catch (error) {
-  //     console.error(
+  //     //console.error(
   //       "🚀 ~ purchase_order.model.js: update - Lỗi khi cập nhật đơn mua hàng:",
   //       error
   //     );
@@ -320,12 +320,12 @@ const PurchaseOrderModel = {
    * @returns {Promise<Object|null>} Promise giải quyết với đối tượng đơn mua hàng hoặc null nếu không tìm thấy.
    */
   findById: async (po_id) => {
-    console.log("🚀 ~ purchase_order.model.js: findById - PO ID:", po_id);
+    //console.log("🚀 ~ purchase_order.model.js: findById - PO ID:", po_id);
     const sql = "SELECT * FROM purchase_orders WHERE po_id = ?";
     try {
       const [rows] = await db.promise().query(sql, [po_id]);
       const order = rows.length ? rows[0] : null;
-      console.log("🚀 ~ purchase_order.model.js: findById - Result:", order);
+      //console.log("🚀 ~ purchase_order.model.js: findById - Result:", order);
       return order;
     } catch (error) {
       console.error(
@@ -381,7 +381,7 @@ const PurchaseOrderModel = {
       const [rows] = await db.promise().query(sql);
       return rows && rows.length ? rows[0].total : 0;
     } catch (error) {
-      console.error("🚀 ~ purchase_order.model.js: countAll - Error:", error);
+      //console.error("🚀 ~ purchase_order.model.js: countAll - Error:", error);
       throw error;
     }
   },
@@ -450,7 +450,7 @@ const PurchaseOrderModel = {
   //     const [rows] = await db.promise().query(sql, [po_id]);
   //     return rows;
   //   } catch (error) {
-  //     console.error(
+  //     //console.error(
   //       "🚀 ~ purchase_order.model.js: findWithDetailsById - Lỗi khi tìm đơn mua hàng kèm chi tiết:",
   //       error
   //     );

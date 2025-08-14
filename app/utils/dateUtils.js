@@ -58,7 +58,7 @@ const processDateFilters = (query) => {
         effectiveStartDate = format(parsedStartDate, "yyyy-MM-dd");
       }
     } catch (error) {
-      console.warn("Lỗi khi parse startDate:", error);
+      //console.warn("Lỗi khi parse startDate:", error);
     }
   }
 
@@ -69,7 +69,7 @@ const processDateFilters = (query) => {
         effectiveEndDate = format(parsedEndDate, "yyyy-MM-dd");
       }
     } catch (error) {
-      console.warn("Lỗi khi parse endDate:", error);
+      //console.warn("Lỗi khi parse endDate:", error);
     }
   }
 

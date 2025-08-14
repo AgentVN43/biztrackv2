@@ -116,7 +116,7 @@ exports.create = async (data) => {
     );
     return { customer_id, ...data, debt };
   } catch (err) {
-    console.error("Lỗi khi tạo khách hàng:", err.message);
+    //console.error("Lỗi khi tạo khách hàng:", err.message);
     throw err;
   }
 };
@@ -142,7 +142,7 @@ exports.create = async (data) => {
 //     const total = countResult[0].total;
 //     return { customers: results, total: total };
 //   } catch (err) {
-//     console.error("Lỗi khi lấy tất cả khách hàng:", err.message);
+//     //console.error("Lỗi khi lấy tất cả khách hàng:", err.message);
 //     throw err;
 //   }
 // };
@@ -193,7 +193,7 @@ exports.getAll = async (skip, limit, filters = {}) => {
       total: total,
     };
   } catch (err) {
-    console.error("Lỗi khi lấy tất cả khách hàng:", err.message);
+    //console.error("Lỗi khi lấy tất cả khách hàng:", err.message);
     throw err;
   }
 };
@@ -207,7 +207,7 @@ exports.getById = async (customer_id) => {
     if (results.length === 0) return null;
     return { ...results[0], debt: Number(results[0].debt) };
   } catch (err) {
-    console.error("Lỗi khi lấy khách hàng theo ID:", err.message);
+    //console.error("Lỗi khi lấy khách hàng theo ID:", err.message);
     throw err;
   }
 };
@@ -236,7 +236,7 @@ exports.getById = async (customer_id) => {
 //     );
 //     return result.affectedRows > 0 ? { customer_id, ...data } : null;
 //   } catch (err) {
-//     console.error(
+//     //console.error(
 //       `Lỗi khi cập nhật khách hàng với ID ${customer_id}:`,
 //       err.message
 //     );
@@ -303,7 +303,7 @@ exports.delete = async (customer_id) => {
     );
     return result.affectedRows > 0;
   } catch (err) {
-    console.error(`Lỗi khi xóa khách hàng với ID ${customer_id}:`, err.message);
+    //console.error(`Lỗi khi xóa khách hàng với ID ${customer_id}:`, err.message);
     throw err;
   }
 };
@@ -323,7 +323,7 @@ exports.updateDebt = async (customer_id, amount, increase = true) => {
     // return result.affectedRows;
 
     // ✅ Cách 2: Tính lại toàn bộ debt để đảm bảo đồng bộ
-    console.log(`🔄 updateDebt: Đang đồng bộ debt cho customer ${customer_id}`);
+    //console.log(`🔄 updateDebt: Đang đồng bộ debt cho customer ${customer_id}`);
     
     // Tính lại debt chính xác
     const calculatedDebt = await exports.calculateDebt(customer_id);
@@ -334,11 +334,11 @@ exports.updateDebt = async (customer_id, amount, increase = true) => {
       [calculatedDebt, customer_id]
     );
     
-    console.log(`✅ updateDebt: Đã đồng bộ debt từ ${calculatedDebt} cho customer ${customer_id}`);
+    //console.log(`✅ updateDebt: Đã đồng bộ debt từ ${calculatedDebt} cho customer ${customer_id}`);
     
     return result.affectedRows;
   } catch (err) {
-    console.error("🚀 ~ customer.model.js: updateDebt - Lỗi:", err);
+    //console.error("🚀 ~ customer.model.js: updateDebt - Lỗi:", err);
     throw err;
   }
 };
@@ -346,7 +346,7 @@ exports.updateDebt = async (customer_id, amount, increase = true) => {
 // ✅ Hàm mới: Đồng bộ debt cho tất cả customers
 exports.syncAllDebts = async () => {
   try {
-    console.log("🔄 Bắt đầu đồng bộ debt cho tất cả customers...");
+    //console.log("🔄 Bắt đầu đồng bộ debt cho tất cả customers...");
     
     // Lấy tất cả customer IDs
     const [customers] = await db.query("SELECT customer_id FROM customers");
@@ -364,17 +364,17 @@ exports.syncAllDebts = async () => {
         );
         
         successCount++;
-        console.log(`✅ Đã đồng bộ debt cho customer ${customer.customer_id}: ${calculatedDebt}`);
+        //console.log(`✅ Đã đồng bộ debt cho customer ${customer.customer_id}: ${calculatedDebt}`);
       } catch (error) {
         errorCount++;
-        console.error(`❌ Lỗi khi đồng bộ debt cho customer ${customer.customer_id}:`, error.message);
+        //console.error(`❌ Lỗi khi đồng bộ debt cho customer ${customer.customer_id}:`, error.message);
       }
     }
     
-    console.log(`🎯 Kết quả đồng bộ: ${successCount} thành công, ${errorCount} lỗi`);
+    //console.log(`🎯 Kết quả đồng bộ: ${successCount} thành công, ${errorCount} lỗi`);
     return { successCount, errorCount };
   } catch (error) {
-    console.error("🚀 ~ customer.model.js: syncAllDebts - Lỗi:", error);
+    //console.error("🚀 ~ customer.model.js: syncAllDebts - Lỗi:", error);
     throw error;
   }
 };
@@ -382,7 +382,7 @@ exports.syncAllDebts = async () => {
 // Hàm tính lại debt dựa trên các hóa đơn chưa thanh toán, đơn hàng chưa có hóa đơn và đơn hàng trả
 exports.calculateDebt = async (customer_id) => {
   try {
-    console.log(`🔍 Bắt đầu tính debt cho customer: ${customer_id}`);
+    //console.log(`🔍 Bắt đầu tính debt cho customer: ${customer_id}`);
 
     // 1. Lấy tất cả invoices của customer
     const invoiceSql = `
@@ -444,12 +444,12 @@ exports.calculateDebt = async (customer_id) => {
       // ✅ KHÔNG trừ refund ở đây vì sẽ tính riêng ở bước 6
       const debt = final_amount - amount_paid;
 
-      console.log(
-        `📊 Invoice ${invoice.invoice_id} (Order ${invoice.order_id}):`
-      );
-      console.log(`  - Final amount: ${final_amount}`);
-      console.log(`  - Amount paid: ${amount_paid}`);
-      console.log(`  - Debt: ${debt}`);
+      //console.log(
+      //   `📊 Invoice ${invoice.invoice_id} (Order ${invoice.order_id}):`
+      // );
+      //console.log(`  - Final amount: ${final_amount}`);
+      //console.log(`  - Amount paid: ${amount_paid}`);
+      //console.log(`  - Debt: ${debt}`);
 
       totalInvoiceDebt += debt;
     }
@@ -465,10 +465,10 @@ exports.calculateDebt = async (customer_id) => {
       // ✅ KHÔNG trừ refund ở đây vì sẽ tính riêng ở bước 6
       const debt = final_amount - amount_paid;
 
-      console.log(`📊 Order ${order.order_id}:`);
-      console.log(`  - Final amount: ${final_amount}`);
-      console.log(`  - Amount paid: ${amount_paid}`);
-      console.log(`  - Debt: ${debt}`);
+      //console.log(`📊 Order ${order.order_id}:`);
+      //console.log(`  - Final amount: ${final_amount}`);
+      //console.log(`  - Amount paid: ${amount_paid}`);
+      //console.log(`  - Debt: ${debt}`);
 
       totalOrderDebt += debt;
     }
@@ -480,11 +480,11 @@ exports.calculateDebt = async (customer_id) => {
       const totalRefund = parseFloat(returnOrder.total_refund || 0);
       totalReturnRefund += totalRefund;
 
-      console.log(
-        `📊 Customer Return ${returnOrder.return_id} (Order ${returnOrder.order_id}):`
-      );
-      console.log(`  - Total refund: ${totalRefund}`);
-      console.log(`  - Status: ${returnOrder.status}`);
+      //console.log(
+      //   `📊 Customer Return ${returnOrder.return_id} (Order ${returnOrder.order_id}):`
+      // );
+      //console.log(`  - Total refund: ${totalRefund}`);
+      //console.log(`  - Status: ${returnOrder.status}`);
     }
 
     // 7. ✅ Lấy tất cả adjustment transactions (bao gồm opening_balance từ migration)
@@ -507,10 +507,10 @@ exports.calculateDebt = async (customer_id) => {
       const amount = parseFloat(adjustment.amount || 0);
       totalAdjustmentDebt += amount;
 
-      console.log(`📊 Adjustment Transaction ${adjustment.transaction_id}:`);
-      console.log(`  - Type: ${adjustment.type}`);
-      console.log(`  - Amount: ${amount}`);
-      console.log(`  - Description: ${adjustment.description}`);
+      //console.log(`📊 Adjustment Transaction ${adjustment.transaction_id}:`);
+      //console.log(`  - Type: ${adjustment.type}`);
+      //console.log(`  - Amount: ${amount}`);
+      //console.log(`  - Description: ${adjustment.description}`);
     }
 
     // 8. ✅ Lấy tổng điều chỉnh tăng (adj_increase) và điều chỉnh giảm (adj_decrease)
@@ -535,18 +535,18 @@ exports.calculateDebt = async (customer_id) => {
     // ✅ TÍNH TỔNG DEBT từ: invoices + orders + adjustments + adj_increase - adj_decrease - returns
     const totalDebt = totalInvoiceDebt + totalOrderDebt + totalAdjustmentDebt + adjIncreaseDebt - adjDecreaseDebt - totalReturnRefund;
 
-    console.log(`🔍 Kết quả tính debt cho customer ${customer_id}:`);
-    console.log(`  - Total invoice debt: ${totalInvoiceDebt}`);
-    console.log(`  - Total order debt: ${totalOrderDebt}`);
-    console.log(`  - Total adjustment debt (bao gồm opening_balance): ${totalAdjustmentDebt}`);
-    console.log(`  - Adjustment increase (adj_increase): ${adjIncreaseDebt}`);
-    console.log(`  - Adjustment decrease (adj_decrease): ${adjDecreaseDebt}`);
-    console.log(`  - Total customer returns refund: ${totalReturnRefund}`);
-    console.log(`  - Final total debt: ${totalDebt} (có thể âm)`);
+    //console.log(`🔍 Kết quả tính debt cho customer ${customer_id}:`);
+    //console.log(`  - Total invoice debt: ${totalInvoiceDebt}`);
+    //console.log(`  - Total order debt: ${totalOrderDebt}`);
+    //console.log(`  - Total adjustment debt (bao gồm opening_balance): ${totalAdjustmentDebt}`);
+    //console.log(`  - Adjustment increase (adj_increase): ${adjIncreaseDebt}`);
+    //console.log(`  - Adjustment decrease (adj_decrease): ${adjDecreaseDebt}`);
+    //console.log(`  - Total customer returns refund: ${totalReturnRefund}`);
+    //console.log(`  - Final total debt: ${totalDebt} (có thể âm)`);
 
     return totalDebt;
   } catch (error) {
-    console.error("🚀 ~ customer.model.js: calculateDebt - Lỗi:", error);
+    //console.error("🚀 ~ customer.model.js: calculateDebt - Lỗi:", error);
     throw error;
   }
 };
@@ -564,7 +564,7 @@ exports.findByPhone = async (phone) => {
     );
     return results.length > 0 ? results[0] : null;
   } catch (error) {
-    console.error("🚀 ~ customer.model.js: findByPhone - Lỗi:", error);
+    //console.error("🚀 ~ customer.model.js: findByPhone - Lỗi:", error);
     throw error;
   }
 };
@@ -609,7 +609,7 @@ exports.bulkInsert = async (customers) => {
     const [result] = await db.query(query, values);
     return result.affectedRows;
   } catch (error) {
-    console.error("🚀 ~ customer.model.js: bulkInsert - Lỗi:", error);
+    //console.error("🚀 ~ customer.model.js: bulkInsert - Lỗi:", error);
     throw error;
   }
 };

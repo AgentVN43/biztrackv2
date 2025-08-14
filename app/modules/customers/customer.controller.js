@@ -26,7 +26,7 @@ exports.create = async (req, res) => {
 //     const result = await CustomerService.getAllCustomers();
 //     return res.status(200).json({ success: true, data: result });
 //   } catch (err) {
-//     console.error("Lỗi khi lấy danh sách khách hàng:", err.message);
+//     //console.error("Lỗi khi lấy danh sách khách hàng:", err.message);
 //     return res.status(500).json({
 //       success: false,
 //       error: "Lỗi server",
@@ -74,7 +74,7 @@ exports.get = async (req, res) => {
       parsedLimit
     );
   } catch (err) {
-    console.error("Lỗi khi lấy danh sách khách hàng:", err.message);
+    //console.error("Lỗi khi lấy danh sách khách hàng:", err.message);
     return errorResponse(res, 500, false, [], "Lỗi server");
   }
 };
@@ -197,11 +197,11 @@ exports.importFromText = async (req, res) => {
       });
     }
 
-    console.log('🚀 ~ CustomerController.importFromText - Processing:', {
-      textDataLength: textData.length,
-      delimiter,
-      validateOnly
-    });
+    //console.log('🚀 ~ CustomerController.importFromText - Processing:', {
+    //   textDataLength: textData.length,
+    //   delimiter,
+    //   validateOnly
+    // });
 
     const result = await CustomerService.importFromText(textData, delimiter, validateOnly);
     
@@ -216,7 +216,7 @@ exports.importFromText = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('🚀 ~ CustomerController.importFromText - Error:', error);
+    //console.error('🚀 ~ CustomerController.importFromText - Error:', error);
     return res.status(500).json({
       success: false,
       message: error.message || 'Lỗi import dữ liệu'
@@ -233,7 +233,7 @@ exports.downloadImportTemplate = async (req, res) => {
     res.send(template);
     
   } catch (error) {
-    console.error('🚀 ~ CustomerController.downloadImportTemplate - Error:', error);
+    //console.error('🚀 ~ CustomerController.downloadImportTemplate - Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Lỗi tạo template'
@@ -250,7 +250,7 @@ exports.calculateDebt = async (req, res) => {
       return errorResponse(res, 'Thiếu customer_id', 400);
     }
 
-    console.log(`🚀 ~ CustomerController.calculateDebt - Tính debt cho customer: ${customer_id}`);
+    //console.log(`🚀 ~ CustomerController.calculateDebt - Tính debt cho customer: ${customer_id}`);
 
     // Gọi hàm tính debt từ model
     const CustomerModel = require('./customer.model');
@@ -269,7 +269,7 @@ exports.calculateDebt = async (req, res) => {
     }, `Tính debt thành công: ${calculatedDebt}`);
 
   } catch (error) {
-    console.error('🚀 ~ CustomerController.calculateDebt - Error:', error);
+    //console.error('🚀 ~ CustomerController.calculateDebt - Error:', error);
     return errorResponse(res, error.message || 'Lỗi tính debt', 500);
   }
 };
@@ -283,7 +283,7 @@ const CustomerController = {
    */
   syncAllDebts: async (req, res, next) => {
     try {
-      console.log("🔄 CustomerController: Bắt đầu đồng bộ debt cho tất cả customers...");
+      //console.log("🔄 CustomerController: Bắt đầu đồng bộ debt cho tất cả customers...");
       
       const CustomerModel = require('./customer.model');
       const result = await CustomerModel.syncAllDebts();
@@ -313,7 +313,7 @@ const CustomerController = {
   syncCustomerDebt: async (req, res, next) => {
     try {
       const { id } = req.params;
-      console.log(`🔄 CustomerController: Đang đồng bộ debt cho customer ${id}...`);
+      //console.log(`🔄 CustomerController: Đang đồng bộ debt cho customer ${id}...`);
       
       const CustomerModel = require('./customer.model');
       // Gọi updateDebt để trigger tính toán lại và đồng bộ

@@ -90,7 +90,7 @@ const OrderDetailController = {
       const orderDetail = await OrderDetailService.create(req.body); // ✅ Sử dụng await
       res.status(201).json(orderDetail);
     } catch (error) {
-      console.error("🚀 ~ orderDetail.controller.js: create - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.controller.js: create - Lỗi:", error);
       next(error); // ✅ Chuyển lỗi đến middleware xử lý lỗi
     }
   },
@@ -107,7 +107,7 @@ const OrderDetailController = {
       const orderDetails = await OrderDetailService.read(); // ✅ Sử dụng await
       res.status(200).json(orderDetails);
     } catch (error) {
-      console.error("🚀 ~ orderDetail.controller.js: read - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.controller.js: read - Lỗi:", error);
       next(error);
     }
   },
@@ -128,7 +128,7 @@ const OrderDetailController = {
       }
       res.status(200).json(orderDetail);
     } catch (error) {
-      console.error("🚀 ~ orderDetail.controller.js: readById - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.controller.js: readById - Lỗi:", error);
       next(error);
     }
   },
@@ -173,7 +173,7 @@ const OrderDetailController = {
       }
       res.status(200).json(orderDetail);
     } catch (error) {
-      console.error("🚀 ~ orderDetail.controller.js: update - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.controller.js: update - Lỗi:", error);
       next(error);
     }
   },
@@ -194,7 +194,7 @@ const OrderDetailController = {
       }
       res.status(204).send(); // 204 No Content cho xóa thành công
     } catch (error) {
-      console.error("🚀 ~ orderDetail.controller.js: delete - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.controller.js: delete - Lỗi:", error);
       next(error);
     }
   },

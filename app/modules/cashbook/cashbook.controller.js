@@ -16,7 +16,7 @@ exports.createTransaction = async (req, res) => {
       message: "Transaction created successfully"
     });
   } catch (error) {
-    console.error("🚀 ~ cashbook.controller.js: createTransaction - Error:", error);
+    //console.error("🚀 ~ cashbook.controller.js: createTransaction - Error:", error);
     res.status(500).json({
       success: false,
       message: error.message || "Internal server error"

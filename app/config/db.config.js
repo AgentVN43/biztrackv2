@@ -13,29 +13,29 @@
 // // Open the MySQL connection
 // connection.connect(error => {
 //   if (error) {
-//     console.error('Database connection failed:', error.message);
+//     //console.error('Database connection failed:', error.message);
 //     // Don't throw here - better to handle gracefully
 //     return;
 //   }
-//   console.log("Successfully connected to the database.");
+//   //console.log("Successfully connected to the database.");
 // });
 
 // // Ping database to check for common exception errors on startup
 // connection.query('SELECT 1', (err) => {
 //   if (err) {
-//     console.error('Database ping failed:', err.message);
+//     //console.error('Database ping failed:', err.message);
 //   }
 // });
 
 // // Handle unexpected disconnects
 // connection.on('error', (err) => {
-//   console.error('Database error:', err);
+//   //console.error('Database error:', err);
 //   if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-//     console.error('Database connection was closed.');
+//     //console.error('Database connection was closed.');
 //   } else if (err.code === 'ER_CON_COUNT_ERROR') {
-//     console.error('Database has too many connections.');
+//     //console.error('Database has too many connections.');
 //   } else if (err.code === 'ECONNREFUSED') {
-//     console.error('Database connection was refused.');
+//     //console.error('Database connection was refused.');
 //   }
 // });
 
@@ -74,14 +74,14 @@ pool.getConnection((err, connection) => {
 
 // Xử lý lỗi từ pool (ví dụ: mất kết nối toàn bộ pool, lỗi cấu hình)
 pool.on("error", (err) => {
-  console.error("Database pool error:", err);
+  //console.error("Database pool error:", err);
   if (err.code === "PROTOCOL_CONNECTION_LOST") {
-    console.error("Database connection in pool was lost.");
+    //console.error("Database connection in pool was lost.");
     // Logic để thử tái kết nối hoặc thông báo cho admin
   } else if (err.code === "ER_CON_COUNT_ERROR") {
-    console.error("Database has too many connections in the pool.");
+    //console.error("Database has too many connections in the pool.");
   } else if (err.code === "ECONNREFUSED") {
-    console.error("Database connection refused by server.");
+    //console.error("Database connection refused by server.");
   }
   // Các lỗi khác có thể xảy ra trong quá trình quản lý pool
 });

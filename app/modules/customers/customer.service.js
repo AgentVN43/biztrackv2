@@ -126,7 +126,7 @@ exports.updateOrdersAndStatus = async (customerId) => {
     // 5. Cập nhật thông tin khách hàng
     return await Customer.update(customerId, updatedCustomerData);
   } catch (error) {
-    console.error("Lỗi trong updateOrdersAndStatus:", error.message);
+    //console.error("Lỗi trong updateOrdersAndStatus:", error.message);
     throw error;
   }
 };
@@ -237,7 +237,7 @@ exports.importFromText = async (textData, delimiter = '\t', validateOnly = false
             rowErrors.push('Số điện thoại đã tồn tại trong hệ thống');
           }
         } catch (dbError) {
-          console.warn('⚠️ Database check skipped due to connection error:', dbError.message);
+          //console.warn('⚠️ Database check skipped due to connection error:', dbError.message);
           // Skip duplicate check if database is not available
         }
       }
@@ -276,7 +276,7 @@ exports.importFromText = async (textData, delimiter = '\t', validateOnly = false
       try {
         insertedCount = await CustomerModel.bulkInsert(validData);
       } catch (dbError) {
-        console.error('🚀 ~ CustomerService.importFromText - Database insert failed:', dbError);
+        //console.error('🚀 ~ CustomerService.importFromText - Database insert failed:', dbError);
         throw new Error(`Lỗi lưu dữ liệu: ${dbError.message}`);
       }
     }

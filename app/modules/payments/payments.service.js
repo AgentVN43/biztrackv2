@@ -14,7 +14,7 @@ exports.createPayment = (data, callback) => {
           await CustomerModel.update(payment.customer_id, { debt });
         } catch (debtErr) {
           // Ghi log nhưng không làm fail thanh toán
-          console.error("Lỗi khi cập nhật debt cho khách hàng sau thanh toán:", debtErr);
+          //console.error("Lỗi khi cập nhật debt cho khách hàng sau thanh toán:", debtErr);
         }
       }
       callback(null, payment);
@@ -43,9 +43,9 @@ exports.getPaymentById = (payment_id, callback) => {
 };
 
 exports.getAllPayments = (callback) => {
-  console.log('Service: Calling Payment.getAll...');
+  //console.log('Service: Calling Payment.getAll...');
   Payment.getAll((err, results) => {
-    console.log('Service: Payment.getAll callback called.'); // Để debug
+    //console.log('Service: Payment.getAll callback called.'); // Để debug
     if (err) {
       callback(err);
     } else {

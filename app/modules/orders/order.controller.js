@@ -107,7 +107,7 @@
 //     const { id } = req.params;
 //     OrderService.update(id, req.body, (error, order) => {
 //       if (error) {
-//         console.error("🔥 Lỗi cập nhật order:", error);
+//         //console.error("🔥 Lỗi cập nhật order:", error);
 //         return res
 //           .status(500)
 //           .json({
@@ -140,7 +140,7 @@
 //   createOrderWithDetails: (req, res) => {
 //     const { order: orderData, orderDetails } = req.body;
 
-//     console.log("REQ.BODY:", req.body);
+//     //console.log("REQ.BODY:", req.body);
 
 //     if (!Array.isArray(orderDetails) || orderDetails.length === 0) {
 //       return res.status(400).json({
@@ -183,7 +183,7 @@
 //             orderDetails,
 //             orderToCreate.warehouse_id,
 //             (reserveError) => {
-//               if (reserveError) console.error(reserveError.message);
+//               if (reserveError) //console.error(reserveError.message);
 
 //               return res.status(201).json({
 //                 message: "Tạo đơn hàng thành công",
@@ -207,7 +207,7 @@
 //     const orderData = req.body;
 //     OrderService.updateOrderWithDetails(orderId, orderData, (err, result) => {
 //       if (err) {
-//         console.error("Error updating order:", err);
+//         //console.error("Error updating order:", err);
 //         return res
 //           .status(500)
 //           .json({ message: "Failed to update order", error: err });
@@ -278,7 +278,7 @@ const OrderController = {
         message: "Order created successfully!",
       });
     } catch (err) {
-      console.error("🚀 ~ order.controller.js: create - Lỗi:", err);
+      //console.error("🚀 ~ order.controller.js: create - Lỗi:", err);
       next(err); // Chuyển lỗi đến middleware xử lý lỗi
     }
   },
@@ -295,7 +295,7 @@ const OrderController = {
   //     const orders = await OrderService.read(); // ✅ Sử dụng await
   //     res.status(200).json({ success: true, data: orders });
   //   } catch (err) {
-  //     console.error("🚀 ~ order.controller.js: read - Lỗi:", err);
+  //     //console.error("🚀 ~ order.controller.js: read - Lỗi:", err);
   //     next(err);
   //   }
   // },
@@ -358,7 +358,7 @@ const OrderController = {
       // 5. Trả về dữ liệu phân trang
       return createResponse(res, 200, true, orders, null, totalOrders, page, limit);
     } catch (err) {
-      console.error("🚀 ~ OrderController.read ~ Lỗi:", err);
+      //console.error("🚀 ~ OrderController.read ~ Lỗi:", err);
       next(err);
     }
   },
@@ -381,7 +381,7 @@ const OrderController = {
       }
       res.status(200).json({ success: true, data: order });
     } catch (err) {
-      console.error("🚀 ~ order.controller.js: readById - Lỗi:", err);
+      //console.error("🚀 ~ order.controller.js: readById - Lỗi:", err);
       next(err);
     }
   },
@@ -403,7 +403,7 @@ const OrderController = {
   //       message: "Order updated successfully",
   //     });
   //   } catch (err) {
-  //     console.error("🚀 ~ order.controller.js: update - Lỗi:", err);
+  //     //console.error("🚀 ~ order.controller.js: update - Lỗi:", err);
   //     next(err);
   //   }
   // },
@@ -432,7 +432,7 @@ const OrderController = {
         "Order updated successfully"
       );
     } catch (err) {
-      console.error("🚀 ~ order.controller.js: update - Lỗi:", err);
+      //console.error("🚀 ~ order.controller.js: update - Lỗi:", err);
       // Chuyển lỗi xuống middleware xử lý lỗi toàn cục
       next(err);
     }
@@ -457,7 +457,7 @@ const OrderController = {
       }
       res.status(204).send(); // 204 No Content cho xóa thành công
     } catch (err) {
-      console.error("🚀 ~ order.controller.js: delete - Lỗi:", err);
+      //console.error("🚀 ~ order.controller.js: delete - Lỗi:", err);
       next(err);
     }
   },
@@ -472,7 +472,7 @@ const OrderController = {
   //   // ✅ Chuyển sang async
   //   const { order: orderData, orderDetails } = req.body;
 
-  //   console.log(
+  //   //console.log(
   //     "🚀 ~ order.controller.js: createOrderWithDetails - REQ.BODY:",
   //     req.body
   //   );
@@ -512,11 +512,11 @@ const OrderController = {
   //         orderDetails,
   //         orderToCreate.warehouse_id
   //       );
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ order.controller.js: createOrderWithDetails - Stock reserved successfully."
   //       );
   //     } else {
-  //       console.warn(
+  //       //console.warn(
   //         "🚀 ~ order.controller.js: createOrderWithDetails - No warehouse_id provided for stock reservation."
   //       );
   //     }
@@ -527,7 +527,7 @@ const OrderController = {
   //       order_details: createdDetails,
   //     });
   //   } catch (error) {
-  //     console.error(
+  //     //console.error(
   //       "🚀 ~ order.controller.js: createOrderWithDetails - Lỗi:",
   //       error
   //     );
@@ -538,14 +538,14 @@ const OrderController = {
   createOrderWithDetails: async (req, res, next) => {
     const { order: orderData, orderDetails } = req.body;
 
-    console.log(
-      "🚀 ~ order.controller.js: createOrderWithDetails - REQ.BODY (dữ liệu thô từ client):",
-      req.body
-    );
-    console.log(
-      "🚀 ~ order.controller.js: createOrderWithDetails - orderData (từ req.body.order):",
-      orderData
-    ); // <-- LOG THÊM ĐỂ KIỂM TRA amount_paid Ở ĐÂY
+    //console.log(
+    //   "🚀 ~ order.controller.js: createOrderWithDetails - REQ.BODY (dữ liệu thô từ client):",
+    //   req.body
+    // );
+    //console.log(
+    //   "🚀 ~ order.controller.js: createOrderWithDetails - orderData (từ req.body.order):",
+    //   orderData
+    // ); // <-- LOG THÊM ĐỂ KIỂM TRA amount_paid Ở ĐÂY
 
     if (!Array.isArray(orderDetails) || orderDetails.length === 0) {
       return createResponse(
@@ -571,10 +571,10 @@ const OrderController = {
         ...orderData,
         details: orderDetails, // Truyền mảng chi tiết sản phẩm
       };
-      console.log(
-        "🚀 ~ order.controller.js: createOrderWithDetails - Dữ liệu gửi đến OrderService.create:",
-        orderDataForService
-      );
+      //console.log(
+      //   "🚀 ~ order.controller.js: createOrderWithDetails - Dữ liệu gửi đến OrderService.create:",
+      //   orderDataForService
+      // );
 
       const newOrderWithDetails = await OrderService.create(
         orderDataForService
@@ -607,18 +607,18 @@ const OrderController = {
     const { id } = req.params;
     const { order, orderDetails } = req.body;
 
-    console.log(
-      "🚀 ~ order.controller.js: updateOrderWithDetails - REQ.BODY (dữ liệu thô từ client):",
-      req.body
-    );
-    console.log(
-      "🚀 ~ order.controller.js: updateOrderWithDetails - orderData (từ req.body.order):",
-      order
-    );
-    console.log(
-      "🚀 ~ order.controller.js: updateOrderWithDetails - amount_paid từ client:",
-      order?.amount_paid
-    );
+    //console.log(
+    //   "🚀 ~ order.controller.js: updateOrderWithDetails - REQ.BODY (dữ liệu thô từ client):",
+    //   req.body
+    // );
+    //console.log(
+    //   "🚀 ~ order.controller.js: updateOrderWithDetails - orderData (từ req.body.order):",
+    //   order
+    // );
+    //console.log(
+    //   "🚀 ~ order.controller.js: updateOrderWithDetails - amount_paid từ client:",
+    //   order?.amount_paid
+    // );
 
     // ✅ Validation cơ bản
     if (!order) {
@@ -644,18 +644,18 @@ const OrderController = {
           message: "amount_paid phải là số không âm"
         });
       }
-      console.log(
-        "🚀 ~ order.controller.js: updateOrderWithDetails - amount_paid đã được validate:",
-        amountPaid
-      );
+      //console.log(
+      //   "🚀 ~ order.controller.js: updateOrderWithDetails - amount_paid đã được validate:",
+      //   amountPaid
+      // );
     }
 
     try {
       const result = await OrderService.updateOrderWithDetails(id, req.body);
-      console.log(
-        "🚀 ~ order.controller.js: updateOrderWithDetails - Cập nhật thành công:",
-        result
-      );
+      //console.log(
+      //   "🚀 ~ order.controller.js: updateOrderWithDetails - Cập nhật thành công:",
+      //   result
+      // );
       res
         .status(200)
         .json({ success: true, message: result.message, data: result });
@@ -683,7 +683,7 @@ const OrderController = {
         data,
       });
     } catch (error) {
-      console.error("Controller - getTotalByStatus:", error.message);
+      //console.error("Controller - getTotalByStatus:", error.message);
       next(error);
     }
   },

@@ -32,7 +32,7 @@
 //       const result = await InventoryModel.create(inventory);
 //       callback(null, result);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: createInventory - Error:",
 //         error
 //       );
@@ -49,7 +49,7 @@
 //       const inventories = await InventoryModel.findAll();
 //       callback(null, inventories);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: getAllInventories - Error:",
 //         error
 //       );
@@ -67,7 +67,7 @@
 //       const inventory = await InventoryModel.findById(id);
 //       callback(null, inventory);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: getInventoryById - Error:",
 //         error
 //       );
@@ -85,7 +85,7 @@
 //       const result = await InventoryModel.deleteById(id);
 //       callback(null, result);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: deleteInventory - Error:",
 //         error
 //       );
@@ -104,7 +104,7 @@
 //       const result = await InventoryModel.update(inventory_id, data);
 //       callback(null, result);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: updateInventory - Error:",
 //         error
 //       );
@@ -122,7 +122,7 @@
 //       const inventories = await InventoryModel.findByWareHouseId(id);
 //       callback(null, inventories);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: getByWareHouseId - Error:",
 //         error
 //       );
@@ -140,7 +140,7 @@
 //       const inventories = await InventoryModel.findByWareHouseId(id);
 //       callback(null, inventories);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: getAllInventoriesByWarehouse - Error:",
 //         error
 //       );
@@ -165,7 +165,7 @@
 //       );
 //       callback(null, result);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: increaseQuantity - Error:",
 //         error
 //       );
@@ -223,7 +223,7 @@
 //       }
 //       callback(null);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: increaseStockFromPurchaseOrder - Error:",
 //         error
 //       );
@@ -257,7 +257,7 @@
 //       }
 //       callback(null);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: reserveStockFromOrderDetails - Error:",
 //         error
 //       );
@@ -287,7 +287,7 @@
 //       }
 //       callback(null);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: releaseReservedStock - Error:",
 //         error
 //       );
@@ -313,7 +313,7 @@
 //       // Không cần resolve/reject ở đây vì nó được gọi từ order.service.update
 //       // và sẽ được xử lý bởi try/catch của hàm gọi.
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: confirmStockReservation - Error:",
 //         error
 //       );
@@ -369,7 +369,7 @@
 //       }
 //       callback(null);
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ inventory.service.js: decreaseStockFromOrderDetails - Error:",
 //         error
 //       );
@@ -440,7 +440,7 @@ const InventoryService = {
         return inventories;
       }
     } catch (error) {
-      console.error("🚀 ~ inventory.service.js: getAllInventories - Error:", error);
+      //console.error("🚀 ~ inventory.service.js: getAllInventories - Error:", error);
       throw error;
     }
   },
@@ -523,7 +523,7 @@ const InventoryService = {
         return inventories;
       }
     } catch (error) {
-      console.error("🚀 ~ inventory.service.js: getByWareHouseId - Error:", error);
+      //console.error("🚀 ~ inventory.service.js: getByWareHouseId - Error:", error);
       throw error;
     }
   },
@@ -769,13 +769,13 @@ const InventoryService = {
       warehouse_id
     );
 
-    console.log("inventoryRecord:", inventoryRecord);
+    //console.log("inventoryRecord:", inventoryRecord);
 
     const current_quantity_before = inventoryRecord
       ? inventoryRecord.total_quantity
       : 0;
 
-    console.log("current_quantity_before:", current_quantity_before);
+    //console.log("current_quantity_before:", current_quantity_before);
 
     let result;
     if (inventoryRecord) {
@@ -801,7 +801,7 @@ const InventoryService = {
     const current_quantity_after = updatedInventory
       ? updatedInventory.total_quantity
       : 0;
-    console.log("current_quantity_after:", current_quantity_after);
+    //console.log("current_quantity_after:", current_quantity_after);
 
     // Bước 4: Ghi lại lịch sử điều chỉnh vào inventory_adjustments
     const adjustmentResult = await InventoryModel.recordAdjustment({
@@ -845,7 +845,7 @@ const InventoryService = {
       warehouse_id
     );
 
-    console.log("currentInventory:",currentInventory)
+    //console.log("currentInventory:",currentInventory)
 
     if (!currentInventory) {
       throw new Error("Không tìm thấy sản phẩm trong kho này.");

@@ -69,13 +69,13 @@ const Invoice = {
     ];
 
     try {
-      console.log("🚀 ~ InvoiceModel: create - SQL Query:", query);
-      console.log("🚀 ~ InvoiceModel: create - SQL Values:", values);
+      //console.log("🚀 ~ InvoiceModel: create - SQL Query:", query);
+      //console.log("🚀 ~ InvoiceModel: create - SQL Values:", values);
       await db.promise().query(query, values);
       // Trả về invoiceData gốc, và các giá trị đã tính toán/khởi tạo
       return { invoice_id, ...invoiceData, status, amount_paid };
     } catch (error) {
-      console.error("🚀 ~ InvoiceModel: create - Lỗi khi tạo hóa đơn:", error);
+      //console.error("🚀 ~ InvoiceModel: create - Lỗi khi tạo hóa đơn:", error);
       throw error;
     }
   },
@@ -116,9 +116,9 @@ const Invoice = {
         return null; // Invoice not found for update
       }
 
-      console.log(
-        `🚀 ~ InvoiceModel: updateAmountPaidAndStatus - Updated invoice ${invoice_id}: amount_paid=${newAmountPaid}, status=${newStatus}`
-      );
+      //console.log(
+      //   `🚀 ~ InvoiceModel: updateAmountPaidAndStatus - Updated invoice ${invoice_id}: amount_paid=${newAmountPaid}, status=${newStatus}`
+      // );
       return {
         invoice_id,
         amount_paid: newAmountPaid,
@@ -169,9 +169,9 @@ const Invoice = {
         return null;
       }
 
-      console.log(
-        `🚀 ~ InvoiceModel: updateAmountPaid - Updated invoice ${invoice_id}: amount_paid=${amountPaid}`
-      );
+      //console.log(
+      //   `🚀 ~ InvoiceModel: updateAmountPaid - Updated invoice ${invoice_id}: amount_paid=${amountPaid}`
+      // );
       return {
         invoice_id,
         amount_paid: amountPaid,
@@ -271,10 +271,10 @@ const Invoice = {
         throw new Error("Invoice not found or no changes made");
       }
 
-      console.log(
-        `🚀 ~ InvoiceModel: updateByInvoiceCode - Updated invoice ${invoice_code}:`,
-        data
-      );
+      //console.log(
+      //   `🚀 ~ InvoiceModel: updateByInvoiceCode - Updated invoice ${invoice_code}:`,
+      //   data
+      // );
       return { invoice_code, ...data }; // Return the updated invoice data
     } catch (error) {
       console.error(
@@ -512,10 +512,10 @@ const Invoice = {
           const totalRefund =
             await CustomerReportService.calculateOrderTotalRefund(orderId);
 
-          console.log(`🔍 updateStatus with refund for invoice ${invoice_id}:`);
-          console.log(`  - Amount paid: ${currentInvoice.amount_paid}`);
-          console.log(`  - Final amount: ${currentInvoice.final_amount}`);
-          console.log(`  - Total refund: ${totalRefund}`);
+          //console.log(`🔍 updateStatus with refund for invoice ${invoice_id}:`);
+          //console.log(`  - Amount paid: ${currentInvoice.amount_paid}`);
+          //console.log(`  - Final amount: ${currentInvoice.final_amount}`);
+          //console.log(`  - Total refund: ${totalRefund}`);
 
           newStatus = Invoice.calculateStatusWithRefund(
             currentInvoice.amount_paid,
@@ -543,9 +543,9 @@ const Invoice = {
         throw new Error("Invoice not found for status update");
       }
 
-      console.log(
-        `🚀 ~ InvoiceModel: updateStatus - Updated invoice ${invoice_id}: status=${newStatus}`
-      );
+      //console.log(
+      //   `🚀 ~ InvoiceModel: updateStatus - Updated invoice ${invoice_id}: status=${newStatus}`
+      // );
       return {
         invoice_id,
         status: newStatus,
@@ -597,11 +597,11 @@ const Invoice = {
     // Số tiền thực tế phải thanh toán sau khi trừ refund
     const actualAmountToPay = Math.max(0, total - refund);
 
-    console.log(`🔍 calculateStatusWithRefund:`);
-    console.log(`  - Final amount: ${total}`);
-    console.log(`  - Amount paid: ${paid}`);
-    console.log(`  - Total refund: ${refund}`);
-    console.log(`  - Actual amount to pay: ${actualAmountToPay}`);
+    //console.log(`🔍 calculateStatusWithRefund:`);
+    //console.log(`  - Final amount: ${total}`);
+    //console.log(`  - Amount paid: ${paid}`);
+    //console.log(`  - Total refund: ${refund}`);
+    //console.log(`  - Actual amount to pay: ${actualAmountToPay}`);
 
     if (actualAmountToPay <= 0) {
       return "cancelled"; // Trường hợp refund >= final_amount (hoàn toàn)
@@ -654,9 +654,9 @@ const Invoice = {
         return null;
       }
 
-      console.log(
-        `🚀 ~ InvoiceModel: syncAmountPaidAndStatus - Updated invoice ${invoice_id}: amount_paid=${newAmountPaid}, status=${newStatus}`
-      );
+      //console.log(
+      //   `🚀 ~ InvoiceModel: syncAmountPaidAndStatus - Updated invoice ${invoice_id}: amount_paid=${newAmountPaid}, status=${newStatus}`
+      // );
       return {
         invoice_id,
         amount_paid: newAmountPaid,
@@ -700,9 +700,9 @@ const Invoice = {
       const [inconsistentInvoices] = await db.promise().query(sql);
 
       if (inconsistentInvoices.length === 0) {
-        console.log(
-          "🚀 ~ InvoiceModel: fixInconsistentStatuses - Không có hóa đơn nào cần sửa chữa"
-        );
+        //console.log(
+        //   "🚀 ~ InvoiceModel: fixInconsistentStatuses - Không có hóa đơn nào cần sửa chữa"
+        // );
         return {
           fixed_count: 0,
           total_checked: 0,
@@ -710,9 +710,9 @@ const Invoice = {
         };
       }
 
-      console.log(
-        `🚀 ~ InvoiceModel: fixInconsistentStatuses - Tìm thấy ${inconsistentInvoices.length} hóa đơn cần sửa chữa`
-      );
+      //console.log(
+      //   `🚀 ~ InvoiceModel: fixInconsistentStatuses - Tìm thấy ${inconsistentInvoices.length} hóa đơn cần sửa chữa`
+      // );
 
       // 2. Sửa chữa từng hóa đơn
       const fixedResults = [];
@@ -743,15 +743,15 @@ const Invoice = {
             final_amount: parseFloat(invoice.final_amount || 0),
           });
 
-          console.log(
-            `🚀 ~ InvoiceModel: fixInconsistentStatuses - Fixed invoice ${invoice.invoice_code}: ${invoice.status} -> ${correctStatus}`
-          );
+          //console.log(
+          //   `🚀 ~ InvoiceModel: fixInconsistentStatuses - Fixed invoice ${invoice.invoice_code}: ${invoice.status} -> ${correctStatus}`
+          // );
         }
       }
 
-      console.log(
-        `🚀 ~ InvoiceModel: fixInconsistentStatuses - Đã sửa chữa ${fixedResults.length} hóa đơn`
-      );
+      //console.log(
+      //   `🚀 ~ InvoiceModel: fixInconsistentStatuses - Đã sửa chữa ${fixedResults.length} hóa đơn`
+      // );
       return {
         fixed_count: fixedResults.length,
         total_checked: inconsistentInvoices.length,

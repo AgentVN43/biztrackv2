@@ -15,7 +15,7 @@ const AnalysisController = {
       );
       return createResponse(res, 200, true, result, "Lấy hóa đơn thành công");
     } catch (error) {
-      console.error("Lỗi khi lấy hóa đơn với bộ lọc (Analysis):", error);
+      //console.error("Lỗi khi lấy hóa đơn với bộ lọc (Analysis):", error);
       return errorResponse(res, "Lỗi khi lấy hóa đơn (Analysis)", 500);
     }
   },
@@ -30,7 +30,7 @@ const AnalysisController = {
       );
       return createResponse(res, 200, true, revenueData, "Lấy thống kê doanh thu thành công");
     } catch (error) {
-      console.error("Lỗi khi lấy thống kê doanh thu:", error);
+      //console.error("Lỗi khi lấy thống kê doanh thu:", error);
       return errorResponse(res, "Lỗi khi lấy thống kê doanh thu", 500);
     }
   },
@@ -40,7 +40,7 @@ const AnalysisController = {
       const outstandingAmount = await AnalysisService.getOutstandingDebt();
       return createResponse(res, 200, true, { total_money: outstandingAmount }, "Lấy thống kê công nợ thành công");
     } catch (error) {
-      console.error("Lỗi khi lấy thống kê công nợ:", error);
+      //console.error("Lỗi khi lấy thống kê công nợ:", error);
       return errorResponse(res, "Lỗi khi lấy thống kê công nợ", 500);
     }
   },
@@ -50,7 +50,7 @@ const AnalysisController = {
   //     const receivableOrders = await AnalysisService.getReceivableOrders();
   //     res.status(200).json({ success: true, data: receivableOrders || [] });
   //   } catch (error) {
-  //     console.error("Lỗi khi lấy danh sách order phải thu:", error);
+  //     //console.error("Lỗi khi lấy danh sách order phải thu:", error);
   //     res.status(500).json({ success: false, error: error.message });
   //   }
   // },
@@ -60,7 +60,7 @@ const AnalysisController = {
       const orders = await AnalysisService.getReceivableOrders();
       return createResponse(res, 200, true, orders, "Lấy danh sách đơn hàng phải thu thành công");
     } catch (error) {
-      console.error("Lỗi ở Controller...", error);
+      //console.error("Lỗi ở Controller...", error);
       return errorResponse(res, error.message || "Lỗi khi lấy danh sách đơn hàng phải thu", 500);
     }
   },
@@ -70,7 +70,7 @@ const AnalysisController = {
       const payablePOs = await AnalysisService.getPayablePurchaseOrders();
       return createResponse(res, 200, true, payablePOs, "Lấy danh sách purchase order phải trả thành công");
     } catch (error) {
-      console.error("Lỗi khi lấy danh sách purchase order phải trả:", error);
+      //console.error("Lỗi khi lấy danh sách purchase order phải trả:", error);
       return errorResponse(res, "Lỗi khi lấy danh sách purchase order phải trả", 500);
     }
   },
@@ -80,7 +80,7 @@ const AnalysisController = {
       const total = await getTotalCount("customers");
       return createResponse(res, 200, true, { total });
     } catch (error) {
-      console.error("Lỗi khi lấy tổng số khách hàng (Controller):", error);
+      //console.error("Lỗi khi lấy tổng số khách hàng (Controller):", error);
       return createResponse(
         res,
         500,
@@ -96,7 +96,7 @@ const AnalysisController = {
       const total = await getTotalCount("products");
       return createResponse(res, 200, true, { total }, "Lấy tổng số sản phẩm thành công");
     } catch (error) {
-      console.error("Lỗi khi lấy tổng số sản phẩm (Controller):", error);
+      //console.error("Lỗi khi lấy tổng số sản phẩm (Controller):", error);
       return errorResponse(res, "Lỗi khi lấy tổng số sản phẩm", 500);
     }
   },
@@ -158,7 +158,7 @@ const AnalysisController = {
       const data = await AnalysisService.getFinanceManagementByPeriod(req.query);
       return createResponse(res, 200, true, data, "Lấy báo cáo quản lý thu chi thành công");
     } catch (error) {
-      console.error("Lỗi khi lấy báo cáo quản lý thu chi:", error);
+      //console.error("Lỗi khi lấy báo cáo quản lý thu chi:", error);
       return errorResponse(res, "Lỗi khi lấy báo cáo quản lý thu chi", 500);
     }
   },
@@ -168,7 +168,7 @@ const AnalysisController = {
       const data = await AnalysisService.getTopCustomers(req.query);
       return createResponse(res, 200, true, data, "Lấy top khách hàng mua nhiều nhất thành công");
     } catch (error) {
-      console.error("Lỗi khi lấy top khách hàng mua nhiều nhất:", error);
+      //console.error("Lỗi khi lấy top khách hàng mua nhiều nhất:", error);
       return errorResponse(res, "Lỗi khi lấy top khách hàng mua nhiều nhất", 500);
     }
   },
@@ -178,7 +178,7 @@ const AnalysisController = {
       const data = await AnalysisService.getTopSellingProducts(req.query);
       return createResponse(res, 200, true, data, "Lấy top 10 sản phẩm bán chạy nhất thành công");
     } catch (error) {
-      console.error("Lỗi khi lấy top 10 sản phẩm bán chạy nhất:", error);
+      //console.error("Lỗi khi lấy top 10 sản phẩm bán chạy nhất:", error);
       return errorResponse(res, "Lỗi khi lấy top 10 sản phẩm bán chạy nhất", 500);
     }
   },
@@ -188,7 +188,7 @@ const AnalysisController = {
       const data = await AnalysisService.getTopPurchasingSuppliers(req.query);
       return createResponse(res, 200, true, data, "Lấy top nhà cung cấp nhập hàng nhiều nhất thành công");
     } catch (error) {
-      console.error("Lỗi khi lấy top nhà cung cấp nhập hàng nhiều nhất:", error);
+      //console.error("Lỗi khi lấy top nhà cung cấp nhập hàng nhiều nhất:", error);
       return errorResponse(res, "Lỗi khi lấy top nhà cung cấp nhập hàng nhiều nhất", 500);
     }
   },
@@ -200,7 +200,7 @@ const AnalysisController = {
       const data = await AnalysisService.getRevenueByCategory(req.query);
       return createResponse(res, 200, true, data, "Lấy doanh thu theo danh mục thành công");
     } catch (error) {
-      console.error("Lỗi khi lấy doanh thu theo danh mục:", error);
+      //console.error("Lỗi khi lấy doanh thu theo danh mục:", error);
       return errorResponse(res, "Lỗi khi lấy doanh thu theo danh mục", 500);
     }
   },

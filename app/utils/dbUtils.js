@@ -7,7 +7,7 @@ const getTotalCount = async (tableName, whereClause = "") => {
     const [results] = await db.promise().query(query);
     return results[0].total;
   } catch (error) {
-    console.error(`Lỗi khi đếm tổng số từ bảng ${tableName}:`, error);
+    //console.error(`Lỗi khi đếm tổng số từ bảng ${tableName}:`, error);
     throw error;
   }
 };

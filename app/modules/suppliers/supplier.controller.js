@@ -161,7 +161,7 @@ const SupplierController = {
       // searchParams đã được parse và validate bởi middleware
       const searchParams = req.searchParams;
 
-      console.log("🔍 Search params:", searchParams);
+      //console.log("🔍 Search params:", searchParams);
 
       // Thực hiện search và filter
       const result = await EntityHelpers.searchSuppliers(searchParams);
@@ -188,7 +188,7 @@ const SupplierController = {
       const payable = await SupplierModel.recalculatePayable(id);
       createResponse(res, 200, true, { supplier_id: id, payable }, "Recalculated supplier payable successfully.");
     } catch (error) {
-      console.error("🚀 ~ supplier.controller.js: recalcPayable - Error:", error);
+      //console.error("🚀 ~ supplier.controller.js: recalcPayable - Error:", error);
       return errorResponse(res, error.message || "Lỗi server", 500);
     }
   },
@@ -199,7 +199,7 @@ const SupplierController = {
       const result = await SupplierModel.recalculateAllPayables();
       createResponse(res, 200, true, result, "Recalculated all suppliers' payable successfully.");
     } catch (error) {
-      console.error("🚀 ~ supplier.controller.js: recalcAllPayables - Error:", error);
+      //console.error("🚀 ~ supplier.controller.js: recalcAllPayables - Error:", error);
       return errorResponse(res, error.message || "Lỗi server", 500);
     }
   },

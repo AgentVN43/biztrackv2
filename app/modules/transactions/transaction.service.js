@@ -12,21 +12,21 @@
 //       //   transaction.related_type === "invoice" && // Check if it's related to an invoice
 //       //   transaction.related_id // Check if related_id exists (which should be invoice_id)
 //       // ) {
-//       //   console.log(
+//       //   //console.log(
 //       //     `🚀 ~ TransactionService: createTransaction - Giao dịch liên quan đến hóa đơn (${transaction.type}). Đang cập nhật hóa đơn.`
 //       //   );
 //       //   await InvoiceService.updateAmountPaidAndStatus(
 //       //     transaction.related_id, // invoice_id
 //       //     transaction.amount // Số tiền của giao dịch
 //       //   );
-//       //   console.log(
+//       //   //console.log(
 //       //     `✅ Đã cập nhật hóa đơn ID ${transaction.related_id} với số tiền ${transaction.amount}`
 //       //   );
 //       // }
 
 //       return transaction;
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ transaction.service.js: createTransaction - Lỗi:",
 //         error
 //       );
@@ -41,7 +41,7 @@
 //       );
 //       return transaction;
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ transaction.service.js: getTransactionById - Error:",
 //         error
 //       );
@@ -55,7 +55,7 @@
 //       const result = await TransactionModel.markAsCancelled(related_id);
 //       return result;
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ transaction.service.js: markAsCancelled - Error:",
 //         error
 //       );
@@ -76,12 +76,12 @@
 //         invoiceId,
 //         paymentAmount
 //       );
-//       console.log(
+//       //console.log(
 //         `✅ Đã xử lý thanh toán ${paymentAmount} cho hóa đơn ${invoiceId}. Trạng thái mới: ${updatedInvoice.status}`
 //       );
 //       return updatedInvoice;
 //     } catch (error) {
-//       console.error(
+//       //console.error(
 //         "🚀 ~ TransactionService: processPaymentForInvoice - Lỗi xử lý thanh toán cho hóa đơn:",
 //         error
 //       );
@@ -98,14 +98,14 @@ const autoSyncCustomerDebt = async (customer_id) => {
   try {
     if (!customer_id) return;
     
-    console.log(`🔄 Tự động đồng bộ debt cho customer ${customer_id}...`);
+    //console.log(`🔄 Tự động đồng bộ debt cho customer ${customer_id}...`);
     
     const CustomerModel = require('../customers/customer.model');
     await CustomerModel.updateDebt(customer_id, 0, true);
     
-    console.log(`✅ Đã tự động đồng bộ debt cho customer ${customer_id}`);
+    //console.log(`✅ Đã tự động đồng bộ debt cho customer ${customer_id}`);
   } catch (error) {
-    console.error(`❌ Lỗi khi tự động đồng bộ debt cho customer ${customer_id}:`, error);
+    //console.error(`❌ Lỗi khi tự động đồng bộ debt cho customer ${customer_id}:`, error);
     // Không throw error để không ảnh hưởng đến workflow chính
   }
 };
@@ -115,15 +115,15 @@ const autoSyncSupplierPayable = async (supplier_id) => {
   try {
     if (!supplier_id) return;
     
-    console.log(`🔄 Tự động đồng bộ payable cho supplier ${supplier_id}...`);
+    //console.log(`🔄 Tự động đồng bộ payable cho supplier ${supplier_id}...`);
     
     const SupplierModel = require('../suppliers/supplier.model');
     if (SupplierModel.recalculatePayable) {
       await SupplierModel.recalculatePayable(supplier_id);
-      console.log(`✅ Đã tự động đồng bộ payable cho supplier ${supplier_id}`);
+      //console.log(`✅ Đã tự động đồng bộ payable cho supplier ${supplier_id}`);
     }
   } catch (error) {
-    console.error(`❌ Lỗi khi tự động đồng bộ payable cho supplier ${supplier_id}:`, error);
+    //console.error(`❌ Lỗi khi tự động đồng bộ payable cho supplier ${supplier_id}:`, error);
     // Không throw error để không ảnh hưởng đến workflow chính
   }
 };
@@ -153,22 +153,22 @@ const TransactionService = {
         throw new Error('Field "amount" phải là số dương');
       }
       
-      console.log(`🔄 TransactionService: Tạo transaction với data:`, validatedData);
+      //console.log(`🔄 TransactionService: Tạo transaction với data:`, validatedData);
       
       // ✅ Truyền data đã validate xuống model
       const transaction = await TransactionModel.createTransaction(validatedData);
       
-      console.log(`✅ TransactionService: Đã tạo transaction thành công: ${transaction.insertId}`);
+      //console.log(`✅ TransactionService: Đã tạo transaction thành công: ${transaction.insertId}`);
       
       // ✅ Tự động đồng bộ debt cho customer (nếu có)
       if (validatedData.customer_id) {
-        console.log(`🔄 TransactionService: Trigger auto-sync cho customer: ${validatedData.customer_id}`);
+        //console.log(`🔄 TransactionService: Trigger auto-sync cho customer: ${validatedData.customer_id}`);
         await autoSyncCustomerDebt(validatedData.customer_id);
       }
       
       // ✅ Tự động đồng bộ payable cho supplier (nếu có)
       if (validatedData.supplier_id) {
-        console.log(`🔄 TransactionService: Trigger auto-sync cho supplier: ${validatedData.supplier_id}`);
+        //console.log(`🔄 TransactionService: Trigger auto-sync cho supplier: ${validatedData.supplier_id}`);
         await autoSyncSupplierPayable(validatedData.supplier_id);
       }
       
