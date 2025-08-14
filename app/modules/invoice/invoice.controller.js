@@ -138,10 +138,10 @@ const recordInvoicePayment = async (req, res, next) => {
   const { amount, method } = req.body; // Lấy số tiền và phương thức thanh toán từ request body
   const initiatedByUserId = req.user ? req.user.user_id : null; // Lấy ID người dùng từ đối tượng req.user (nếu có middleware xác thực)
 
-  console.log(
-    `🚀 ~ invoice.controller.js: recordInvoicePayment - Nhận yêu cầu thanh toán cho hóa đơn ${invoice_id}`
-  );
-  console.log(`🚀 ~ Số tiền: ${amount}, Phương thức: ${method}`);
+  //console.log(
+  //   `🚀 ~ invoice.controller.js: recordInvoicePayment - Nhận yêu cầu thanh toán cho hóa đơn ${invoice_id}`
+  // );
+  //console.log(`🚀 ~ Số tiền: ${amount}, Phương thức: ${method}`);
 
   // Xác thực dữ liệu đầu vào cơ bản
   if (!amount || typeof amount !== "number" || amount <= 0) {
@@ -214,7 +214,7 @@ const recordBulkPayment = async (req, res, next) => {
     const result = await InvoiceService.recordBulkPayment(payments, method, initiatedByUserId);
     createResponse(res, 200, true, result, "Thanh toán hàng loạt thành công.");
   } catch (error) {
-    console.error("Lỗi trong quá trình thanh toán hàng loạt:", error);
+    //console.error("Lỗi trong quá trình thanh toán hàng loạt:", error);
     if (error.message.includes("không cùng một khách hàng")) {
       return createResponse(res, 400, false, null, error.message);
     }
@@ -234,7 +234,7 @@ const getAllPayments = async (req, res, next) => {
     const payments = await InvoiceService.getAllPayments(customer_id);
     createResponse(res, 200, true, payments, "Lấy danh sách thanh toán thành công.");
   } catch (error) {
-    console.error("Lỗi khi lấy danh sách thanh toán:", error);
+    //console.error("Lỗi khi lấy danh sách thanh toán:", error);
     next(error);
   }
 };

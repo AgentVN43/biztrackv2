@@ -73,7 +73,7 @@ const WarehouseModel = {
       await db.promise().query(query, values);
       return { warehouse_id, ...data };
     } catch (error) {
-      console.error("🚀 ~ WarehouseModel: create - Lỗi khi tạo kho:", error);
+      //console.error("🚀 ~ WarehouseModel: create - Lỗi khi tạo kho:", error);
       throw error;
     }
   },
@@ -95,7 +95,7 @@ const WarehouseModel = {
       const [rows] = await db.promise().query(query, params);
       return rows;
     } catch (error) {
-      console.error("🚀 ~ WarehouseModel: getAll - Lỗi khi lấy tất cả kho:", error);
+      //console.error("🚀 ~ WarehouseModel: getAll - Lỗi khi lấy tất cả kho:", error);
       throw error;
     }
   },
@@ -110,7 +110,7 @@ const WarehouseModel = {
       const [rows] = await db.promise().query(query);
       return rows && rows.length ? rows[0].total : 0;
     } catch (error) {
-      console.error("🚀 ~ WarehouseModel: countAll - Lỗi khi đếm kho:", error);
+      //console.error("🚀 ~ WarehouseModel: countAll - Lỗi khi đếm kho:", error);
       throw error;
     }
   },
@@ -202,7 +202,7 @@ const WarehouseModel = {
       }
       return { message: "Kho đã được xóa thành công", warehouse_id: id };
     } catch (error) {
-      console.error("🚀 ~ WarehouseModel: delete - Lỗi khi xóa kho:", error);
+      //console.error("🚀 ~ WarehouseModel: delete - Lỗi khi xóa kho:", error);
       throw error;
     }
   },

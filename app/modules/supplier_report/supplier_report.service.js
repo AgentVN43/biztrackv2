@@ -68,10 +68,10 @@ const SupplierReportService = {
       }
       const transactions = [...directTransactions, ...invoiceTransactions];
 
-      console.log(
-        "🚀 ~ getSupplierTransactionLedger: ~ transactions:",
-        transactions
-      );
+      // console.log(
+      //   "🚀 ~ getSupplierTransactionLedger: ~ transactions:",
+      //   transactions
+      // );
 
       // 3.5. ✅ Lấy tất cả return_orders đã approved/completed
       const returnOrdersSql = `
@@ -203,7 +203,7 @@ const SupplierReportService = {
       allTransactions.sort((a, b) => a.transaction_date - b.transaction_date);
 
       // Debug: In ra thứ tự giao dịch
-      console.log("🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):");
+      // //console.log("🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):");
       allTransactions.forEach((t, index) => {
         console.log(
           `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${t.type
@@ -258,7 +258,7 @@ const SupplierReportService = {
         } else if (SIGNED_TYPES.has(type)) {
           runningBalance += amount; // amount có thể âm/dương
         } else {
-          console.warn("⚠️ Supplier ledger: Transaction type lạ:", type, txn);
+          //console.warn("⚠️ Supplier ledger: Transaction type lạ:", type, txn);
           runningBalance += amount; // fallback
         }
 

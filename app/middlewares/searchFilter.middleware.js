@@ -31,7 +31,7 @@ const searchFilterMiddleware = (allowedSearchFields = [], allowedSortFields = []
       
       next();
     } catch (error) {
-      console.error('🚀 ~ searchFilterMiddleware - Error:', error);
+      //console.error('🚀 ~ searchFilterMiddleware - Error:', error);
       return res.status(400).json({
         success: false,
         message: 'Invalid search parameters',

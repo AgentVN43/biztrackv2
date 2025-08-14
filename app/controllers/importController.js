@@ -25,12 +25,12 @@ class ImportController {
         return errorResponse(res, 'Dữ liệu text không hợp lệ', 400);
       }
 
-      console.log('🚀 ~ ImportController.importFromText - Processing:', {
-        entityType,
-        textDataLength: textData.length,
-        delimiter,
-        validateOnly
-      });
+      // //console.log('🚀 ~ ImportController.importFromText - Processing:', {
+      //   entityType,
+      //   textDataLength: textData.length,
+      //   delimiter,
+      //   validateOnly
+      // });
 
       // Process import
       const result = await ImportService.importFromText(textData, entityType, delimiter, validateOnly);
@@ -43,7 +43,7 @@ class ImportController {
       return createResponse(res, 200, true, result, message);
 
     } catch (error) {
-      console.error('🚀 ~ ImportController.importFromText - Error:', error);
+      //console.error('🚀 ~ ImportController.importFromText - Error:', error);
       return errorResponse(res, error.message || 'Lỗi import dữ liệu', 500);
     }
   }
@@ -61,7 +61,7 @@ class ImportController {
         return errorResponse(res, `Entity type '${entityType}' không được hỗ trợ`, 400);
       }
 
-      const template = await ImportService.createTemplate(entityType);
+      // const template = await ImportService.createTemplate(entityType);
       const entityConfig = await ImportService.getEntityConfig(entityType);
       
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -69,7 +69,7 @@ class ImportController {
       res.send(template);
       
     } catch (error) {
-      console.error('🚀 ~ ImportController.downloadTemplate - Error:', error);
+      //console.error('🚀 ~ ImportController.downloadTemplate - Error:', error);
       return errorResponse(res, 'Lỗi tạo template', 500);
     }
   }
@@ -93,7 +93,7 @@ class ImportController {
       }));
       return createResponse(res, 200, true, entityConfigs, 'Danh sách entity types được hỗ trợ');
     } catch (error) {
-      console.error('🚀 ~ ImportController.getEntityTypes - Error:', error);
+      //console.error('🚀 ~ ImportController.getEntityTypes - Error:', error);
       return errorResponse(res, 'Lỗi lấy danh sách entity types', 500);
     }
   }
@@ -125,7 +125,7 @@ class ImportController {
       return createResponse(res, 200, true, fullConfig, `Config cho ${config.displayName}`);
       
     } catch (error) {
-      console.error('🚀 ~ ImportController.getEntityConfig - Error:', error);
+      //console.error('🚀 ~ ImportController.getEntityConfig - Error:', error);
       return errorResponse(res, 'Lỗi lấy entity config', 500);
     }
   }

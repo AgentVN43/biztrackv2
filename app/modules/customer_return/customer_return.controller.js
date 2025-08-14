@@ -46,7 +46,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 201, true, result, "Tạo đơn trả hàng thành công");
     } catch (error) {
-      console.error("Lỗi tạo đơn trả hàng:", error);
+      //console.error("Lỗi tạo đơn trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi tạo đơn trả hàng", 500);
     }
   },
@@ -85,7 +85,7 @@ const CustomerReturnController = {
         message: "Lấy danh sách đơn trả hàng thành công"
       });
     } catch (error) {
-      console.error("Lỗi lấy danh sách đơn trả hàng:", error);
+      //console.error("Lỗi lấy danh sách đơn trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi lấy danh sách đơn trả hàng", 500);
     }
   },
@@ -115,7 +115,7 @@ const CustomerReturnController = {
         order_summary: orderSummary
       }, "Lấy chi tiết đơn trả hàng thành công");
     } catch (error) {
-      console.error("Lỗi lấy chi tiết đơn trả hàng:", error);
+      //console.error("Lỗi lấy chi tiết đơn trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi lấy chi tiết đơn trả hàng", 500);
     }
   },
@@ -141,7 +141,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 200, true, result, "Cập nhật đơn trả hàng thành công");
     } catch (error) {
-      console.error("Lỗi cập nhật đơn trả hàng:", error);
+      //console.error("Lỗi cập nhật đơn trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi cập nhật đơn trả hàng", 500);
     }
   },
@@ -160,7 +160,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 200, true, result, "Xử lý đơn trả hàng thành công");
     } catch (error) {
-      console.error("Lỗi xử lý đơn trả hàng:", error);
+      //console.error("Lỗi xử lý đơn trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi xử lý đơn trả hàng", 500);
     }
   },
@@ -178,7 +178,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 200, true, result, "Phê duyệt đơn trả hàng thành công");
     } catch (error) {
-      console.error("Lỗi phê duyệt đơn trả hàng:", error);
+      //console.error("Lỗi phê duyệt đơn trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi phê duyệt đơn trả hàng", 500);
     }
   },
@@ -201,7 +201,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 200, true, result, "Từ chối đơn trả hàng thành công");
     } catch (error) {
-      console.error("Lỗi từ chối đơn trả hàng:", error);
+      //console.error("Lỗi từ chối đơn trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi từ chối đơn trả hàng", 500);
     }
   },
@@ -219,7 +219,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 200, true, result, "Xóa đơn trả hàng thành công");
     } catch (error) {
-      console.error("Lỗi xóa đơn trả hàng:", error);
+      //console.error("Lỗi xóa đơn trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi xóa đơn trả hàng", 500);
     }
   },
@@ -240,7 +240,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 200, true, result, "Lấy thống kê trả hàng thành công");
     } catch (error) {
-      console.error("Lỗi lấy thống kê trả hàng:", error);
+      //console.error("Lỗi lấy thống kê trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi lấy thống kê trả hàng", 500);
     }
   },
@@ -258,7 +258,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 200, true, result, "Kiểm tra khả năng trả hàng thành công");
     } catch (error) {
-      console.error("Lỗi kiểm tra khả năng trả hàng:", error);
+      //console.error("Lỗi kiểm tra khả năng trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi kiểm tra khả năng trả hàng", 500);
     }
   },
@@ -279,7 +279,7 @@ const CustomerReturnController = {
         refund_amount: refundAmount
       }, "Tính toán số tiền hoàn trả thành công");
     } catch (error) {
-      console.error("Lỗi tính toán số tiền hoàn trả:", error);
+      //console.error("Lỗi tính toán số tiền hoàn trả:", error);
       return errorResponse(res, error.message || "Lỗi tính toán số tiền hoàn trả", 500);
     }
   },
@@ -302,7 +302,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 200, true, result, "Cập nhật số tiền hoàn trả thành công");
     } catch (error) {
-      console.error("Lỗi cập nhật số tiền hoàn trả:", error);
+      //console.error("Lỗi cập nhật số tiền hoàn trả:", error);
       return errorResponse(res, error.message || "Lỗi cập nhật số tiền hoàn trả", 500);
     }
   },
@@ -323,7 +323,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 200, true, result, "Lấy báo cáo trả hàng thành công");
     } catch (error) {
-      console.error("Lỗi lấy báo cáo trả hàng:", error);
+      //console.error("Lỗi lấy báo cáo trả hàng:", error);
       return errorResponse(res, error.message || "Lỗi lấy báo cáo trả hàng", 500);
     }
   },
@@ -345,7 +345,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 200, true, result, "Lấy đơn trả hàng theo khách hàng thành công");
     } catch (error) {
-      console.error("Lỗi lấy đơn trả hàng theo khách hàng:", error);
+      //console.error("Lỗi lấy đơn trả hàng theo khách hàng:", error);
       return errorResponse(res, error.message || "Lỗi lấy đơn trả hàng theo khách hàng", 500);
     }
   },
@@ -363,7 +363,7 @@ const CustomerReturnController = {
 
       return createResponse(res, 200, true, result, "Lấy đơn trả hàng theo đơn hàng thành công");
     } catch (error) {
-      console.error("Lỗi lấy đơn trả hàng theo đơn hàng:", error);
+      //console.error("Lỗi lấy đơn trả hàng theo đơn hàng:", error);
       return errorResponse(res, error.message || "Lỗi lấy đơn trả hàng theo đơn hàng", 500);
     }
   }

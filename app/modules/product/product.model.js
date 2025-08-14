@@ -27,7 +27,7 @@ const ProductModel = {
 
   //     return { products, total };
   //   } catch (err) {
-  //     console.error("🚀 ~ product.model.js: getAllProducts - Error:", err);
+  //     //console.error("🚀 ~ product.model.js: getAllProducts - Error:", err);
   //     throw err;
   //   }
   // },
@@ -78,18 +78,18 @@ const ProductModel = {
     const countParams = [...whereParams];
 
     try {
-      console.log("SQL Query:", sql);
-      console.log("Query Params:", queryParams);
+      //console.log("SQL Query:", sql);
+      //console.log("Query Params:", queryParams);
       const [products] = await db.query(sql, queryParams);
 
-      console.log("Count SQL:", countSql);
-      console.log("Count Params:", countParams);
+      //console.log("Count SQL:", countSql);
+      //console.log("Count Params:", countParams);
       const [countResult] = await db.query(countSql, countParams);
       const total = countResult[0].total;
 
       return { products, total };
     } catch (err) {
-      console.error("🚀 ~ product.model.js: getAllProducts - Error:", err);
+      //console.error("🚀 ~ product.model.js: getAllProducts - Error:", err);
       throw err;
     }
   },
@@ -113,7 +113,7 @@ const ProductModel = {
       const [results] = await db.query(sql, [id]);
       return results.length ? results[0] : null;
     } catch (err) {
-      console.error("🚀 ~ product.model.js: getProductById - Error:", err);
+      //console.error("🚀 ~ product.model.js: getProductById - Error:", err);
       throw err;
     }
   },
@@ -171,7 +171,7 @@ const ProductModel = {
       const [results] = await db.query(sql, values);
       return { product_id, affectedRows: results.affectedRows };
     } catch (err) {
-      console.error("🚀 ~ product.model.js: createProduct - Error:", err);
+      //console.error("🚀 ~ product.model.js: createProduct - Error:", err);
       throw err;
     }
   },
@@ -228,7 +228,7 @@ const ProductModel = {
       const [results] = await db.query(sql, values);
       return results;
     } catch (err) {
-      console.error("🚀 ~ product.model.js: updateProduct - Error:", err);
+      //console.error("🚀 ~ product.model.js: updateProduct - Error:", err);
       throw err;
     }
   },
@@ -244,7 +244,7 @@ const ProductModel = {
       const [results] = await db.query(sql, [id]);
       return results;
     } catch (err) {
-      console.error("🚀 ~ product.model.js: deleteProduct - Error:", err);
+      //console.error("🚀 ~ product.model.js: deleteProduct - Error:", err);
       throw err;
     }
   },
@@ -269,7 +269,7 @@ const ProductModel = {
       const [results] = await db.query(sql, params);
       return results[0].count > 0;
     } catch (err) {
-      console.error("🚀 ~ product.model.js: checkSkuExists - Error:", err);
+      //console.error("🚀 ~ product.model.js: checkSkuExists - Error:", err);
       throw err;
     }
   },
@@ -301,7 +301,7 @@ const ProductModel = {
       const [results] = await db.query(sql, values);
       return results;
     } catch (err) {
-      console.error("🚀 ~ product.model.js: updateStockFields - Error:", err);
+      //console.error("🚀 ~ product.model.js: updateStockFields - Error:", err);
       throw err;
     }
   },

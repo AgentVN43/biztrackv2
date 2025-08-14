@@ -92,20 +92,20 @@ async function postOrders(orders) {
 
       if (!res.ok) {
         const errorData = await res.text();
-        console.error("❌ Lỗi gửi đơn hàng:", errorData);
+        //console.error("❌ Lỗi gửi đơn hàng:", errorData);
       } else {
         const data = await res.json();
         successCount++;
-        console.log("✅ Đơn hàng đã tạo:", data);
+        //console.log("✅ Đơn hàng đã tạo:", data);
       }
     } catch (error) {
       errorCount++;
-      console.error("❌ Lỗi kết nối:", error.message);
+      //console.error("❌ Lỗi kết nối:", error.message);
     }
   }
-  console.log("🎉 Tổng kết:");
-  console.log(`✅ Đã tạo thành công: ${successCount} đơn`);
-  console.log(`❌ Thất bại: ${errorCount} đơn`);
+  //console.log("🎉 Tổng kết:");
+  //console.log(`✅ Đã tạo thành công: ${successCount} đơn`);
+  //console.log(`❌ Thất bại: ${errorCount} đơn`);
 }
 
 // Gọi thực hiện

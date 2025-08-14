@@ -65,7 +65,7 @@ exports.createWarehouse = async (req, res, next) => {
     const newWarehouse = await WarehouseModel.create(warehouseData); // Gọi hàm create đã refactor trong model
     createResponse(res, 201, true, newWarehouse, "Kho đã được tạo thành công!");
   } catch (err) {
-    console.error("🚀 ~ warehouse.controller.js: createWarehouse - Lỗi:", err);
+    //console.error("🚀 ~ warehouse.controller.js: createWarehouse - Lỗi:", err);
     next(err); // Chuyển lỗi đến middleware xử lý lỗi
   }
 };
@@ -107,7 +107,7 @@ exports.getAllWarehouses = async (req, res, next) => {
       );
     }
   } catch (err) {
-    console.error("🚀 ~ warehouse.controller.js: getAllWarehouses - Lỗi:", err);
+    //console.error("🚀 ~ warehouse.controller.js: getAllWarehouses - Lỗi:", err);
     next(err);
   }
 };
@@ -131,7 +131,7 @@ exports.getWarehouseById = async (req, res, next) => {
       "Thông tin kho đã được tải thành công."
     );
   } catch (err) {
-    console.error("🚀 ~ warehouse.controller.js: getWarehouseById - Lỗi:", err);
+    //console.error("🚀 ~ warehouse.controller.js: getWarehouseById - Lỗi:", err);
     next(err);
   }
 };
@@ -163,7 +163,7 @@ exports.updateWarehouse = async (req, res, next) => {
       "Kho đã được cập nhật thành công!"
     );
   } catch (err) {
-    console.error("🚀 ~ warehouse.controller.js: updateWarehouse - Lỗi:", err);
+    //console.error("🚀 ~ warehouse.controller.js: updateWarehouse - Lỗi:", err);
     next(err);
   }
 };
@@ -187,7 +187,7 @@ exports.deleteWarehouse = async (req, res, next) => {
     }
     createResponse(res, 200, true, result, "Kho đã được xóa thành công!");
   } catch (err) {
-    console.error("🚀 ~ warehouse.controller.js: deleteWarehouse - Lỗi:", err);
+    //console.error("🚀 ~ warehouse.controller.js: deleteWarehouse - Lỗi:", err);
     next(err);
   }
 };

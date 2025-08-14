@@ -128,13 +128,13 @@ const autoSyncCustomerDebt = async (customer_id) => {
   try {
     if (!customer_id) return;
     
-    console.log(`🔄 Tự động đồng bộ debt cho customer ${customer_id}...`);
+    //console.log(`🔄 Tự động đồng bộ debt cho customer ${customer_id}...`);
     
     await CustomerModel.updateDebt(customer_id, 0, true);
     
-    console.log(`✅ Đã tự động đồng bộ debt cho customer ${customer_id}`);
+    //console.log(`✅ Đã tự động đồng bộ debt cho customer ${customer_id}`);
   } catch (error) {
-    console.error(`❌ Lỗi khi tự động đồng bộ debt cho customer ${customer_id}:`, error);
+    //console.error(`❌ Lỗi khi tự động đồng bộ debt cho customer ${customer_id}:`, error);
     // Không throw error để không ảnh hưởng đến workflow chính
   }
 };
@@ -146,10 +146,10 @@ const OrderService = {
    * @returns {Promise<Object>} Promise giải quyết với đơn hàng đã tạo.
    */
   create: async (data) => {
-    console.log(
-      "🚀 ~ OrderService.create - Dữ liệu nhận được từ Controller (raw):",
-      data
-    );
+    // //console.log(
+    //   "🚀 ~ OrderService.create - Dữ liệu nhận được từ Controller (raw):",
+    //   data
+    // );
     try {
       const {
         details = [],
@@ -158,10 +158,10 @@ const OrderService = {
       } = data;
 
       const calculatedAmounts = calculateOrderTotals(details, data);
-      console.log(
-        "🚀 ~ OrderService.create - Các giá trị đã tính toán (số thực):",
-        calculatedAmounts
-      );
+      // //console.log(
+      //   "🚀 ~ OrderService.create - Các giá trị đã tính toán (số thực):",
+      //   calculatedAmounts
+      // );
 
       const orderDataForModel = {
         ...otherData,
@@ -173,17 +173,17 @@ const OrderService = {
         order_amount: calculatedAmounts.order_amount.toFixed(2),
         amount_paid: parseFloat(initialAmountPaidFromPayload).toFixed(2), // Lưu amount_paid vào order
       };
-      console.log(
-        "🚀 ~ OrderService.create - Dữ liệu gửi đến OrderModel.create (đã định dạng chuỗi):",
-        orderDataForModel
-      );
+      // //console.log(
+      //   "🚀 ~ OrderService.create - Dữ liệu gửi đến OrderModel.create (đã định dạng chuỗi):",
+      //   orderDataForModel
+      // );
 
       // 1. Tạo đơn hàng chính
       const createdOrder = await OrderModel.create(orderDataForModel);
-      console.log(
-        "🚀 ~ OrderService.create - Đơn hàng chính đã tạo thành công:",
-        createdOrder
-      );
+      //console.log(
+      //   "🚀 ~ OrderService.create - Đơn hàng chính đã tạo thành công:",
+      //   createdOrder
+      // );
 
       // ✅ Sau khi tạo đơn hàng thành công, tự động đồng bộ debt cho khách hàng
       if (createdOrder && createdOrder.customer_id) {
@@ -257,37 +257,37 @@ const OrderService = {
    */
 
   // update: async (order_id, data, initiatedByUserId = null) => {
-  //   console.log("🚀 ~ order.service: update - Incoming data:", data);
+  //   //console.log("🚀 ~ order.service: update - Incoming data:", data);
 
   //   try {
   //     const updateResult = await OrderModel.update(order_id, data);
   //     if (!updateResult) {
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ order.service: update - OrderModel.update không tìm thấy đơn hàng."
   //       );
   //       throw new Error("Đơn hàng không tồn tại");
   //     }
 
   //     if (!data.order_status) {
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ order.service: update - data.order_status không được cung cấp. Bỏ qua logic phụ."
   //       );
   //       return updateResult;
   //     }
 
-  //     console.log(
+  //     //console.log(
   //       "🚀 ~ order.service: update - order_status đã được cung cấp, tiếp tục xử lý logic phụ."
   //     );
 
   //     const order = await OrderModel.readById(order_id);
   //     if (!order) {
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ order.service: update - OrderModel.readById không tìm thấy đơn hàng."
   //       );
   //       throw new Error("Không thể đọc thông tin đơn hàng");
   //     }
 
-  //     console.log(
+  //     //console.log(
   //       "🚀 ~ order.service: update - Thông tin đơn hàng đã đọc:",
   //       order
   //     );
@@ -303,12 +303,12 @@ const OrderService = {
   //     }
 
   //     if (data.order_status === "Hoàn tất") {
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ order.service: update - Trạng thái đơn hàng là 'Hoàn tất'. Bắt đầu xử lý tồn kho, hóa đơn, giao dịch."
   //       );
 
   //       if (orderDetails.length === 0) {
-  //         console.warn(
+  //         //console.warn(
   //           "🚀 ~ order.service: update - Đơn hàng 'Hoàn tất' nhưng không có chi tiết đơn hàng (orderDetails)."
   //         );
   //       }
@@ -317,7 +317,7 @@ const OrderService = {
   //         orderDetails,
   //         order.warehouse_id
   //       );
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ order.service: update - Xác nhận tồn kho thành công."
   //       );
 
@@ -348,7 +348,7 @@ const OrderService = {
   //           } được bán trong đơn hàng ${order.order_id}.`,
   //           initiated_by: initiatedByUserId,
   //         });
-  //         console.log(
+  //         //console.log(
   //           `🚀 ~ Product Event ghi nhận: Bán ${item.quantity} của ${item.product_id}`
   //         );
   //       }
@@ -378,12 +378,12 @@ const OrderService = {
   //         amount_paid: parseFloat(createdOrder.amount_paid || 0), // ✅ Truyền amount_paid từ đơn hàng
   //       };
 
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ OrderService.create - Dữ liệu Invoice sẽ tạo:",
   //         invoiceData
   //       );
   //       const invoiceResult = await InvoiceService.create(invoiceData); // InvoiceService.create sẽ tự động xử lý amount_paid và status
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ OrderService.create - Invoice đã tạo thành công:",
   //         invoiceResult
   //       );
@@ -397,11 +397,11 @@ const OrderService = {
   //         invoice: invoiceResult, // Trả về cả thông tin hóa đơn đã tạo
   //       };
   //     } else if (data.order_status === "Huỷ đơn") {
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ order.service: update - Trạng thái đơn hàng là 'Huỷ đơn'. Bắt đầu giải phóng tồn kho."
   //       );
   //       await InventoryService.releaseReservedStock(orderDetails, warehouse_id);
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ order.service: update - Giải phóng tồn kho thành công."
   //       );
 
@@ -432,24 +432,24 @@ const OrderService = {
   //           } tồn kho được giải phóng.`,
   //           initiated_by: initiatedByUserId,
   //         });
-  //         console.log(
+  //         //console.log(
   //           `🚀 ~ Product Event ghi nhận: Hủy đơn ${item.quantity} của ${item.product_id}`
   //         );
   //       }
 
   //       await TransactionService.markAsCancelled(order_id);
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ order.service: update - Giao dịch liên quan đã được hủy thành công."
   //       );
   //       return updateResult;
   //     } else {
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ order.service: update - Trạng thái đơn hàng thay đổi nhưng không có logic xử lý cụ thể."
   //       );
   //       return updateResult;
   //     }
   //   } catch (error) {
-  //     console.error(
+  //     //console.error(
   //       "🚀 ~ order.service: update - Lỗi trong quá trình xử lý:",
   //       error
   //     );
@@ -602,16 +602,16 @@ const OrderService = {
             amount_paid: parseFloat(order.amount_paid || 0), // ✅ Lấy amount_paid từ ĐƠN HÀNG GỐC
           };
 
-          console.log(
-            "🚀 ~ order.service: update - Dữ liệu Invoice sẽ tạo:",
-            invoiceData
-          );
+          // //console.log(
+          //   "🚀 ~ order.service: update - Dữ liệu Invoice sẽ tạo:",
+          //   invoiceData
+          // );
           // InvoiceService.create sẽ gọi InvoiceModel.create với amount_paid đã cung cấp
           createdInvoice = await InvoiceService.create(invoiceData);
-          console.log(
-            "🚀 ~ order.service: update - Invoice đã tạo thành công:",
-            createdInvoice
-          );
+          // //console.log(
+          //   "🚀 ~ order.service: update - Invoice đã tạo thành công:",
+          //   createdInvoice
+          // );
         } else {
           console.log(
             `🚀 ~ order.service: update - Hóa đơn cho đơn hàng ${order.order_code} (ID: ${order.order_id}) đã tồn tại (mã: ${existingInvoice.invoice_code}). Bỏ qua việc tạo lại.`
@@ -679,9 +679,9 @@ const OrderService = {
           };
 
           await CustomerModel.update(customer_id, updatedCustomerData);
-          console.log(
-            `🚀 ~ order.service: update - Đã cập nhật Customer Report (total_orders, total_expenditure, status) cho khách hàng ${customer_id}`
-          );
+          // console.log(
+          //   `🚀 ~ order.service: update - Đã cập nhật Customer Report (total_orders, total_expenditure, status) cho khách hàng ${customer_id}`
+          // );
 
           const unpaidInvoicesList =
             await CustomerReportService.getUnpaidOrPartiallyPaidInvoices(
@@ -742,9 +742,9 @@ const OrderService = {
             } tồn kho được giải phóng.`,
             initiated_by: initiatedByUserId,
           });
-          console.log(
-            `🚀 ~ Product Event ghi nhận: Hủy đơn ${item.quantity} của ${item.product_id} tại kho ${warehouse_id}. Tồn cuối tại kho: ${current_stock_after_at_warehouse}`
-          );
+          // //console.log(
+          //   `🚀 ~ Product Event ghi nhận: Hủy đơn ${item.quantity} của ${item.product_id} tại kho ${warehouse_id}. Tồn cuối tại kho: ${current_stock_after_at_warehouse}`
+          // );
         }
 
         await TransactionService.markAsCancelled(order.order_id);
@@ -808,7 +808,7 @@ const OrderService = {
       const { data, total } = await OrderModel.read(skip, limit, filters);
       return { data, total }; // Trả về cả hai
     } catch (error) {
-      console.error("🚀 ~ order.service.js: read - Lỗi:", error);
+      //console.error("🚀 ~ order.service.js: read - Lỗi:", error);
       throw error;
     }
   },
@@ -824,7 +824,7 @@ const OrderService = {
       const order = await OrderModel.readById(order_id); // ✅ Sử dụng await
       return order;
     } catch (error) {
-      console.error("🚀 ~ order.service.js: readById - Lỗi:", error);
+      //console.error("🚀 ~ order.service.js: readById - Lỗi:", error);
       throw error;
     }
   },
@@ -840,7 +840,7 @@ const OrderService = {
       const result = await OrderModel.delete(order_id); // ✅ Sử dụng await
       return result;
     } catch (error) {
-      console.error("🚀 ~ order.service.js: delete - Lỗi:", error);
+      //console.error("🚀 ~ order.service.js: delete - Lỗi:", error);
       throw error;
     }
   },
@@ -854,32 +854,32 @@ const OrderService = {
   updateOrderWithDetails: async (orderId, data) => {
     const { order, orderDetails = [] } = data;
 
-    console.log(
-      "🚀 ~ order.service: updateOrderWithDetails - FE send Order:",
-      order
-    );
-    console.log(
-      "🚀 ~ order.service: updateOrderWithDetails - FE send OrderDetails:",
-      orderDetails
-    );
-    console.log(
-      "🚀 ~ order.service: updateOrderWithDetails - amount_paid từ client:",
-      order?.amount_paid
-    );
+    // //console.log(
+    //   "🚀 ~ order.service: updateOrderWithDetails - FE send Order:",
+    //   order
+    // );
+    // //console.log(
+    //   "🚀 ~ order.service: updateOrderWithDetails - FE send OrderDetails:",
+    //   orderDetails
+    // );
+    // //console.log(
+    //   "🚀 ~ order.service: updateOrderWithDetails - amount_paid từ client:",
+    //   order?.amount_paid
+    // );
 
     if (!order || !Array.isArray(orderDetails)) {
       throw new Error("Missing 'order' or 'orderDetails'");
     }
 
     const validOrderData = filterValidOrderFields(order);
-    console.log(
-      "🚀 ~ order.service: updateOrderWithDetails - validOrderData sau khi filter:",
-      validOrderData
-    );
-    console.log(
-      "🚀 ~ order.service: updateOrderWithDetails - amount_paid trong validOrderData:",
-      validOrderData.amount_paid
-    );
+    // //console.log(
+    //   "🚀 ~ order.service: updateOrderWithDetails - validOrderData sau khi filter:",
+    //   validOrderData
+    // );
+    // //console.log(
+    //   "🚀 ~ order.service: updateOrderWithDetails - amount_paid trong validOrderData:",
+    //   validOrderData.amount_paid
+    // );
 
     const orderDetailsData = orderDetails.map((product) => ({
       ...product,
@@ -894,14 +894,14 @@ const OrderService = {
       ...totals,
     };
 
-    console.log(
-      "🚀 ~ order.service: updateOrderWithDetails - This is updatedOrder:",
-      updatedOrder
-    );
-    console.log(
-      "🚀 ~ order.service: updateOrderWithDetails - amount_paid trong updatedOrder:",
-      updatedOrder.amount_paid
-    );
+    // //console.log(
+    //   "🚀 ~ order.service: updateOrderWithDetails - This is updatedOrder:",
+    //   updatedOrder
+    // );
+    // //console.log(
+    //   "🚀 ~ order.service: updateOrderWithDetails - amount_paid trong updatedOrder:",
+    //   updatedOrder.amount_paid
+    // );
 
     try {
       // ✅ Gọi OrderModel.updateOrderWithDetails (đã là async)
@@ -948,7 +948,7 @@ const OrderService = {
       const results = await OrderModel.getTotalByStatus(filters);
       return results;
     } catch (error) {
-      console.error("Service - getTotalByStatus:", error.message);
+      //console.error("Service - getTotalByStatus:", error.message);
       throw error;
     }
   },
@@ -1052,13 +1052,13 @@ const OrderService = {
       allTransactions.sort((a, b) => b.transaction_date - a.transaction_date);
 
       // Debug: In ra thứ tự giao dịch
-      console.log("🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):");
+      // console.log("🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):");
       allTransactions.forEach((t, index) => {
-        console.log(
-          `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${
-            t.type
-          } | ${t.amount}`
-        );
+        // console.log(
+        //   `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${
+        //     t.type
+        //   } | ${t.amount}`
+        // );
       });
 
       // Lọc bỏ transaction có type === 'refund' khỏi allTransactions trước khi mapping
@@ -1086,11 +1086,11 @@ const OrderService = {
           runningBalance -= transaction.amount;
         } else {
           // Log các type lạ để debug
-          console.warn(
-            "⚠️ Transaction type lạ:",
-            transaction.type,
-            transaction
-          );
+          // //console.warn(
+          //   "⚠️ Transaction type lạ:",
+          //   transaction.type,
+          //   transaction
+          // );
         }
         calculatedBalances.push(runningBalance);
       });
@@ -1100,11 +1100,11 @@ const OrderService = {
 
       const result = allTransactionsNoRefund.map((transaction, index) => {
         // Debug: In ra từng bước tính dư nợ
-        console.log(
-          `💰 ${index + 1}. ${transaction.transaction_code} | ${
-            transaction.type
-          } | ${transaction.amount} | Dư nợ: ${calculatedBalances[index]}`
-        );
+        // //console.log(
+        //   `💰 ${index + 1}. ${transaction.transaction_code} | ${
+        //     transaction.type
+        //   } | ${transaction.amount} | Dư nợ: ${calculatedBalances[index]}`
+        // );
 
         // Format dữ liệu trả về
         return {

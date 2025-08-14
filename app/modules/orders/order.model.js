@@ -32,7 +32,7 @@ const generateOrderCode = async () => {
     const orderCode = `${prefix}-${dateStr}-${paddedSequence}`;
     return orderCode;
   } catch (error) {
-    console.error("Lỗi khi tạo mã đơn hàng:", error.message);
+    //console.error("Lỗi khi tạo mã đơn hàng:", error.message);
     throw error;
   }
 };
@@ -111,7 +111,7 @@ const OrderModel = {
         ...data,
       };
     } catch (error) {
-      console.error("Lỗi khi lưu đơn hàng:", error.message);
+      //console.error("Lỗi khi lưu đơn hàng:", error.message);
       throw error;
     }
   },
@@ -130,14 +130,14 @@ const OrderModel = {
     const queryParams = [skip, limit];
 
     if (filters.startDate && filters.endDate) {
-      whereClause += ` AND DATE(orders.order_date) BETWEEN DATE(?) AND DATE(?)`;
+      whereClause += ` AND DATE(orders.created_at) BETWEEN DATE(?) AND DATE(?)`;
       queryParams.unshift(filters.endDate);
       queryParams.unshift(filters.startDate);
     } else if (filters.startDate) {
-      whereClause += ` AND DATE(orders.order_date) >= DATE(?)`;
+      whereClause += ` AND DATE(orders.created_at) >= DATE(?)`;
       queryParams.unshift(filters.startDate);
     } else if (filters.endDate) {
-      whereClause += ` AND DATE(orders.order_date) <= DATE(?)`;
+      whereClause += ` AND DATE(orders.created_at) <= DATE(?)`;
       queryParams.unshift(filters.endDate);
     }
 
@@ -167,10 +167,10 @@ const OrderModel = {
         .query(countQuery, queryParams.slice(0, queryParams.length - 2));
       const total = countResults[0].total;
 
-      console.log("Final Query:", finalQuery);
-      console.log("Query Params:", queryParams);
+      //console.log("Final Query:", finalQuery);
+      //console.log("Query Params:", queryParams);
       const [results] = await db.promise().query(finalQuery, queryParams);
-      console.log("Raw Results:", results);
+      //console.log("Raw Results:", results);
       const formattedResults = results.map((order) => ({
         order_id: order.order_id,
         order_code: order.order_code,
@@ -193,7 +193,7 @@ const OrderModel = {
       }));
       return { data: formattedResults, total: total };
     } catch (error) {
-      console.error("Lỗi khi đọc tất cả đơn hàng (Model):", error.message);
+      //console.error("Lỗi khi đọc tất cả đơn hàng (Model):", error.message);
       throw error;
     }
   },
@@ -233,7 +233,7 @@ const OrderModel = {
 
       return order;
     } catch (error) {
-      console.error("Lỗi khi đọc đơn hàng theo ID:", error.message);
+      //console.error("Lỗi khi đọc đơn hàng theo ID:", error.message);
       throw error;
     }
   },
@@ -258,7 +258,7 @@ const OrderModel = {
       }
       return { order_id, ...data };
     } catch (error) {
-      console.error("Lỗi khi cập nhật đơn hàng:", error.message);
+      //console.error("Lỗi khi cập nhật đơn hàng:", error.message);
       throw error;
     }
   },
@@ -271,7 +271,7 @@ const OrderModel = {
       );
       return results.affectedRows > 0;
     } catch (error) {
-      console.error("Lỗi khi xóa đơn hàng:", error.message);
+      //console.error("Lỗi khi xóa đơn hàng:", error.message);
       throw error;
     }
   },
@@ -290,7 +290,7 @@ const OrderModel = {
         "SELECT amount_paid, final_amount FROM orders WHERE order_id = ?",
         [orderId]
       );
-      
+
       if (orderResults.length === 0) {
         throw new Error("Order not found");
       }
@@ -307,7 +307,7 @@ const OrderModel = {
       `;
       await db.promise().query(updateOrderSql, [newAmountPaid, orderId]);
 
-      console.log(`🚀 ~ OrderModel: updateAmountPaid - Updated order ${orderId}: amount_paid=${previousAmountPaid} -> ${newAmountPaid}`);
+      //console.log(`🚀 ~ OrderModel: updateAmountPaid - Updated order ${orderId}: amount_paid=${previousAmountPaid} -> ${newAmountPaid}`);
 
       // 3. Đồng bộ với invoice nếu được yêu cầu
       let syncResult = null;
@@ -324,7 +324,7 @@ const OrderModel = {
         sync_result: syncResult
       };
     } catch (error) {
-      console.error("🚀 ~ OrderModel: updateAmountPaid - Lỗi khi cập nhật amount_paid:", error);
+      //console.error("🚀 ~ OrderModel: updateAmountPaid - Lỗi khi cập nhật amount_paid:", error);
       throw error;
     }
   },
@@ -353,11 +353,11 @@ const OrderModel = {
 
       if (invoiceResults.length > 0) {
         const invoice = invoiceResults[0];
-        console.log(`🚀 ~ OrderModel: syncAmountPaidWithInvoice - Found invoice ${invoice.invoice_code} for order ${orderId}`);
-        
+        //console.log(`🚀 ~ OrderModel: syncAmountPaidWithInvoice - Found invoice ${invoice.invoice_code} for order ${orderId}`);
+
         // Sử dụng InvoiceModel để đồng bộ amount_paid và status
         await InvoiceModel.syncAmountPaidAndStatus(invoice.invoice_id, amountPaid);
-        
+
         return {
           order_updated: true,
           invoice_updated: true,
@@ -373,7 +373,7 @@ const OrderModel = {
         amount_paid: parseFloat(amountPaid || 0)
       };
     } catch (error) {
-      console.error("🚀 ~ OrderModel: syncAmountPaidWithInvoice - Lỗi khi đồng bộ amount_paid:", error);
+      //console.error("🚀 ~ OrderModel: syncAmountPaidWithInvoice - Lỗi khi đồng bộ amount_paid:", error);
       throw error;
     }
   },
@@ -431,14 +431,14 @@ const OrderModel = {
       `;
       updateValues.push(orderId);
 
-      console.log("🚀 ~ OrderModel: updateOrderWithDetails - Executing updateOrderQuery:", updateOrderQuery);
-      console.log("🚀 ~ OrderModel: updateOrderWithDetails - With parameters:", updateValues);
+      //console.log("🚀 ~ OrderModel: updateOrderWithDetails - Executing updateOrderQuery:", updateOrderQuery);
+      //console.log("🚀 ~ OrderModel: updateOrderWithDetails - With parameters:", updateValues);
 
       await connection.query(updateOrderQuery, updateValues);
 
       // ✅ Log thông tin về amount_paid nếu có cập nhật
       if (orderData.amount_paid !== undefined) {
-        console.log(`🚀 ~ OrderModel: updateOrderWithDetails - Updated amount_paid for order ${orderId}: ${orderData.amount_paid}`);
+        //console.log(`🚀 ~ OrderModel: updateOrderWithDetails - Updated amount_paid for order ${orderId}: ${orderData.amount_paid}`);
       }
 
       const deleteDetailsQuery = `DELETE FROM order_details WHERE order_id = ?`;
@@ -472,14 +472,14 @@ const OrderModel = {
       await connection.query(insertDetailQuery, [detailValues]);
 
       await connection.commit();
-      return { 
+      return {
         message: "Cập nhật đơn hàng và chi tiết thành công",
         updated_fields: updateFields.filter(field => field !== "updated_at = NOW()"),
         amount_paid_updated: orderData.amount_paid !== undefined,
         details_count: orderDetails.length
       };
     } catch (error) {
-      console.error("🚀 ~ OrderModel: updateOrderWithDetails - Lỗi trong transaction:", error);
+      //console.error("🚀 ~ OrderModel: updateOrderWithDetails - Lỗi trong transaction:", error);
       await connection.rollback();
       throw error;
     } finally {
@@ -534,7 +534,7 @@ const OrderModel = {
 
       return completeResults;
     } catch (error) {
-      console.error("Model - getTotalByStatus:", error.message);
+      //console.error("Model - getTotalByStatus:", error.message);
       throw error;
     }
   },
@@ -560,29 +560,29 @@ const OrderModel = {
         WHERE i.invoice_type = 'sale_invoice'
           AND ABS(COALESCE(o.amount_paid, 0) - COALESCE(i.amount_paid, 0)) > 0.01
       `;
-      
+
       const [inconsistentOrders] = await db.promise().query(sql);
-      
+
       if (inconsistentOrders.length === 0) {
-        console.log("🚀 ~ OrderModel: fixInconsistentAmountPaid - Không có order nào cần sửa chữa");
-        return { 
-          fixed_count: 0, 
+        //console.log("🚀 ~ OrderModel: fixInconsistentAmountPaid - Không có order nào cần sửa chữa");
+        return {
+          fixed_count: 0,
           total_checked: 0,
           inconsistent_orders: []
         };
       }
 
-      console.log(`🚀 ~ OrderModel: fixInconsistentAmountPaid - Tìm thấy ${inconsistentOrders.length} order cần sửa chữa`);
+      //console.log(`🚀 ~ OrderModel: fixInconsistentAmountPaid - Tìm thấy ${inconsistentOrders.length} order cần sửa chữa`);
 
       // 2. Sửa chữa từng order
       const fixedResults = [];
       for (const order of inconsistentOrders) {
         const orderAmountPaid = parseFloat(order.order_amount_paid || 0);
         const invoiceAmountPaid = parseFloat(order.invoice_amount_paid || 0);
-        
+
         // Sử dụng amount_paid từ invoice làm chuẩn
         await OrderModel.updateAmountPaid(order.order_id, invoiceAmountPaid, false);
-        
+
         fixedResults.push({
           order_id: order.order_id,
           order_code: order.order_code,
@@ -592,11 +592,11 @@ const OrderModel = {
           new_order_amount_paid: invoiceAmountPaid,
           invoice_amount_paid: invoiceAmountPaid
         });
-        
-        console.log(`🚀 ~ OrderModel: fixInconsistentAmountPaid - Fixed order ${order.order_code}: ${orderAmountPaid} -> ${invoiceAmountPaid}`);
+
+        //console.log(`🚀 ~ OrderModel: fixInconsistentAmountPaid - Fixed order ${order.order_code}: ${orderAmountPaid} -> ${invoiceAmountPaid}`);
       }
 
-      console.log(`🚀 ~ OrderModel: fixInconsistentAmountPaid - Đã sửa chữa ${fixedResults.length} order`);
+      //console.log(`🚀 ~ OrderModel: fixInconsistentAmountPaid - Đã sửa chữa ${fixedResults.length} order`);
       return {
         fixed_count: fixedResults.length,
         total_checked: inconsistentOrders.length,
@@ -636,9 +636,9 @@ const OrderModel = {
           AND ABS(COALESCE(o.amount_paid, 0) - COALESCE(i.amount_paid, 0)) > 0.01
         ORDER BY o.order_date DESC
       `;
-      
+
       const [inconsistentOrders] = await db.promise().query(sql);
-      
+
       return inconsistentOrders.map(order => ({
         ...order,
         order_amount_paid: parseFloat(order.order_amount_paid || 0),

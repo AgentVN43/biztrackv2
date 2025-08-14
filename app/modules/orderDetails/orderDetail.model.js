@@ -114,7 +114,7 @@
 //             discount: parseFloat(r.discount) || 0,
 //           })),
 //       };
-//       console.log("🚀 ~ db.query ~ order:", order);
+//       //console.log("🚀 ~ db.query ~ order:", order);
 
 //       callback(null, order);
 //     });
@@ -243,7 +243,7 @@ const OrderDetailModel = {
       );
       return { order_detail_id, ...data };
     } catch (error) {
-      console.error("🚀 ~ orderDetail.model.js: create - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.model.js: create - Lỗi:", error);
       throw error; // ✅ Ném lỗi
     }
   },
@@ -258,7 +258,7 @@ const OrderDetailModel = {
       const [results] = await db.promise().query("SELECT * FROM order_details"); // ✅ Sử dụng db.promise().query
       return results;
     } catch (error) {
-      console.error("🚀 ~ orderDetail.model.js: read - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.model.js: read - Lỗi:", error);
       throw error;
     }
   },
@@ -278,7 +278,7 @@ const OrderDetailModel = {
       );
       return results.length > 0 ? results[0] : null;
     } catch (error) {
-      console.error("🚀 ~ orderDetail.model.js: readById - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.model.js: readById - Lỗi:", error);
       throw error;
     }
   },
@@ -359,11 +359,11 @@ const OrderDetailModel = {
   //           discount: parseFloat(r.discount) || 0,
   //         })),
   //     };
-  //     console.log("� ~ orderDetail.model.js: getOrderDetailByOrderId - order:", order);
+  //     //console.log("� ~ orderDetail.model.js: getOrderDetailByOrderId - order:", order);
 
   //     return order;
   //   } catch (error) {
-  //     console.error("🚀 ~ orderDetail.model.js: getOrderDetailByOrderId - Lỗi:", error);
+  //     //console.error("🚀 ~ orderDetail.model.js: getOrderDetailByOrderId - Lỗi:", error);
   //     throw error;
   //   }
   // },
@@ -475,10 +475,10 @@ const OrderDetailModel = {
 
         products: groupedProducts, // Sử dụng mảng sản phẩm đã nhóm
       };
-      console.log(
-        "🚀 ~ orderDetail.model.js: getOrderDetailByOrderId - order:",
-        order
-      );
+      //console.log(
+      //   "🚀 ~ orderDetail.model.js: getOrderDetailByOrderId - order:",
+      //   order
+      // );
 
       return order;
     } catch (error) {
@@ -507,7 +507,7 @@ const OrderDetailModel = {
       );
       return results.affectedRows > 0 ? { order_detail_id, ...data } : null;
     } catch (error) {
-      console.error("🚀 ~ orderDetail.model.js: update - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.model.js: update - Lỗi:", error);
       throw error;
     }
   },
@@ -527,7 +527,7 @@ const OrderDetailModel = {
       );
       return results.affectedRows > 0;
     } catch (error) {
-      console.error("🚀 ~ orderDetail.model.js: delete - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.model.js: delete - Lỗi:", error);
       throw error;
     }
   },

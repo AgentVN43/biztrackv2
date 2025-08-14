@@ -55,7 +55,7 @@ const AnalysisModel = {
               )}`;
               break;
             default:
-              console.warn(`Operator "${operator}" không được hỗ trợ.`);
+              //console.warn(`Operator "${operator}" không được hỗ trợ.`);
           }
         }
       }
@@ -87,7 +87,7 @@ const AnalysisModel = {
       const [results] = await db.promise().query(query);
       return results;
     } catch (error) {
-      console.error("Lỗi ở Model khi lấy hóa đơn với bộ lọc:", error);
+      //console.error("Lỗi ở Model khi lấy hóa đơn với bộ lọc:", error);
       throw error;
     }
   },
@@ -125,7 +125,7 @@ const AnalysisModel = {
               )}`;
               break;
             default:
-              console.warn(`Operator "${operator}" không được hỗ trợ.`);
+              //console.warn(`Operator "${operator}" không được hỗ trợ.`);
           }
         }
       }
@@ -136,7 +136,7 @@ const AnalysisModel = {
       const [results] = await db.promise().query(query);
       return results[0].total;
     } catch (error) {
-      console.error("Lỗi ở Model khi đếm hóa đơn với bộ lọc:", error);
+      //console.error("Lỗi ở Model khi đếm hóa đơn với bộ lọc:", error);
       throw error;
     }
   },
@@ -323,18 +323,18 @@ const AnalysisModel = {
 
       // 3. Công nợ phải thu được tính toán từ: revenue_by_invoice - actual_revenue
 
-      console.log("1. Revenue by Invoice:", revenueByInvoiceQuery);
-      console.log(
-        "2a. Actual Revenue from Orders:",
-        actualRevenueFromOrdersQuery
-      );
-      console.log(
-        "2b. Actual Revenue from Direct:",
-        actualRevenueFromDirectQuery
-      );
-      console.log(
-        "3. Outstanding Receivables: Calculated from revenue_by_invoice - actual_revenue"
-      );
+      //console.log("1. Revenue by Invoice:", revenueByInvoiceQuery);
+      // //console.log(
+      //   "2a. Actual Revenue from Orders:",
+      //   actualRevenueFromOrdersQuery
+      // );
+      // //console.log(
+      //   "2b. Actual Revenue from Direct:",
+      //   actualRevenueFromDirectQuery
+      // );
+      // //console.log(
+      //   "3. Outstanding Receivables: Calculated from revenue_by_invoice - actual_revenue"
+      // );
 
       const [revenueByInvoiceResults] = await db
         .promise()
@@ -461,7 +461,7 @@ const AnalysisModel = {
       const [results] = await db.promise().query(query);
       return results[0];
     } catch (error) {
-      console.error("Lỗi ở Model khi lấy thống kê công nợ và phải thu:", error);
+      //console.error("Lỗi ở Model khi lấy thống kê công nợ và phải thu:", error);
       throw error;
     }
   },
@@ -487,7 +487,7 @@ const AnalysisModel = {
   //     const [results] = await db.promise().query(query);
   //     return results;
   //   } catch (error) {
-  //     console.error("Lỗi ở Model khi lấy danh sách order phải thu:", error);
+  //     //console.error("Lỗi ở Model khi lấy danh sách order phải thu:", error);
   //     throw error;
   //   }
   // },
@@ -531,7 +531,7 @@ const AnalysisModel = {
   //     const [results] = await db.promise().query(query);
   //     return results;
   //   } catch (error) {
-  //     console.error(
+  //     //console.error(
   //       "Lỗi ở Model khi lấy danh sách purchase order phải trả:",
   //       error
   //     );
@@ -886,7 +886,7 @@ const AnalysisModel = {
   //     };
   //   }
 
-  //   console.log(result);
+  //   //console.log(result);
   //   return result;
   // },
 
@@ -946,6 +946,8 @@ const AnalysisModel = {
         cr.customer_name,
         cr.phone,
         cr.email,
+        IFNULL(cr.total_revenue, 0) AS total_revenue,
+        IFNULL(crf.total_refund, 0) AS total_refund,
         (cr.total_revenue - IFNULL(crf.total_refund, 0)) AS net_spent,
         cr.total_orders
       FROM (${customerRevenueQuery}) cr
@@ -956,24 +958,24 @@ const AnalysisModel = {
 
     try {
       // Chạy từng query con để debug
-      console.log('\n=== EXECUTING SUB-QUERIES ===');
+      //console.log('\n=== EXECUTING SUB-QUERIES ===');
 
       // Query 1: Lấy dữ liệu doanh thu khách hàng
       const [customerRevenueResults] = await db.promise().query(customerRevenueQuery);
-      console.log('Customer Revenue Results:', JSON.stringify(customerRevenueResults, null, 2));
+      //console.log('Customer Revenue Results:', JSON.stringify(customerRevenueResults, null, 2));
 
       // Query 2: Lấy dữ liệu hoàn trả khách hàng
       const [customerRefundResults] = await db.promise().query(customerRefundQuery);
-      console.log('Customer Refund Results:', JSON.stringify(customerRefundResults, null, 2));
+      //console.log('Customer Refund Results:', JSON.stringify(customerRefundResults, null, 2));
 
       // Query cuối cùng
       const [results] = await db.promise().query(finalQuery, [limit]);
-      console.log('Final Results:', JSON.stringify(results, null, 2));
-      console.log('=== END DEBUG ===\n');
+      //console.log('Final Results:', JSON.stringify(results, null, 2));
+      //console.log('=== END DEBUG ===\n');
 
       return results;
     } catch (error) {
-      console.error('Error in getTopCustomers:', error);
+      //console.error('Error in getTopCustomers:', error);
       throw error;
     }
   },
@@ -1041,7 +1043,7 @@ const AnalysisModel = {
           (ps.total_revenue - IFNULL(pr.total_refund_amount, 0)) AS net_revenue,
           ps.total_orders,
           IFNULL(pr.total_quantity_returned, 0) AS total_quantity_returned,
-          IFNULL(pr.total_refund_amount, 0) AS total_refund_amount,
+          IFNULL(pr.total_refund_amount, 0) AS total_refund,
           IFNULL(ps.total_revenue, 0) AS total_revenue
         FROM (${productSalesQuery}) ps
         LEFT JOIN (${productReturnQuery}) pr ON ps.product_id = pr.product_id
@@ -1050,24 +1052,24 @@ const AnalysisModel = {
         LIMIT ?
       `;
 
-      console.log('\n=== EXECUTING TOP SELLING PRODUCTS QUERIES ===');
+      //console.log('\n=== EXECUTING TOP SELLING PRODUCTS QUERIES ===');
 
       // Query 1: Lấy dữ liệu bán hàng sản phẩm
       const [productSalesResults] = await db.promise().query(productSalesQuery);
-      console.log('Product Sales Results Count:', productSalesResults.length);
+      //console.log('Product Sales Results Count:', productSalesResults.length);
 
       // Query 2: Lấy dữ liệu hoàn trả sản phẩm
       const [productReturnResults] = await db.promise().query(productReturnQuery);
-      console.log('Product Return Results Count:', productReturnResults.length);
+      //console.log('Product Return Results Count:', productReturnResults.length);
 
       // Query cuối cùng
       const [results] = await db.promise().query(finalQuery, [limit]);
-      console.log('Final Top Selling Products Results:', JSON.stringify(results, null, 2));
-      console.log('=== END TOP SELLING PRODUCTS DEBUG ===\n');
+      //console.log('Final Top Selling Products Results:', JSON.stringify(results, null, 2));
+      //console.log('=== END TOP SELLING PRODUCTS DEBUG ===\n');
 
       return results;
     } catch (error) {
-      console.error('Error in getTopSellingProducts:', error);
+      //console.error('Error in getTopSellingProducts:', error);
       throw error;
     }
   },
@@ -1076,8 +1078,8 @@ const AnalysisModel = {
     try {
       // 1. Xử lý ngày tháng
       const { effectiveStartDate, effectiveEndDate } = processDateFilters(query);
-      console.log("🚀 ~ getTopPurchasingSuppliers ~ effectiveEndDate:", effectiveEndDate)
-      console.log("🚀 ~ getTopPurchasingSuppliers ~ effectiveStartDate:", effectiveStartDate)
+      //console.log("🚀 ~ getTopPurchasingSuppliers ~ effectiveEndDate:", effectiveEndDate)
+      //console.log("🚀 ~ getTopPurchasingSuppliers ~ effectiveStartDate:", effectiveStartDate)
       const limit = query.limit ? parseInt(query.limit) : 5;
 
       // 2. Điều kiện thời gian cho purchase_orders
@@ -1140,23 +1142,23 @@ const AnalysisModel = {
       LIMIT ?
     `;
 
-      console.log('\n=== EXECUTING TOP PURCHASING SUPPLIERS QUERIES ===');
+      //console.log('\n=== EXECUTING TOP PURCHASING SUPPLIERS QUERIES ===');
 
       const [supplierPurchaseResults] = await db.promise().query(supplierPurchaseQuery);
-      console.log('Supplier Purchase Results Count:', supplierPurchaseResults.length);
-      console.log('Supplier Purchase', supplierPurchaseResults);
+      //console.log('Supplier Purchase Results Count:', supplierPurchaseResults.length);
+      //console.log('Supplier Purchase', supplierPurchaseResults);
 
       const [supplierReturnResults] = await db.promise().query(supplierReturnQuery);
-      console.log('Supplier Return Results Count:', supplierReturnResults.length);
-      console.log('Supplier Return', supplierReturnResults);
+      //console.log('Supplier Return Results Count:', supplierReturnResults.length);
+      //console.log('Supplier Return', supplierReturnResults);
 
       const [results] = await db.promise().query(finalQuery, [limit]);
-      console.log('Final Top Purchasing Suppliers Results:', JSON.stringify(results, null, 2));
-      console.log('=== END TOP PURCHASING SUPPLIERS DEBUG ===\n');
+      //console.log('Final Top Purchasing Suppliers Results:', JSON.stringify(results, null, 2));
+      //console.log('=== END TOP PURCHASING SUPPLIERS DEBUG ===\n');
 
       return results;
     } catch (error) {
-      console.error('Error in getTopPurchasingSuppliers:', error);
+      //console.error('Error in getTopPurchasingSuppliers:', error);
       throw error;
     }
   },
@@ -1225,21 +1227,21 @@ const AnalysisModel = {
         LIMIT ?
       `;
 
-      console.log('\n=== EXECUTING REVENUE BY CATEGORY QUERIES ===');
+      //console.log('\n=== EXECUTING REVENUE BY CATEGORY QUERIES ===');
 
       const [salesResults] = await db.promise().query(categorySalesQuery);
-      console.log('Category Sales Results Count:', salesResults.length);
+      //console.log('Category Sales Results Count:', salesResults.length);
 
       const [refundResults] = await db.promise().query(categoryRefundQuery);
-      console.log('Category Refund Results Count:', refundResults.length);
+      //console.log('Category Refund Results Count:', refundResults.length);
 
       const [results] = await db.promise().query(finalQuery, [limit]);
-      console.log('Final Revenue by Category Results:', JSON.stringify(results, null, 2));
-      console.log('=== END REVENUE BY CATEGORY DEBUG ===\n');
+      //console.log('Final Revenue by Category Results:', JSON.stringify(results, null, 2));
+      //console.log('=== END REVENUE BY CATEGORY DEBUG ===\n');
 
       return results;
     } catch (error) {
-      console.error('Error in getRevenueByCategory:', error);
+      //console.error('Error in getRevenueByCategory:', error);
       throw error;
     }
   }

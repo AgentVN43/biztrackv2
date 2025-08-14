@@ -62,7 +62,7 @@ const WarehouseService = {
 
       return newWarehouse;
     } catch (error) {
-      console.error("🚀 ~ WarehouseService: createWarehouse - Lỗi:", error);
+      //console.error("🚀 ~ WarehouseService: createWarehouse - Lỗi:", error);
       throw error; // Ném lỗi để controller xử lý
     }
   },
@@ -76,7 +76,7 @@ const WarehouseService = {
     try {
       return await WarehouseModel.getAll();
     } catch (error) {
-      console.error("🚀 ~ WarehouseService: getAllWarehouses - Lỗi:", error);
+      //console.error("🚀 ~ WarehouseService: getAllWarehouses - Lỗi:", error);
       throw error;
     }
   },
@@ -91,7 +91,7 @@ const WarehouseService = {
     try {
       return await WarehouseModel.getById(id);
     } catch (error) {
-      console.error("🚀 ~ WarehouseService: getWarehouseById - Lỗi:", error);
+      //console.error("🚀 ~ WarehouseService: getWarehouseById - Lỗi:", error);
       throw error;
     }
   },
@@ -124,7 +124,7 @@ const WarehouseService = {
       }
       return updated;
     } catch (error) {
-      console.error("🚀 ~ WarehouseService: updateWarehouse - Lỗi:", error);
+      //console.error("🚀 ~ WarehouseService: updateWarehouse - Lỗi:", error);
       throw error;
     }
   },
@@ -143,7 +143,7 @@ const WarehouseService = {
       }
       return deleted;
     } catch (error) {
-      console.error("🚀 ~ WarehouseService: deleteWarehouse - Lỗi:", error);
+      //console.error("🚀 ~ WarehouseService: deleteWarehouse - Lỗi:", error);
       throw error;
     }
   },

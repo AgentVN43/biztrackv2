@@ -17,7 +17,7 @@
 //       )
 //     : 0;
 
-//   console.log("Total Amount:", totalAmount);
+//   //console.log("Total Amount:", totalAmount);
 
 //   PurchaseOrder.create(
 //     {
@@ -159,7 +159,7 @@
 //       //       0
 //       //     );
 
-//       //       console.log("Updating PO with totalAmount:", totalAmount);
+//       //       //console.log("Updating PO with totalAmount:", totalAmount);
 
 //       //     PurchaseOrder.update(poId, { total_amount: totalAmount }, (err) => {
 //       //       if (err) return callback(err);
@@ -186,9 +186,9 @@
 
 //             // Sau khi cập nhật total_amount của PO, cập nhật payment (nếu có)
 //             Payment.findByPOId(poId, (err, paymentResults) => {
-//               console.log(paymentResults);
+//               //console.log(paymentResults);
 //               if (err) {
-//                 console.error("Error finding payment for PO:", err);
+//                 //console.error("Error finding payment for PO:", err);
 //                 // Không return callback ở đây, tiếp tục để callback chính được gọi
 //               } else if (paymentResults && paymentResults.length > 0) {
 //                 const payment = paymentResults[0]; // Giả sử mỗi PO có một payment chính
@@ -197,14 +197,14 @@
 //                   { amount: totalAmount },
 //                   (err) => {
 //                     if (err) {
-//                       console.error("Error updating payment amount:", err);
+//                       //console.error("Error updating payment amount:", err);
 //                     } else {
-//                       console.log("Payment amount updated to:", totalAmount);
+//                       //console.log("Payment amount updated to:", totalAmount);
 //                     }
 //                   }
 //                 );
 //               } else {
-//                 console.log("No payment found for PO:", poId);
+//                 //console.log("No payment found for PO:", poId);
 //                 // Có thể tạo một payment mới ở đây nếu cần
 //               }
 //               callback(null, {
@@ -220,7 +220,7 @@
 //       detailsToDeleteIds.forEach((detailId) => {
 //         PurchaseOrderDetail.delete(detailId, (err) => {
 //           if (err) {
-//             console.error("Error deleting detail:", err);
+//             //console.error("Error deleting detail:", err);
 //             return callback(err);
 //           }
 //           completed++;
@@ -233,7 +233,7 @@
 //         if (item.po_detail_id) {
 //           PurchaseOrderDetail.update(item.po_detail_id, item, (err) => {
 //             if (err) {
-//               console.error("Error updating detail:", err);
+//               //console.error("Error updating detail:", err);
 //               return callback(err);
 //             }
 //             completed++;
@@ -251,7 +251,7 @@
 //             },
 //             (err) => {
 //               if (err) {
-//                 console.error("Error creating detail:", err);
+//                 //console.error("Error creating detail:", err);
 //                 return callback(err);
 //               }
 //               completed++;
@@ -282,7 +282,7 @@
 // };
 
 // // exports.confirmPurchaseOrder = (po_id, callback) => {
-// //   console.log("=== Running confirmPurchaseOrder ===");
+// //   //console.log("=== Running confirmPurchaseOrder ===");
 
 // //   PurchaseOrder.findById(po_id, (err, order) => {
 // //     if (err) return callback(err);
@@ -306,7 +306,7 @@
 // //                   if (err) return reject(err);
 
 // //                   if (existingInv) {
-// //                     console.log("🔁 Inventory exists. Calling update...");
+// //                     //console.log("🔁 Inventory exists. Calling update...");
 
 // //                     Inventory.update(
 // //                       item.product_id,
@@ -314,10 +314,10 @@
 // //                       item.quantity,
 // //                       (err) => {
 // //                         if (err) {
-// //                           console.error("❌ Inventory.update error:", err);
+// //                           //console.error("❌ Inventory.update error:", err);
 // //                           return callback(err);
 // //                         }
-// //                         console.log(
+// //                         //console.log(
 // //                           `✅ Updated inventory for ${item.product_id}`
 // //                         );
 // //                         resolve();
@@ -332,7 +332,7 @@
 // //                     };
 // //                     Inventory.create(newInv, (err) => {
 // //                       if (err) return reject(err);
-// //                       console.log(
+// //                       //console.log(
 // //                         `✅ Created inventory for ${item.product_id}`
 // //                       );
 // //                       resolve();
@@ -352,7 +352,7 @@
 // //           });
 // //         });
 // //       } catch (e) {
-// //         console.error("❌ Error in inventory processing:", e);
+// //         //console.error("❌ Error in inventory processing:", e);
 // //         callback(e);
 // //       }
 // //     });
@@ -360,7 +360,7 @@
 // // };
 
 // exports.confirmPurchaseOrder = (po_id, callback) => {
-//   console.log("=== Running confirmPurchaseOrder ===");
+//   //console.log("=== Running confirmPurchaseOrder ===");
 
 //   PurchaseOrder.findById(po_id, (err, order) => {
 //     if (err) return callback(err);
@@ -425,7 +425,7 @@
 //           });
 //         });
 //       } catch (e) {
-//         console.error("❌ Error in inventory processing:", e);
+//         //console.error("❌ Error in inventory processing:", e);
 //         callback(e);
 //       }
 //     });
@@ -501,15 +501,15 @@ const PurchaseOrderService = {
   //   // Tính final_amount (cho Invoice/Transaction, không lưu vào PO table)
   //   const finalAmount = totalAmount - discountAmount;
 
-  //   console.log(
+  //   //console.log(
   //     "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Calculated Total Amount:",
   //     totalAmount
   //   );
-  //   console.log(
+  //   //console.log(
   //     "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Calculated Discount Amount:",
   //     discountAmount
   //   );
-  //   console.log(
+  //   //console.log(
   //     "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Calculated Final Amount:",
   //     finalAmount
   //   );
@@ -530,7 +530,7 @@ const PurchaseOrderService = {
 
   //     const createdPO = await PurchaseOrderModel.create(poToCreateInDB);
 
-  //     console.log(
+  //     //console.log(
   //       "🚀 ~ purchaseOrder.service.js: Đã tạo đơn mua hàng chính trong DB:",
   //       createdPO
   //     );
@@ -549,11 +549,11 @@ const PurchaseOrderService = {
   //           });
   //         })
   //       );
-  //       console.log(
+  //       //console.log(
   //         "🚀 ~ purchaseOrder.service.js: Đã tạo các chi tiết đơn mua hàng."
   //       );
   //     } else {
-  //       console.warn(
+  //       //console.warn(
   //         "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Không có chi tiết đơn mua hàng."
   //       );
   //     }
@@ -571,7 +571,7 @@ const PurchaseOrderService = {
   //       payment_method: payment_method || "Chuyển khoản", // ✅ Lấy từ data hoặc mặc định
   //     };
   //   } catch (error) {
-  //     console.error(
+  //     //console.error(
   //       "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Lỗi khi tạo đơn mua hàng:",
   //       error
   //     );
@@ -594,10 +594,10 @@ const PurchaseOrderService = {
     // Tính toán totalAmount từ chi tiết đơn hàng
     const totalAmount = details
       ? details.reduce(
-          (sum, detail) =>
-            sum + detail.quantity * parseFloat(detail.price || 0),
-          0
-        )
+        (sum, detail) =>
+          sum + detail.quantity * parseFloat(detail.price || 0),
+        0
+      )
       : 0;
 
     // Lấy discount_amount từ data, nếu không có thì mặc định là 0
@@ -605,18 +605,18 @@ const PurchaseOrderService = {
     // Tính final_amount (cho Invoice/Transaction, không lưu vào PO table)
     const finalAmount = totalAmount - discountAmount;
 
-    console.log(
-      "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Calculated Total Amount:",
-      totalAmount
-    );
-    console.log(
-      "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Calculated Discount Amount:",
-      discountAmount
-    );
-    console.log(
-      "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Calculated Final Amount:",
-      finalAmount
-    );
+    //console.log(
+    //   "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Calculated Total Amount:",
+    //   totalAmount
+    // );
+    //console.log(
+    //   "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Calculated Discount Amount:",
+    //   discountAmount
+    // );
+    //console.log(
+    //   "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Calculated Final Amount:",
+    //   finalAmount
+    // );
 
     try {
       // 1. Tạo đơn mua hàng chính trong DB
@@ -632,10 +632,10 @@ const PurchaseOrderService = {
 
       const createdPO = await PurchaseOrderModel.create(poToCreateInDB);
 
-      console.log(
-        "🚀 ~ purchaseOrder.service.js: Đã tạo đơn mua hàng chính trong DB:",
-        createdPO
-      );
+      //console.log(
+      //   "🚀 ~ purchaseOrder.service.js: Đã tạo đơn mua hàng chính trong DB:",
+      //   createdPO
+      // );
 
       // 2. Tạo các chi tiết đơn mua hàng
       if (details && details.length > 0) {
@@ -651,9 +651,9 @@ const PurchaseOrderService = {
             });
           })
         );
-        console.log(
-          "🚀 ~ purchaseOrder.service.js: Đã tạo các chi tiết đơn mua hàng."
-        );
+        //console.log(
+        //   "🚀 ~ purchaseOrder.service.js: Đã tạo các chi tiết đơn mua hàng."
+        // );
       } else {
         console.warn(
           "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Không có chi tiết đơn mua hàng."
@@ -764,10 +764,10 @@ const PurchaseOrderService = {
       const updatedPOData = { total_amount: newTotalAmount };
       // Nếu có discount logic, cần thêm vào updatedPOData.discount_amount và updatedPOData.final_amount
       await PurchaseOrderModel.update(poId, updatedPOData);
-      console.log(
-        "🚀 ~ purchaseOrder.service.js: updatePOWithDetails - Updated PO with new totalAmount:",
-        newTotalAmount
-      );
+      //console.log(
+      // "🚀 ~ purchaseOrder.service.js: updatePOWithDetails - Updated PO with new totalAmount:",
+      //   newTotalAmount
+      // );
       return {
         message: "PO and details updated successfully",
         total_amount: newTotalAmount,
@@ -850,7 +850,7 @@ const PurchaseOrderService = {
    * @returns {Promise<Object>} Promise giải quyết với thông báo thành công.
    */
   // confirmPurchaseOrder: async (po_id) => {
-  //   console.log(
+  //   //console.log(
   //     "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - === Running confirmPurchaseOrder ==="
   //   );
 
@@ -879,7 +879,7 @@ const PurchaseOrderService = {
   //           [{ product_id, quantity }],
   //           order.warehouse_id
   //         );
-  //         console.log(
+  //         //console.log(
   //           `✅ Updated inventory for ${product_id} in warehouse ${order.warehouse_id}`
   //         );
   //       })
@@ -887,7 +887,7 @@ const PurchaseOrderService = {
 
   //     // Khi tất cả inventory xử lý xong, cập nhật trạng thái PO
   //     await PurchaseOrderModel.updateStatus(po_id, "posted", new Date());
-  //     console.log(
+  //     //console.log(
   //       "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - Purchase order posted and inventory updated."
   //     );
 
@@ -895,7 +895,7 @@ const PurchaseOrderService = {
   //       message: "Purchase order posted and inventory updated",
   //     };
   //   } catch (error) {
-  //     console.error(
+  //     //console.error(
   //       "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - Lỗi trong quá trình xác nhận đơn mua hàng:",
   //       error
   //     );
@@ -904,9 +904,9 @@ const PurchaseOrderService = {
   // },
 
   confirmPurchaseOrder: async (po_id, initiatedByUserId = null) => {
-    console.log(
-      "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - === Running confirmPurchaseOrder ==="
-    );
+    //console.log(
+    // "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - === Running confirmPurchaseOrder ==="
+    // );
 
     try {
       const order = await PurchaseOrderModel.findById(po_id);
@@ -918,7 +918,7 @@ const PurchaseOrderService = {
       }
 
       const details = await PurchaseOrderDetailModel.findByPOId(po_id);
-      console.log("🚀 ~ This is details:", details);
+      //console.log("🚀 ~ This is details:", details);
       if (!details || details.length === 0) {
         throw new Error("No purchase order details found");
       }
@@ -940,9 +940,9 @@ const PurchaseOrderService = {
             [{ product_id, quantity }], // increaseStockFromPurchaseOrder dự kiến một mảng orderDetails
             order.warehouse_id
           );
-          console.log(
-            `✅ Updated inventory for ${product_id} in warehouse ${order.warehouse_id}`
-          );
+          //console.log(
+          // `✅ Updated inventory for ${product_id} in warehouse ${order.warehouse_id}`
+          // );
 
           // 2. Lấy tồn kho tổng sau khi cập nhật (quan trọng cho current_stock_after)
           // const current_stock_after =
@@ -953,17 +953,17 @@ const PurchaseOrderService = {
               order.warehouse_id
             );
 
-          console.log(
-            `DEBUG: Đối tượng inventoryAtWarehouse thô cho ${product_id} tại kho ${order.warehouse_id}:`,
-            inventoryAtWarehouse
-          );
+          //console.log(
+          // `DEBUG: Đối tượng inventoryAtWarehouse thô cho ${product_id} tại kho ${order.warehouse_id}:`,
+          //   inventoryAtWarehouse
+          //     );
 
           const current_stock_after_at_warehouse = inventoryAtWarehouse
             ? inventoryAtWarehouse.quantity
             : 0;
-          console.log(
-            `DEBUG: Tồn kho SAU cập nhật (sử dụng .quantity từ object) cho ${product_id} tại kho ${order.warehouse_id}: ${current_stock_after_at_warehouse}`
-          );
+          //console.log(
+          // `DEBUG: Tồn kho SAU cập nhật (sử dụng .quantity từ object) cho ${product_id} tại kho ${order.warehouse_id}: ${current_stock_after_at_warehouse}`
+          //     );
 
           // 3. Ghi nhận sự kiện Product Event
           await ProductEventModel.recordEvent({
@@ -976,22 +976,21 @@ const PurchaseOrderService = {
             current_stock_after: current_stock_after_at_warehouse,
             reference_id: po_id,
             reference_type: "PURCHASE_ORDER",
-            description: `Sản phẩm ${
-              item.product_name || product_id
-            } nhận từ đơn mua hàng ${po_id}.`, // Có thể lấy product_name từ item nếu có
+            description: `Sản phẩm ${item.product_name || product_id
+              } nhận từ đơn mua hàng ${po_id}.`, // Có thể lấy product_name từ item nếu có
             initiated_by: initiatedByUserId,
           });
-          console.log(
-            `🚀 ~ Product Event ghi nhận: Nhập ${quantity} của ${product_id} từ PO ${po_id}`
-          );
+          //console.log(
+          // `🚀 ~ Product Event ghi nhận: Nhập ${quantity} của ${product_id} từ PO ${po_id}`
+          //     );
         })
       );
 
       // Khi tất cả inventory xử lý xong, cập nhật trạng thái PO
       await PurchaseOrderModel.updateStatus(po_id, "posted", new Date());
-      console.log(
-        "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - Purchase order posted and inventory updated."
-      );
+      //console.log(
+      // "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - Purchase order posted and inventory updated."
+      //   );
 
       // ✅ TẠO INVOICE KHI NHẬN HÀNG (theo best practice)
       const InvoiceService = require("../invoice/invoice.service");
@@ -1011,10 +1010,10 @@ const PurchaseOrderService = {
       };
 
       const invoice = await InvoiceService.create(invoiceData);
-      console.log(
-        "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - Invoice created successfully:",
-        invoice
-      );
+      //console.log(
+      // "🚀 ~ purchaseOrder.service.js: confirmPurchaseOrder - Invoice created successfully:",
+      //   invoice
+      //   );
 
       // Cập nhật payable NCC sau khi tạo purchase_invoice
       if (invoice && invoice.supplier_id) {
@@ -1074,7 +1073,7 @@ const PurchaseOrderService = {
   //       details,
   //     };
   //   } catch (error) {
-  //     console.error(
+  //     //console.error(
   //       "🚀 ~ purchaseOrder.service.js: getPurchaseOrderDetailsById - Lỗi:",
   //       error
   //     );

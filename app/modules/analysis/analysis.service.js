@@ -34,7 +34,7 @@ const AnalysisService = {
         endDate
       );
     } catch (error) {
-      console.error("Lỗi ở Service khi lấy thống kê doanh thu:", error);
+      //console.error("Lỗi ở Service khi lấy thống kê doanh thu:", error);
       throw error;
     }
   },
@@ -43,7 +43,7 @@ const AnalysisService = {
     try {
       return await AnalysisModel.getOutstandingDebt();
     } catch (error) {
-      console.error("Lỗi ở Service khi lấy thống kê công nợ:", error);
+      //console.error("Lỗi ở Service khi lấy thống kê công nợ:", error);
       throw error;
     }
   },
@@ -52,7 +52,7 @@ const AnalysisService = {
     try {
       return await AnalysisModel.getReceivableOrders();
     } catch (error) {
-      console.error("Lỗi ở Service khi lấy danh sách order phải thu:", error);
+      //console.error("Lỗi ở Service khi lấy danh sách order phải thu:", error);
       throw error;
     }
   },
@@ -90,7 +90,7 @@ const AnalysisService = {
     try {
       return await AnalysisModel.getTopSellingProducts(query);
     } catch (error) {
-      console.error("Lỗi ở Service khi lấy top sản phẩm bán chạy nhất:", error);
+      //console.error("Lỗi ở Service khi lấy top sản phẩm bán chạy nhất:", error);
       throw error;
     }
   },
@@ -99,7 +99,7 @@ const AnalysisService = {
     try {
       return await AnalysisModel.getTopPurchasingSuppliers(query);
     } catch (error) {
-      console.error("Lỗi ở Service khi lấy top nhà cung cấp nhập hàng nhiều nhất:", error);
+      //console.error("Lỗi ở Service khi lấy top nhà cung cấp nhập hàng nhiều nhất:", error);
       throw error;
     }
   },
@@ -108,7 +108,7 @@ const AnalysisService = {
     try {
       return await AnalysisModel.getRevenueByCategory(query);
     } catch (error) {
-      console.error("Lỗi ở Service khi lấy doanh thu theo danh mục:", error);
+      //console.error("Lỗi ở Service khi lấy doanh thu theo danh mục:", error);
       throw error;
     }
   },

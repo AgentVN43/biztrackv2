@@ -43,7 +43,7 @@ const OrderDetailService = {
       const result = await OrderDetailModel.create(data); // ✅ Sử dụng await
       return result;
     } catch (error) {
-      console.error("🚀 ~ orderDetail.service.js: create - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.service.js: create - Lỗi:", error);
       throw error;
     }
   },
@@ -58,7 +58,7 @@ const OrderDetailService = {
       const results = await OrderDetailModel.read(); // ✅ Sử dụng await
       return results;
     } catch (error) {
-      console.error("🚀 ~ orderDetail.service.js: read - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.service.js: read - Lỗi:", error);
       throw error;
     }
   },
@@ -74,7 +74,7 @@ const OrderDetailService = {
       const result = await OrderDetailModel.readById(order_detail_id); // ✅ Sử dụng await
       return result;
     } catch (error) {
-      console.error("🚀 ~ orderDetail.service.js: readById - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.service.js: readById - Lỗi:", error);
       throw error;
     }
   },
@@ -110,7 +110,7 @@ const OrderDetailService = {
       const result = await OrderDetailModel.update(order_detail_id, data); // ✅ Sử dụng await
       return result;
     } catch (error) {
-      console.error("🚀 ~ orderDetail.service.js: update - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.service.js: update - Lỗi:", error);
       throw error;
     }
   },
@@ -126,7 +126,7 @@ const OrderDetailService = {
       const result = await OrderDetailModel.delete(order_detail_id); // ✅ Sử dụng await
       return result;
     } catch (error) {
-      console.error("🚀 ~ orderDetail.service.js: delete - Lỗi:", error);
+      //console.error("🚀 ~ orderDetail.service.js: delete - Lỗi:", error);
       throw error;
     }
   },

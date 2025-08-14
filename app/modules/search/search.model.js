@@ -138,7 +138,7 @@ const OrderModel = {
   //     const [rows] = await db.promise().query(sql, [customerId]);
   //     return rows;
   //   } catch (error) {
-  //     console.error("Lỗi khi tìm đơn hàng theo customer ID:", error.message);
+  //     //console.error("Lỗi khi tìm đơn hàng theo customer ID:", error.message);
   //     throw error;
   //   }
   // },

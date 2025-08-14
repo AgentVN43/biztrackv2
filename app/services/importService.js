@@ -99,7 +99,7 @@ class ImportService {
             }));
           }
         } catch (dbError) {
-          console.error(`🚀 ~ ImportService.importFromText - Database insert failed for ${entityType}:`, dbError);
+          //console.error(`🚀 ~ ImportService.importFromText - Database insert failed for ${entityType}:`, dbError);
           throw new Error(`Lỗi lưu dữ liệu: ${dbError.message}`);
         }
       }
@@ -158,7 +158,7 @@ class ImportService {
             errors.push(`${field} '${rowData[field]}' đã tồn tại trong hệ thống`);
           }
         } catch (error) {
-          console.warn(`⚠️ Duplicate check skipped for ${field}:`, error.message);
+          //console.warn(`⚠️ Duplicate check skipped for ${field}:`, error.message);
         }
       }
     }
@@ -182,7 +182,7 @@ class ImportService {
       const [results] = await db.promise().query(query, [value]);
       return results[0].count > 0;
     } catch (error) {
-      console.error(`Error checking field exists:`, error);
+      //console.error(`Error checking field exists:`, error);
       return false;
     }
   }
@@ -223,7 +223,7 @@ class ImportService {
       const [result] = await db.promise().query(query, values);
       return result.affectedRows;
     } catch (error) {
-      console.error(`Bulk insert error for ${entityType}:`, error);
+      //console.error(`Bulk insert error for ${entityType}:`, error);
       throw error;
     }
   }

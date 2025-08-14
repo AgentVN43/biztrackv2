@@ -41,10 +41,10 @@ exports.getCustomerByName = async (name, skip, limit) => {
 //       const orders = await OrderModel.findByCustomerId(customer.customer_id);
 //       allOrders.push(...orders);
 //     }
-//     console.log("This is allOrders:", allOrders);
+//     //console.log("This is allOrders:", allOrders);
 //     return allOrders;
 //   } catch (error) {
-//     console.error(
+//     //console.error(
 //       "Lỗi trong Search Service (getOrdersByCustomerPhone):",
 //       error.message
 //     );

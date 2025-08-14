@@ -9,14 +9,14 @@ const autoSyncCustomerDebt = async (customer_id) => {
   try {
     if (!customer_id) return;
     
-    console.log(`🔄 Tự động đồng bộ debt cho customer ${customer_id}...`);
+    //console.log(`🔄 Tự động đồng bộ debt cho customer ${customer_id}...`);
     
     const CustomerModel = require('../customers/customer.model');
     await CustomerModel.updateDebt(customer_id, 0, true);
     
-    console.log(`✅ Đã tự động đồng bộ debt cho customer ${customer_id}`);
+    //console.log(`✅ Đã tự động đồng bộ debt cho customer ${customer_id}`);
   } catch (error) {
-    console.error(`❌ Lỗi khi tự động đồng bộ debt cho customer ${customer_id}:`, error);
+    //console.error(`❌ Lỗi khi tự động đồng bộ debt cho customer ${customer_id}:`, error);
     // Không throw error để không ảnh hưởng đến workflow chính
   }
 };
@@ -50,7 +50,7 @@ const InvoiceService = {
             note: `Thanh toán trước chuyển thành thanh toán hóa đơn ${invoice.invoice_code}`,
             created_by: data.created_by || null,
           });
-          console.log(`🚀 ~ InvoiceService: create - Đã tạo transaction cho amount_paid của order: ${order.amount_paid}`);
+          //console.log(`🚀 ~ InvoiceService: create - Đã tạo transaction cho amount_paid của order: ${order.amount_paid}`);
         }
       }
       
@@ -92,10 +92,10 @@ const InvoiceService = {
       return results;
     } catch (error) {
       // Handle the error as needed, e.g., log it or rethrow it
-      console.error(
-        "🚀 ~ invoice.service.js: getAll - Error fetching invoices:",
-        error
-      );
+      //console.error(
+      //   "🚀 ~ invoice.service.js: getAll - Error fetching invoices:",
+      //   error
+      // );
       throw error; // or handle it in another way
     }
   },
@@ -106,10 +106,10 @@ const InvoiceService = {
       return results;
     } catch (error) {
       // Handle the error as needed, e.g., log it or rethrow it
-      console.error(
-        "🚀 ~ invoice.service.js: getAll - Error fetching invoices:",
-        error
-      );
+      //console.error(
+      //   "🚀 ~ invoice.service.js: getAll - Error fetching invoices:",
+      //   error
+      // );
       throw error; // or handle it in another way
     }
   },
@@ -120,10 +120,10 @@ const InvoiceService = {
       return results;
     } catch (error) {
       // Handle the error as needed, e.g., log it or rethrow it
-      console.error(
-        "🚀 ~ invoice.service.js: getAll - Error fetching invoices:",
-        error
-      );
+      //console.error(
+      //   "🚀 ~ invoice.service.js: getAll - Error fetching invoices:",
+      //   error
+      // );
       throw error; // or handle it in another way
     }
   },
@@ -197,10 +197,10 @@ const InvoiceService = {
       const newTransaction = await TransactionService.createTransaction(
         transactionData
       );
-      console.log(
-        `🚀 ~ InvoiceService: recordPayment - Giao dịch thanh toán mới đã tạo:`,
-        newTransaction
-      );
+      //console.log(
+      //   `🚀 ~ InvoiceService: recordPayment - Giao dịch thanh toán mới đã tạo:`,
+      //   newTransaction
+      // );
 
       // 3. Cập nhật số tiền đã thanh toán và trạng thái của hóa đơn bằng hàm Model
       const updatedInvoice = await InvoiceModel.updateAmountPaidAndStatus(
@@ -217,13 +217,13 @@ const InvoiceService = {
       if (invoice.customer_id) {
         const newDebt = await CustomerModel.calculateDebt(invoice.customer_id);
         await CustomerModel.update(invoice.customer_id, { debt: newDebt });
-        console.log(`🚀 ~ InvoiceService: recordPayment - Đã cập nhật debt mới cho khách hàng ${invoice.customer_id} là: ${newDebt}`);
+        //console.log(`🚀 ~ InvoiceService: recordPayment - Đã cập nhật debt mới cho khách hàng ${invoice.customer_id} là: ${newDebt}`);
       }
 
-      console.log(
-        `🚀 ~ InvoiceService: recordPayment - Hóa đơn đã cập nhật:`,
-        updatedInvoice
-      );
+      //console.log(
+      //   `🚀 ~ InvoiceService: recordPayment - Hóa đơn đã cập nhật:`,
+      //   updatedInvoice
+      // );
 
       return updatedInvoice;
     } catch (error) {
@@ -275,7 +275,7 @@ const InvoiceService = {
         unpaid_purchase_invoices: unpaidInvoices,
       };
     } catch (error) {
-      console.error("🚀 ~ InvoiceService: getSupplierPayables - Error:", error);
+      //console.error("🚀 ~ InvoiceService: getSupplierPayables - Error:", error);
       throw error;
     }
   },
@@ -302,11 +302,11 @@ const InvoiceService = {
         throw new Error("Tất cả các hóa đơn phải thuộc về cùng một khách hàng.");
       }
       if (invoice.status === 'paid') {
-        console.warn(`Hóa đơn ${invoice.invoice_code} đã được thanh toán đủ. Bỏ qua.`);
+        //console.warn(`Hóa đơn ${invoice.invoice_code} đã được thanh toán đủ. Bỏ qua.`);
         continue;
       }
       if (payment.amount <= 0) {
-        console.warn(`Số tiền thanh toán cho hóa đơn ${invoice.invoice_code} không hợp lệ. Bỏ qua.`);
+        //console.warn(`Số tiền thanh toán cho hóa đơn ${invoice.invoice_code} không hợp lệ. Bỏ qua.`);
         continue;
       }
 
@@ -424,7 +424,7 @@ const InvoiceService = {
 
       return payments;
     } catch (error) {
-      console.error("🚀 ~ InvoiceService: getAllPayments - Lỗi:", error);
+      //console.error("🚀 ~ InvoiceService: getAllPayments - Lỗi:", error);
       throw error;
     }
   },

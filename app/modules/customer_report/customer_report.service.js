@@ -56,15 +56,15 @@ const CustomerReportService = {
       const totalExpenditure = parseFloat(orderRows[0].total_expenditure || 0);
       const netExpenditure = Math.max(0, totalExpenditure - totalRefund);
 
-      console.log(
-        `🔍 getTotalOrdersAndExpenditure cho customer ${customer_id}:`
-      );
-      console.log(`  - Total orders: ${orderRows[0].total_orders}`);
-      console.log(
-        `  - Total expenditure (before returns): ${totalExpenditure}`
-      );
-      console.log(`  - Total refund: ${totalRefund}`);
-      console.log(`  - Net expenditure: ${netExpenditure}`);
+      // //console.log(
+      //   `🔍 getTotalOrdersAndExpenditure cho customer ${customer_id}:`
+      // );
+      // //console.log(`  - Total orders: ${orderRows[0].total_orders}`);
+      // //console.log(
+      //   `  - Total expenditure (before returns): ${totalExpenditure}`
+      // );
+      //console.log(`  - Total refund: ${totalRefund}`);
+      //console.log(`  - Net expenditure: ${netExpenditure}`);
 
       return {
         total_orders: orderRows[0].total_orders,
@@ -359,19 +359,19 @@ const CustomerReportService = {
       const totalDebt = invoiceDebt + orderDebt + adjustmentDebt + adjIncreaseDebt - adjDecreaseDebt;
       const totalReceivables = totalRefund >= totalDebt ? 0 : totalDebt - totalRefund;
 
-      console.log(`🔍 getReceivables cho customer ${customer_id}:`);
-      console.log(`  - Invoice debt: ${invoiceDebt}`);
-      console.log(`  - Order debt: ${orderDebt}`);
-      console.log(`  - Adjustment debt (opening_balance): ${adjustmentDebt}`);
-      console.log(`  - Adjustment increase (adj_increase): ${adjIncreaseDebt}`);
-      console.log(`  - Adjustment decrease (adj_decrease): ${adjDecreaseDebt}`);
-      console.log(`  - Total debt: ${totalDebt}`);
-      console.log(`  - Total refund: ${totalRefund}`);
-      console.log(`  - Total receivables: ${totalReceivables}`);
+      //console.log(`🔍 getReceivables cho customer ${customer_id}:`);
+      //console.log(`  - Invoice debt: ${invoiceDebt}`);
+      //console.log(`  - Order debt: ${orderDebt}`);
+      //console.log(`  - Adjustment debt (opening_balance): ${adjustmentDebt}`);
+      //console.log(`  - Adjustment increase (adj_increase): ${adjIncreaseDebt}`);
+      //console.log(`  - Adjustment decrease (adj_decrease): ${adjDecreaseDebt}`);
+      //console.log(`  - Total debt: ${totalDebt}`);
+      //console.log(`  - Total refund: ${totalRefund}`);
+      //console.log(`  - Total receivables: ${totalReceivables}`);
 
       return totalReceivables;
     } catch (error) {
-      console.error("🚀 ~ CustomerReportService: getReceivables - Lỗi:", error);
+      //console.error("🚀 ~ CustomerReportService: getReceivables - Lỗi:", error);
       throw error;
     }
   },
@@ -426,13 +426,13 @@ const CustomerReportService = {
             invoice.final_amount - invoice.amount_paid - totalRefundForInvoice
           );
 
-          console.log(
-            `🔍 Invoice ${invoice.invoice_code} (Order ${invoice.order_id}):`
-          );
-          console.log(`  - Final amount: ${invoice.final_amount}`);
-          console.log(`  - Amount paid: ${invoice.amount_paid}`);
-          console.log(`  - Total refund: ${totalRefundForInvoice}`);
-          console.log(`  - Remaining receivable: ${remaining_receivable}`);
+          // //console.log(
+          //   `🔍 Invoice ${invoice.invoice_code} (Order ${invoice.order_id}):`
+          // );
+          //console.log(`  - Final amount: ${invoice.final_amount}`);
+          //console.log(`  - Amount paid: ${invoice.amount_paid}`);
+          //console.log(`  - Total refund: ${totalRefundForInvoice}`);
+          //console.log(`  - Remaining receivable: ${remaining_receivable}`);
 
           return {
             ...invoice,
@@ -605,10 +605,10 @@ const CustomerReportService = {
       const transactions = await TransactionModel.getTransactionsByCustomerId(
         customer_id
       );
-      console.log(
-        "🚀 ~ getCustomerTransactionLedger: ~ transactions:",
-        transactions
-      );
+      // //console.log(
+      //   "🚀 ~ getCustomerTransactionLedger: ~ transactions:",
+      //   transactions
+      // );
 
       // 3.5. ✅ Lấy tất cả adjustment transactions (opening_balance từ migration)
       const adjustmentSql = `
@@ -751,9 +751,8 @@ const CustomerReportService = {
             transaction_date: new Date(returnOrder.created_at),
             type: "return",
             amount: found.refund_amount,
-            description: `Trả hàng cho đơn hàng ${
-              returnOrder.order_code || returnOrder.order_id
-            } - ${returnOrder.status}`,
+            description: `Trả hàng cho đơn hàng ${returnOrder.order_code || returnOrder.order_id
+              } - ${returnOrder.status}`,
             order_id: returnOrder.order_id,
             invoice_id: null,
             transaction_id: null,
@@ -845,13 +844,13 @@ const CustomerReportService = {
       allTransactions.sort((a, b) => b.transaction_date - a.transaction_date);
 
       // Debug: In ra thứ tự giao dịch
-      console.log("🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):");
+      // //console.log("🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):");
       allTransactions.forEach((t, index) => {
-        console.log(
-          `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${
-            t.type
-          } | ${t.amount}`
-        );
+        // //console.log(
+        //   `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${
+        //     t.type
+        //   } | ${t.amount}`
+        // );
       });
 
       // Lọc bỏ transaction có type === 'refund' khỏi allTransactions trước khi mapping
@@ -904,7 +903,7 @@ const CustomerReportService = {
         } else if (SIGNED_TYPES.has(type)) {
           runningBalance += amount; // amount có thể âm/dương
         } else {
-          console.warn("⚠️ Transaction type lạ:", type, transaction);
+          //console.warn("⚠️ Transaction type lạ:", type, transaction);
           runningBalance += amount; // fallback
         }
 
@@ -916,11 +915,11 @@ const CustomerReportService = {
 
       const result = allTransactionsNoRefund.map((transaction, index) => {
         // Debug: In ra từng bước tính dư nợ
-        console.log(
-          `💰 ${index + 1}. ${transaction.transaction_code} | ${
-            transaction.type
-          } | ${transaction.amount} | Dư nợ: ${calculatedBalances[index]}`
-        );
+        // //console.log(
+        //   `💰 ${index + 1}. ${transaction.transaction_code} | ${
+        //     transaction.type
+        //   } | ${transaction.amount} | Dư nợ: ${calculatedBalances[index]}`
+        // );
 
         // Format dữ liệu trả về
         return {
@@ -1034,15 +1033,15 @@ async function calculateOrderTotalRefund(order_id) {
     }
     refundThisTime = Math.round(refundThisTime * 100) / 100;
     // LOG DEBUG CHI TIẾT
-    console.log("--- Debug Refund ---");
-    console.log("Order:", order.order_id, order.order_code);
-    console.log("Return:", ret.return_id, ret.created_at);
-    console.log("Order Products:", orderProducts);
-    console.log("Returned Quantity Map:", returnedQuantityMap);
-    // console.log('Return Details:', details);
-    console.log("Is Final Return:", isFinalReturn);
-    console.log("Refund This Time:", refundThisTime);
-    console.log("Total Refund So Far:", totalRefund + refundThisTime);
+    //console.log("--- Debug Refund ---");
+    //console.log("Order:", order.order_id, order.order_code);
+    //console.log("Return:", ret.return_id, ret.created_at);
+    //console.log("Order Products:", orderProducts);
+    //console.log("Returned Quantity Map:", returnedQuantityMap);
+    // //console.log('Return Details:', details);
+    //console.log("Is Final Return:", isFinalReturn);
+    //console.log("Refund This Time:", refundThisTime);
+    //console.log("Total Refund So Far:", totalRefund + refundThisTime);
     totalRefund += refundThisTime;
   }
   totalRefund = Math.round(totalRefund * 100) / 100;
@@ -1118,15 +1117,15 @@ async function calculateRefundForEachReturn(order_id) {
     }
     refundThisTime = Math.round(refundThisTime * 100) / 100;
     // LOG DEBUG CHI TIẾT
-    console.log("--- Debug Refund (Each Return) ---");
-    console.log("Order:", order.order_id, order.order_code);
-    console.log("Return:", ret.return_id, ret.created_at);
-    console.log("Order Products:", orderProducts);
-    console.log("Returned Quantity Map:", returnedQuantityMap);
-    // console.log('Return Details:', details);
-    console.log("Is Final Return:", isFinalReturn);
-    console.log("Refund This Time:", refundThisTime);
-    console.log("Total Refund So Far:", totalRefund + refundThisTime);
+    //console.log("--- Debug Refund (Each Return) ---");
+    //console.log("Order:", order.order_id, order.order_code);
+    //console.log("Return:", ret.return_id, ret.created_at);
+    //console.log("Order Products:", orderProducts);
+    //console.log("Returned Quantity Map:", returnedQuantityMap);
+    // //console.log('Return Details:', details);
+    //console.log("Is Final Return:", isFinalReturn);
+    //console.log("Refund This Time:", refundThisTime);
+    //console.log("Total Refund So Far:", totalRefund + refundThisTime);
     totalRefund += refundThisTime;
     result.push({
       return_id: ret.return_id,

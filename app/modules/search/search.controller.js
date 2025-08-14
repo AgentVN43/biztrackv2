@@ -91,7 +91,7 @@ exports.searchOrdersByPhone = async (req, res) => {
       skip,
       limit
     );
-    console.log("Total orders:", total);
+    //console.log("Total orders:", total);
     return createResponse(res, 200, true, orders, null, total, page, limit);
   } catch (error) {
     return createResponse(res, 404, false, null, error.message);

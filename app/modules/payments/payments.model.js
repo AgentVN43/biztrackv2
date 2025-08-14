@@ -34,9 +34,9 @@ exports.getById = (payment_id, callback) => {
 
 
 exports.getAll = (callback) => {
-  console.log('Model: Starting getAll payments query...');
+  //console.log('Model: Starting getAll payments query...');
   db.query('SELECT * FROM payments', (err, results) => {
-    console.log('Model: getAll payments query finished.');
+    //console.log('Model: getAll payments query finished.');
     callback(err, results);
   });
 };

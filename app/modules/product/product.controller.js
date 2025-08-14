@@ -19,7 +19,7 @@ exports.getAllProducts = async (req, res, next) => {
     ); // Truyền skip, limit vào service
     return createResponse(res, 200, true, products, null, total, parsedPage, parsedLimit);
   } catch (err) {
-    console.error("🚀 ~ product.controller.js: getAllProducts - Error:", err);
+    //console.error("🚀 ~ product.controller.js: getAllProducts - Error:", err);
     next(err);
   }
 };
@@ -33,7 +33,7 @@ exports.getProductById = async (req, res, next) => {
     }
     createResponse(res, 200, true, product);
   } catch (err) {
-    console.error("🚀 ~ product.controller.js: getProductById - Error:", err);
+    //console.error("🚀 ~ product.controller.js: getProductById - Error:", err);
     next(err);
   }
 };
@@ -49,7 +49,7 @@ exports.createProduct = async (req, res, next) => {
       "Product created"
     );
   } catch (err) {
-    console.error("🚀 ~ product.controller.js: createProduct - Error:", err);
+    //console.error("🚀 ~ product.controller.js: createProduct - Error:", err);
     if (err.message.includes("Invalid category_id")) {
       return createResponse(res, 400, false, null, err.message);
     }
@@ -72,7 +72,7 @@ exports.updateProduct = async (req, res, next) => {
     }
     createResponse(res, 200, true, null, "Product updated");
   } catch (err) {
-    console.error("🚀 ~ product.controller.js: updateProduct - Error:", err);
+    //console.error("🚀 ~ product.controller.js: updateProduct - Error:", err);
     if (err.message.includes("Invalid category_id")) {
       return createResponse(res, 400, false, null, err.message);
     }
@@ -89,7 +89,7 @@ exports.deleteProduct = async (req, res, next) => {
     }
     createResponse(res, 200, true, null, "Product deleted");
   } catch (err) {
-    console.error("🚀 ~ product.controller.js: deleteProduct - Error:", err);
+    //console.error("🚀 ~ product.controller.js: deleteProduct - Error:", err);
     next(err);
   }
 };
