@@ -1,8 +1,25 @@
 const InvoiceModel = require("./invoice.model"); // Đảm bảo đường dẫn đúng tới invoice.model
+const SupplierModel = require("../suppliers/supplier.model");
+const { generateTransactionCode } = require('../../utils/transactionUtils');
 const TransactionService = require("../transactions/transaction.service");
 const CustomerModel = require("../customers/customer.model");
-const { generateTransactionCode } = require('../../utils/transactionUtils');
-const SupplierModel = require("../suppliers/supplier.model");
+
+// ✅ Hàm tự động đồng bộ debt cho customer
+const autoSyncCustomerDebt = async (customer_id) => {
+  try {
+    if (!customer_id) return;
+    
+    console.log(`🔄 Tự động đồng bộ debt cho customer ${customer_id}...`);
+    
+    const CustomerModel = require('../customers/customer.model');
+    await CustomerModel.updateDebt(customer_id, 0, true);
+    
+    console.log(`✅ Đã tự động đồng bộ debt cho customer ${customer_id}`);
+  } catch (error) {
+    console.error(`❌ Lỗi khi tự động đồng bộ debt cho customer ${customer_id}:`, error);
+    // Không throw error để không ảnh hưởng đến workflow chính
+  }
+};
 
 const InvoiceService = {
   // Đổi tên từ 'const create' sang 'const InvoiceService'
@@ -22,8 +39,7 @@ const InvoiceService = {
         const OrderModel = require('../orders/order.model');
         const order = await OrderModel.readById(data.order_id);
         if (order && parseFloat(order.amount_paid || 0) > 0) {
-          const TransactionModel = require('../transactions/transaction.model');
-          await TransactionModel.createTransaction({
+          await TransactionService.createTransaction({
             transaction_code: generateTransactionCode(),
             order_id: data.order_id,
             invoice_id: invoice.invoice_id,
@@ -43,6 +59,11 @@ const InvoiceService = {
         await SupplierModel.recalculatePayable(invoice.supplier_id);
       }
       
+      // ✅ Tự động đồng bộ debt cho customer (nếu có)
+      if (invoice && invoice.customer_id) {
+        await autoSyncCustomerDebt(invoice.customer_id);
+      }
+
       return invoice;
     } catch (error) {
       console.error(
@@ -312,9 +333,18 @@ const InvoiceService = {
 
     // 4. Cập nhật lại debt một lần duy nhất
     if (customerId) {
-      const newDebt = await CustomerModel.calculateDebt(customerId);
-      await CustomerModel.update(customerId, { debt: newDebt });
-      return { customer_id: customerId, new_debt: newDebt, message: "Thanh toán hàng loạt và cập nhật công nợ thành công." };
+      // ✅ Sử dụng autoSync thay vì tính toán trực tiếp
+      await autoSyncCustomerDebt(customerId);
+      
+      // Lấy thông tin customer sau khi sync để trả về
+      const CustomerModel = require('../customers/customer.model');
+      const updatedCustomer = await CustomerModel.getById(customerId);
+      
+      return { 
+        customer_id: customerId, 
+        new_debt: updatedCustomer.debt, 
+        message: "Thanh toán hàng loạt và cập nhật công nợ thành công." 
+      };
     }
 
     return { message: "Thanh toán hàng loạt thành công." };

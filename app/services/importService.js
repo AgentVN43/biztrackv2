@@ -109,7 +109,7 @@ class ImportService {
         for (const customer of insertedCustomers) {
           const debt = Number(customer.debt || 0);
           if (debt !== 0) {
-            await TransactionModel.createTransaction({
+            await TransactionService.createTransaction({
               transaction_code: `MIG-OB-${customer.phone || customer.customer_name}`,
               type: 'adjustment',
               amount: debt,
@@ -222,6 +222,7 @@ class ImportService {
 
     try {
       const [result] = await db.promise().query(query, values);
+const TransactionService = require('../transactions/transaction.service');
       return result.affectedRows;
     } catch (error) {
       console.error(`Bulk insert error for ${entityType}:`, error);

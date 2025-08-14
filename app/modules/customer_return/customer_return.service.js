@@ -11,6 +11,7 @@ const db = require("../../config/db.config");
 const OrderDetailService = require("../orderDetails/orderDetail.service");
 const { calculateRefund } = require("../../utils/refundUtils");
 const { generateTransactionCode } = require("../../utils/transactionUtils");
+const TransactionService = require("../transactions/transaction.service");
 
 // Hàm tạo transaction code
 
@@ -553,7 +554,7 @@ const CustomerReturnService = {
 
       // Nếu có hoàn tiền, tạo transaction ledger đúng số tiền thực tế
       if (total_refund > 0) {
-        await Transaction.createTransaction({
+        await TransactionService.createTransaction({
           transaction_code: generateTransactionCode(),
           type: "refund",
           amount: total_refund,

@@ -1,43 +1,26 @@
-const TransactionModel = require("../transactions/transaction.model");
+const TransactionService = require('../transactions/transaction.service');
 const CashbookService = require("./cashbook.service");
 const { createResponse, errorResponse } = require("../../utils/response");
 const db = require("../../config/db.config");
 // Tạo phiếu thu/chi
 exports.createTransaction = async (req, res) => {
   try {
-    const {
-      amount,
-      type,
-      category,
-      payment_method,
-      description,
-      customer_id,
-      supplier_id,
-      related_type,
-      related_id,
-      initiated_by,
-    } = req.body;
-    if (!amount || !type) {
-      return errorResponse(res, "amount và type là bắt buộc", 400);
-    }
-    const transaction = await TransactionModel.createTransaction({
-      transaction_code: `TXN-${Date.now()}`,
-      type,
-      amount,
-      category,
-      payment_method,
-      description,
-      customer_id,
-      supplier_id,
-      related_type,
-      related_id,
-      initiated_by,
-      status: "completed",
-      created_at: new Date(),
+    const transactionData = req.body;
+    
+    // Sử dụng TransactionService thay vì TransactionModel trực tiếp
+    const transaction = await TransactionService.createTransaction(transactionData);
+    
+    res.status(201).json({
+      success: true,
+      data: transaction,
+      message: "Transaction created successfully"
     });
-    return createResponse(res, 201, true, transaction, "Tạo phiếu thành công");
-  } catch (err) {
-    return errorResponse(res, err.message || "Lỗi tạo phiếu thu/chi", 500);
+  } catch (error) {
+    console.error("🚀 ~ cashbook.controller.js: createTransaction - Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error"
+    });
   }
 };
 

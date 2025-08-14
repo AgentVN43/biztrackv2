@@ -321,7 +321,26 @@ const CustomerReportService = {
       const [adjustmentRows] = await db.promise().query(adjustmentSql, [customer_id]);
       const adjustmentDebt = parseFloat(adjustmentRows[0].total_adjustment_debt || 0);
 
-      // 4. Lấy tổng số tiền đã trả hàng từ return_orders
+      // 4. ✅ Lấy tổng điều chỉnh tăng (adj_increase) và điều chỉnh giảm (adj_decrease)
+      const adjIncreaseSql = `
+        SELECT COALESCE(SUM(amount), 0) AS total_adj_increase
+        FROM transactions
+        WHERE customer_id = ?
+          AND type = 'adj_increase'
+      `;
+      const [adjIncreaseRows] = await db.promise().query(adjIncreaseSql, [customer_id]);
+      const adjIncreaseDebt = parseFloat(adjIncreaseRows[0].total_adj_increase || 0);
+
+      const adjDecreaseSql = `
+        SELECT COALESCE(SUM(amount), 0) AS total_adj_decrease
+        FROM transactions
+        WHERE customer_id = ?
+          AND type = 'adj_decrease'
+      `;
+      const [adjDecreaseRows] = await db.promise().query(adjDecreaseSql, [customer_id]);
+      const adjDecreaseDebt = parseFloat(adjDecreaseRows[0].total_adj_decrease || 0);
+
+      // 5. Lấy tổng số tiền đã trả hàng từ return_orders
       const returnSql = `
         SELECT DISTINCT ro.order_id
         FROM return_orders ro
@@ -336,14 +355,16 @@ const CustomerReportService = {
         }
       }
 
-      // Tổng công nợ = Công nợ invoices + Công nợ orders + Công nợ adjustment - Tổng tiền đã trả hàng
-      const totalDebt = invoiceDebt + orderDebt + adjustmentDebt;
+      // Tổng công nợ = Công nợ invoices + Công nợ orders + Công nợ adjustment + Điều chỉnh tăng - Điều chỉnh giảm - Tổng tiền đã trả hàng
+      const totalDebt = invoiceDebt + orderDebt + adjustmentDebt + adjIncreaseDebt - adjDecreaseDebt;
       const totalReceivables = totalRefund >= totalDebt ? 0 : totalDebt - totalRefund;
 
       console.log(`🔍 getReceivables cho customer ${customer_id}:`);
       console.log(`  - Invoice debt: ${invoiceDebt}`);
       console.log(`  - Order debt: ${orderDebt}`);
       console.log(`  - Adjustment debt (opening_balance): ${adjustmentDebt}`);
+      console.log(`  - Adjustment increase (adj_increase): ${adjIncreaseDebt}`);
+      console.log(`  - Adjustment decrease (adj_decrease): ${adjDecreaseDebt}`);
       console.log(`  - Total debt: ${totalDebt}`);
       console.log(`  - Total refund: ${totalRefund}`);
       console.log(`  - Total receivables: ${totalReceivables}`);

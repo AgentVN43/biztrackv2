@@ -123,6 +123,22 @@ function filterValidOrderFields(data) {
   return result;
 }
 
+// ✅ Hàm tự động đồng bộ debt cho customer
+const autoSyncCustomerDebt = async (customer_id) => {
+  try {
+    if (!customer_id) return;
+    
+    console.log(`🔄 Tự động đồng bộ debt cho customer ${customer_id}...`);
+    
+    await CustomerModel.updateDebt(customer_id, 0, true);
+    
+    console.log(`✅ Đã tự động đồng bộ debt cho customer ${customer_id}`);
+  } catch (error) {
+    console.error(`❌ Lỗi khi tự động đồng bộ debt cho customer ${customer_id}:`, error);
+    // Không throw error để không ảnh hưởng đến workflow chính
+  }
+};
+
 const OrderService = {
   /**
    * Tạo đơn hàng mới.
@@ -169,12 +185,9 @@ const OrderService = {
         createdOrder
       );
 
-      // Sau khi tạo đơn hàng thành công, tăng debt cho khách hàng
+      // ✅ Sau khi tạo đơn hàng thành công, tự động đồng bộ debt cho khách hàng
       if (createdOrder && createdOrder.customer_id) {
-        const debt = await CustomerModel.calculateDebt(
-          createdOrder.customer_id
-        );
-        await CustomerModel.update(createdOrder.customer_id, { debt });
+        await autoSyncCustomerDebt(createdOrder.customer_id);
       }
 
       // 2. Tạo các bản ghi chi tiết đơn hàng
@@ -614,17 +627,16 @@ const OrderService = {
             (t) => t.type === "advance_payment" || t.type === "partial_paid"
           );
           if (!hasAdvancePayment) {
-            await TransactionModel.createTransaction({
+            await TransactionService.createTransaction({
               transaction_code: `TTDH-${order.order_code}`,
-              type: "receipt",
-              amount: parseFloat(order.amount_paid),
-              description: `Thanh toán trước cho đơn hàng ${order.order_code}`,
-              customer_id: order.customer_id,
-              related_type: "order",
-              related_id: createdInvoice ? createdInvoice.invoice_id : null,
               order_id: order.order_id,
-              status: "completed",
-              created_at: new Date(),
+              invoice_id: createdInvoice ? createdInvoice.invoice_id : null,
+              customer_id: order.customer_id,
+              type: 'advance_payment',
+              amount: parseFloat(order.amount_paid),
+              status: 'completed',
+              note: `Thanh toán trước chuyển thành thanh toán hóa đơn ${createdInvoice ? createdInvoice.invoice_code : ''}`,
+              created_by: initiatedByUserId || null,
             });
             console.log(
               "🚀 ~ order.service: update - Đã tạo transaction advance_payment cho amount_paid ban đầu của order."
@@ -763,10 +775,12 @@ const OrderService = {
           console.log(
             `🚀 ~ order.service: update - Cập nhật lại debt cho khách hàng ${order.customer_id} sau khi hủy đơn hàng.`
           );
-          const newDebt = await CustomerModel.calculateDebt(order.customer_id);
-          await CustomerModel.update(order.customer_id, { debt: newDebt });
+          await autoSyncCustomerDebt(order.customer_id);
+          
+          // Lấy thông tin customer sau khi sync để log
+          const updatedCustomer = await CustomerModel.getById(order.customer_id);
           console.log(
-            `🚀 ~ order.service: update - Đã cập nhật debt mới cho khách hàng ${order.customer_id}: ${newDebt}`
+            `🚀 ~ order.service: update - Đã cập nhật debt mới cho khách hàng ${order.customer_id}: ${updatedCustomer.debt}`
           );
         }
 

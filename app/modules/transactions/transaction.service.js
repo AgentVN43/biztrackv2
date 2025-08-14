@@ -93,6 +93,41 @@
 // module.exports = TransactionService;
 const TransactionModel = require("./transaction.model");
 
+// ✅ Hàm tự động đồng bộ debt cho customer sau khi tạo/sửa transaction
+const autoSyncCustomerDebt = async (customer_id) => {
+  try {
+    if (!customer_id) return;
+    
+    console.log(`🔄 Tự động đồng bộ debt cho customer ${customer_id}...`);
+    
+    const CustomerModel = require('../customers/customer.model');
+    await CustomerModel.updateDebt(customer_id, 0, true);
+    
+    console.log(`✅ Đã tự động đồng bộ debt cho customer ${customer_id}`);
+  } catch (error) {
+    console.error(`❌ Lỗi khi tự động đồng bộ debt cho customer ${customer_id}:`, error);
+    // Không throw error để không ảnh hưởng đến workflow chính
+  }
+};
+
+// ✅ Hàm tự động đồng bộ debt cho supplier sau khi tạo/sửa transaction
+const autoSyncSupplierPayable = async (supplier_id) => {
+  try {
+    if (!supplier_id) return;
+    
+    console.log(`🔄 Tự động đồng bộ payable cho supplier ${supplier_id}...`);
+    
+    const SupplierModel = require('../suppliers/supplier.model');
+    if (SupplierModel.recalculatePayable) {
+      await SupplierModel.recalculatePayable(supplier_id);
+      console.log(`✅ Đã tự động đồng bộ payable cho supplier ${supplier_id}`);
+    }
+  } catch (error) {
+    console.error(`❌ Lỗi khi tự động đồng bộ payable cho supplier ${supplier_id}:`, error);
+    // Không throw error để không ảnh hưởng đến workflow chính
+  }
+};
+
 const TransactionService = {
   /**
    * Tạo một giao dịch mới.
@@ -101,21 +136,42 @@ const TransactionService = {
    */
   createTransaction: async (data) => {
     try {
-      // ✅ Truyền customer_id và supplier_id xuống model
-      const transaction = await TransactionModel.createTransaction(data);
-      // Sau khi tạo transaction, nếu có customer_id thì cập nhật lại debt
-      if (data && data.customer_id) {
-        const CustomerModel = require("../customers/customer.model");
-        const newDebt = await CustomerModel.calculateDebt(data.customer_id);
-        await CustomerModel.update(data.customer_id, { debt: newDebt });
-        console.log(`✅ Đã cập nhật debt mới cho customer ${data.customer_id}: ${newDebt}`);
+      // ✅ Validate và bổ sung các field bắt buộc
+      const validatedData = {
+        ...data,
+        // Tự động tạo transaction_code nếu không có
+        transaction_code: data.transaction_code || `TXN-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        // Đảm bảo amount là số
+        amount: parseFloat(data.amount || 0)
+      };
+      
+      // ✅ Kiểm tra các field bắt buộc
+      if (!validatedData.type) {
+        throw new Error('Field "type" là bắt buộc');
       }
-      // Nếu có supplier_id thì cập nhật payable NCC
-      if (data && data.supplier_id) {
-        const SupplierModel = require("../suppliers/supplier.model");
-        await SupplierModel.recalculatePayable(data.supplier_id);
-        console.log(`✅ Đã cập nhật payable mới cho supplier ${data.supplier_id}`);
+      if (!validatedData.amount || validatedData.amount <= 0) {
+        throw new Error('Field "amount" phải là số dương');
       }
+      
+      console.log(`🔄 TransactionService: Tạo transaction với data:`, validatedData);
+      
+      // ✅ Truyền data đã validate xuống model
+      const transaction = await TransactionModel.createTransaction(validatedData);
+      
+      console.log(`✅ TransactionService: Đã tạo transaction thành công: ${transaction.insertId}`);
+      
+      // ✅ Tự động đồng bộ debt cho customer (nếu có)
+      if (validatedData.customer_id) {
+        console.log(`🔄 TransactionService: Trigger auto-sync cho customer: ${validatedData.customer_id}`);
+        await autoSyncCustomerDebt(validatedData.customer_id);
+      }
+      
+      // ✅ Tự động đồng bộ payable cho supplier (nếu có)
+      if (validatedData.supplier_id) {
+        console.log(`🔄 TransactionService: Trigger auto-sync cho supplier: ${validatedData.supplier_id}`);
+        await autoSyncSupplierPayable(validatedData.supplier_id);
+      }
+      
       return transaction;
     } catch (error) {
       console.error(
