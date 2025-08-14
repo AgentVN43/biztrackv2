@@ -632,7 +632,7 @@ const OrderService = {
               order_id: order.order_id,
               invoice_id: createdInvoice ? createdInvoice.invoice_id : null,
               customer_id: order.customer_id,
-              type: 'advance_payment',
+              type: 'receipt',
               amount: parseFloat(order.amount_paid),
               status: 'completed',
               note: `Thanh toán trước chuyển thành thanh toán hóa đơn ${createdInvoice ? createdInvoice.invoice_code : ''}`,

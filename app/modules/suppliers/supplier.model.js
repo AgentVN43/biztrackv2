@@ -166,7 +166,7 @@ const SupplierModel = {
    * Tính lại payable dựa trên invoices và transactions liên quan đến NCC.
    * Quy ước:
    *  - Tăng phải trả: purchase_invoice, debit_note, adj_increase
-   *  - Giảm phải trả: credit_note, refund_invoice, payment, receipt, return, refund, transfer, partial_paid, advance_payment, adj_decrease
+   *  - Giảm phải trả: credit_note, refund_invoice, payment, receipt, return, refund, transfer, partial_paid, adj_decrease
    *  - Điều chỉnh migration: adj_migration (dùng dấu trực tiếp)
    */
   recalculatePayable: async (supplier_id) => {
@@ -198,7 +198,7 @@ const SupplierModel = {
         `SELECT COALESCE(SUM(amount), 0) AS total
          FROM transactions
          WHERE supplier_id = ?
-           AND type IN ('payment','receipt','refund','return','transfer','partial_paid','advance_payment')
+           AND type IN ('payment','receipt','refund','return','transfer','partial_paid')
            AND (related_type IS NULL OR related_type <> 'invoice')`,
         [supplier_id]
       );

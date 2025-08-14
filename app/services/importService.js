@@ -1,6 +1,6 @@
-const ImportUtils = require('../utils/importUtils');
-const db = require('../config/db.config');
-const TransactionService = require('../modules/transactions/transaction.service');
+const ImportUtils = require("../utils/importUtils");
+const db = require("../config/db.config");
+const TransactionService = require("../modules/transactions/transaction.service");
 
 /**
  * Generic Import Service - Hỗ trợ import cho tất cả entity types
@@ -14,7 +14,12 @@ class ImportService {
    * @param {boolean} validateOnly - Chỉ validate, không insert
    * @returns {Object} - Kết quả import
    */
-  static async importFromText(textData, entityType, delimiter = '\t', validateOnly = false) {
+  static async importFromText(
+    textData,
+    entityType,
+    delimiter = "\t",
+    validateOnly = false
+  ) {
     try {
       // Validate entity type
       const supportedTypes = this.getSupportedEntityTypes();
@@ -38,7 +43,7 @@ class ImportService {
         total: dataRows.length,
         valid: 0,
         invalid: 0,
-        skipped: 0
+        skipped: 0,
       };
 
       for (let i = 0; i < dataRows.length; i++) {
@@ -53,17 +58,24 @@ class ImportService {
         const rowErrors = [];
 
         // Extract data theo header map
-        headerValidation.config.all.forEach(field => {
+        headerValidation.config.all.forEach((field) => {
           rowData[field] = ImportUtils.extractValue(values, headerMap, field);
         });
 
         // Validate row data
-        const validationErrors = ImportUtils.validateRowData(rowData, entityType, i + 2);
+        const validationErrors = ImportUtils.validateRowData(
+          rowData,
+          entityType,
+          i + 2
+        );
         rowErrors.push(...validationErrors);
 
         // Check for duplicates (chỉ khi không phải validateOnly)
         if (!validateOnly) {
-          const duplicateErrors = await this.checkDuplicates(rowData, entityType);
+          const duplicateErrors = await this.checkDuplicates(
+            rowData,
+            entityType
+          );
           rowErrors.push(...duplicateErrors);
         }
 
@@ -72,12 +84,15 @@ class ImportService {
           errors.push({
             row: i + 2,
             errors: rowErrors,
-            data: rowData
+            data: rowData,
           });
           summary.invalid++;
         } else {
           // Transform data for database
-          const transformedData = ImportUtils.transformRowData(rowData, entityType);
+          const transformedData = ImportUtils.transformRowData(
+            rowData,
+            entityType
+          );
           validData.push(transformedData);
           summary.valid++;
         }
@@ -90,47 +105,87 @@ class ImportService {
         try {
           insertedCount = await this.bulkInsert(validData, entityType);
           // Nếu là customers, lưu lại danh sách customer_id và debt để tạo transaction opening_balance
-          if (entityType === 'customers') {
-            insertedCustomers = validData.map(c => ({
+          if (entityType === "customers") {
+            insertedCustomers = validData.map((c) => ({
               customer_id: c.customer_id,
               customer_name: c.customer_name,
               phone: c.phone,
-              debt: c.debt || 0
+              debt: c.debt || 0,
             }));
+            console.log("insertedCustomers:", insertedCustomers);
           }
         } catch (dbError) {
           //console.error(`🚀 ~ ImportService.importFromText - Database insert failed for ${entityType}:`, dbError);
           throw new Error(`Lỗi lưu dữ liệu: ${dbError.message}`);
         }
       }
-
-      // Sau khi insert customers, tạo transaction opening_balance nếu có debt
-      if (entityType === 'customers' && !validateOnly && insertedCustomers.length > 0) {
+      // Sau khi insert customers, tạo invoice opening_balance nếu có debt
+      if (
+        entityType === "customers" &&
+        !validateOnly &&
+        insertedCustomers.length > 0
+      ) {
         for (const customer of insertedCustomers) {
           const debt = Number(customer.debt || 0);
           if (debt !== 0) {
-            await TransactionService.createTransaction({
-              transaction_code: `MIG-OB-${customer.phone || customer.customer_name}`,
-              type: 'adjustment',
-              amount: debt,
+            const InvoiceService = require("../modules/invoice/invoice.service");
+            const invoiceData = {
+              invoice_code: `MIG-OB-${
+                customer.phone || customer.customer_name
+              }`,
+              invoice_type: debt > 0 ? "debit_note" : "credit_note",
               customer_id: customer.customer_id,
-              description: 'Công nợ đầu kỳ khi chuyển hệ thống'
+              total_amount: Math.abs(debt),
+              tax_amount: 0,
+              discount_amount: 0,
+              final_amount: Math.abs(debt),
+              issued_date: new Date(),
+              due_date: new Date(),
+              status: "pending",
+              note: `Công nợ đầu kỳ khi chuyển hệ thống: ${
+                debt > 0 ? "Nợ" : "Được hoàn"
+              } ${Math.abs(debt).toLocaleString("vi-VN")}đ`,
+            };
+            
+            console.log(`🚀 ~ Creating invoice with data:`, {
+              customer_id: invoiceData.customer_id,
+              customer_id_type: typeof invoiceData.customer_id,
+              customer_id_length: invoiceData.customer_id?.length,
+              customer: customer,
+              debt: debt
             });
+            
+            await InvoiceService.create(invoiceData);
           }
         }
       }
+
+      // Sau khi insert customers, tạo transaction opening_balance nếu có debt
+      // if (entityType === 'customers' && !validateOnly && insertedCustomers.length > 0) {
+      //   for (const customer of insertedCustomers) {
+      //     const debt = Number(customer.debt || 0);
+      //     if (debt !== 0) {
+      //       await TransactionService.createTransaction({
+      //         transaction_code: `MIG-OB-${customer.phone || customer.customer_name}`,
+      //         type: 'adjustment',
+      //         amount: debt,
+      //         customer_id: customer.customer_id,
+      //         description: 'Công nợ đầu kỳ khi chuyển hệ thống'
+      //       });
+      //     }
+      //   }
+      // }
 
       return {
         summary: {
           ...summary,
           inserted: insertedCount,
           validateOnly: validateOnly,
-          entityType: entityType
+          entityType: entityType,
         },
         validData,
-        errors
+        errors,
       };
-
     } catch (error) {
       throw new Error(`Lỗi import dữ liệu cho ${entityType}: ${error.message}`);
     }
@@ -153,9 +208,15 @@ class ImportService {
     for (const field of config.uniqueFields) {
       if (rowData[field]) {
         try {
-          const exists = await this.checkFieldExists(entityType, field, rowData[field]);
+          const exists = await this.checkFieldExists(
+            entityType,
+            field,
+            rowData[field]
+          );
           if (exists) {
-            errors.push(`${field} '${rowData[field]}' đã tồn tại trong hệ thống`);
+            errors.push(
+              `${field} '${rowData[field]}' đã tồn tại trong hệ thống`
+            );
           }
         } catch (error) {
           //console.warn(`⚠️ Duplicate check skipped for ${field}:`, error.message);
@@ -205,17 +266,15 @@ class ImportService {
 
     // Get fields from first data object
     const fields = Object.keys(data[0]);
-    const placeholders = data.map(() => 
-      `(${fields.map(() => '?').join(', ')})`
-    ).join(', ');
+    const placeholders = data
+      .map(() => `(${fields.map(() => "?").join(", ")})`)
+      .join(", ");
 
     // Flatten data array
-    const values = data.flatMap(item => 
-      fields.map(field => item[field])
-    );
+    const values = data.flatMap((item) => fields.map((field) => item[field]));
 
     const query = `
-      INSERT INTO ${config.tableName} (${fields.join(', ')}) 
+      INSERT INTO ${config.tableName} (${fields.join(", ")}) 
       VALUES ${placeholders}
     `;
 

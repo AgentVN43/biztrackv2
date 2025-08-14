@@ -82,7 +82,7 @@ exports.getLedger = async (req, res) => {
        FROM transactions t
        LEFT JOIN customers c ON t.customer_id = c.customer_id
        LEFT JOIN suppliers s ON t.supplier_id = s.supplier_id
-       ${where} AND t.type != 'refund'
+       ${where} AND t.type NOT IN ('refund','adjustment', 'adj_increase', 'adj_decrease')
        ORDER BY t.created_at DESC
        LIMIT ? OFFSET ?`,
       [...params, limitNum, offset]
@@ -143,26 +143,7 @@ exports.getLedger = async (req, res) => {
       );
     const total_payment = Number(paymentRows[0]?.total_payment || 0);
 
-    // ✅ Lấy tổng điều chỉnh tăng (adj_increase)
-    const [adjIncreaseRows] = await db
-      .promise()
-      .query(
-        `SELECT IFNULL(SUM(amount), 0) as total_adj_increase FROM transactions ${where} AND type = 'adj_increase' AND type != 'refund'`,
-        params
-      );
-    const total_adj_increase = Number(adjIncreaseRows[0]?.total_adj_increase || 0);
-
-    // ✅ Lấy tổng điều chỉnh giảm (adj_decrease)
-    const [adjDecreaseRows] = await db
-      .promise()
-      .query(
-        `SELECT IFNULL(SUM(amount), 0) as total_adj_decrease FROM transactions ${where} AND type = 'adj_decrease' AND type != 'refund'`,
-        params
-      );
-    const total_adj_decrease = Number(adjDecreaseRows[0]?.total_adj_decrease || 0);
-
-    // Số dư = Thu + Điều chỉnh tăng - Chi - Điều chỉnh giảm
-    const balance = total_receipt + total_adj_increase - total_payment - total_adj_decrease;
+      const balance = total_receipt - total_payment;
 
     // Trả về kết quả với thông tin phân trang và tổng hợp
     const responseData = {

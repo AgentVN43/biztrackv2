@@ -22,7 +22,7 @@ const Invoice = {
     let invoice_customer_id = null;
     let invoice_supplier_id = null;
 
-    if (invoice_type === "sale_invoice") {
+    if (invoice_type === "sale_invoice" || invoice_type === "debit_note" || invoice_type === "credit_note") {
       invoice_order_id = invoiceData.order_id;
       invoice_customer_id = invoiceData.customer_id;
     } else if (invoice_type === "purchase_invoice") {

@@ -395,7 +395,7 @@ const InvoiceService = {
               payment_method: 'Thanh toán ban đầu',
               payment_date: invoice.issued_date,
               description: `Thanh toán ban đầu cho hóa đơn ${invoice.invoice_code}`,
-              type: 'advance_payment',
+              type: 'receipt',
               is_manual: false
             });
           }

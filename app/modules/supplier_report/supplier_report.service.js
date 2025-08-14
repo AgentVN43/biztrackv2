@@ -236,7 +236,6 @@ const SupplierReportService = {
         "refund",            // NCC hoàn lại
         "transfer",          // Điều chuyển giảm phải trả
         "partial_paid",
-        "advance_payment",
         "refund_invoice",
         "adj_decrease"       // Điều chỉnh giảm phải trả
       ]);

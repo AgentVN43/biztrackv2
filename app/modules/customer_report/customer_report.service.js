@@ -357,6 +357,7 @@ const CustomerReportService = {
 
       // Tổng công nợ = Công nợ invoices + Công nợ orders + Công nợ adjustment + Điều chỉnh tăng - Điều chỉnh giảm - Tổng tiền đã trả hàng
       const totalDebt = invoiceDebt + orderDebt + adjustmentDebt + adjIncreaseDebt - adjDecreaseDebt;
+      
       const totalReceivables = totalRefund >= totalDebt ? 0 : totalDebt - totalRefund;
 
       //console.log(`🔍 getReceivables cho customer ${customer_id}:`);
@@ -588,6 +589,7 @@ const CustomerReportService = {
         SELECT 
           invoice_id,
           invoice_code,
+          invoice_type,
           order_id,
           final_amount,
           amount_paid,
@@ -626,8 +628,8 @@ const CustomerReportService = {
       `;
       const [adjustmentTransactions] = await db.promise().query(adjustmentSql, [customer_id]);
 
-      // 3.6. ✅ Lọc bỏ adjustment transactions khỏi transactions array để tránh duplicate
-      const nonAdjustmentTransactions = transactions.filter(tx => tx.type !== 'adjustment');
+      // 3.6. ✅ Lọc bỏ adjustment/adj_increase/adj_decrease khỏi transactions array để tránh duplicate và ẩn điều chỉnh
+      const nonAdjustmentTransactions = transactions.filter(tx => tx.type !== 'adjustment' && tx.type !== 'adj_increase' && tx.type !== 'adj_decrease');
 
       // 3.7. ✅ Lấy tất cả return_orders đã approved/completed
       const returnOrdersSql = `
@@ -736,6 +738,24 @@ const CustomerReportService = {
         // }
       });
 
+      // ✅ Xử lý các invoices có invoice_type là debit_note (công nợ đầu kỳ từ migration)
+      invoices.forEach((invoice) => {
+        if (invoice.invoice_type === 'debit_note') {
+          allTransactions.push({
+            transaction_code: invoice.invoice_code,
+            transaction_date: new Date(invoice.created_at),
+            type: 'adjustment', // ✅ Sử dụng 'adjustment' thay vì 'debit_note' cho transaction.type
+            amount: parseFloat(invoice.final_amount),
+            description: `Công nợ đầu kỳ: ${invoice.invoice_code} - ${invoice.note || 'Nợ từ hệ thống cũ'}`,
+            order_id: invoice.order_id,
+            invoice_id: invoice.invoice_id,
+            transaction_id: null,
+            invoice_code: invoice.invoice_code,
+            status: invoice.status,
+          });
+        }
+      });
+
       // Xử lý return_orders: mỗi lần trả là 1 record riêng biệt
       for (const returnOrder of returnOrders) {
         // Tính số tiền refund đúng cho lần này
@@ -765,6 +785,8 @@ const CustomerReportService = {
       // ✅ Thêm các adjustment transactions (opening_balance từ migration) vào timeline
       // Các transactions này sẽ được sắp xếp theo thời gian cùng với các transactions khác
       adjustmentTransactions.forEach((transaction) => {
+        // Bỏ qua adj_increase/adj_decrease theo yêu cầu ẩn tạm thời
+        if (transaction.type === 'adj_increase' || transaction.type === 'adj_decrease') return;
         allTransactions.push({
           transaction_code: transaction.transaction_code,
           transaction_date: new Date(transaction.created_at),
@@ -853,9 +875,9 @@ const CustomerReportService = {
         // );
       });
 
-      // Lọc bỏ transaction có type === 'refund' khỏi allTransactions trước khi mapping
+      // Lọc bỏ transaction có type === 'refund' và adj_increase/adj_decrease khỏi allTransactions trước khi mapping
       const allTransactionsNoRefund = allTransactions.filter(
-        (txn) => txn.type !== "refund"
+        (txn) => txn.type !== "refund" && txn.type !== 'adj_increase' && txn.type !== 'adj_decrease'
       );
 
       // 6. Tính toán dư nợ theo logic sổ cái (từ cũ đến mới để tính đúng)
@@ -868,28 +890,27 @@ const CustomerReportService = {
       const INCREASE_TYPES = new Set([
         "pending",
         "sale_invoice",
-        "debit_note",
+        "adjustment", // ✅ Công nợ đầu kỳ từ migration (debit_note invoices)
         "adj_increase" // điều chỉnh tăng
       ]);
 
       const DECREASE_TYPES = new Set([
         "receipt",
         "partial_paid",
-        "advance_payment",
         "payment",
         "refund",
         "return",
         "credit_note",
         "transfer",
         "refund_invoice",
-        "adj_decrease" // điều chỉnh giảm
+        //"adj_decrease" 
       ]);
 
       // Các loại sử dụng trực tiếp dấu của amount (âm/dương)
       const SIGNED_TYPES = new Set([
         "adjustment",
         "opening_balance",
-        "adj_migration" // điều chỉnh công nợ từ hệ thống cũ
+        "adj_migration" 
       ]);
 
       reversedTransactions.forEach((transaction) => {
