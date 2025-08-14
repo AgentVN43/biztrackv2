@@ -946,6 +946,8 @@ const AnalysisModel = {
         cr.customer_name,
         cr.phone,
         cr.email,
+        IFNULL(cr.total_revenue, 0) AS total_revenue,
+        IFNULL(crf.total_refund, 0) AS total_refund,
         (cr.total_revenue - IFNULL(crf.total_refund, 0)) AS net_spent,
         cr.total_orders
       FROM (${customerRevenueQuery}) cr
@@ -1041,7 +1043,7 @@ const AnalysisModel = {
           (ps.total_revenue - IFNULL(pr.total_refund_amount, 0)) AS net_revenue,
           ps.total_orders,
           IFNULL(pr.total_quantity_returned, 0) AS total_quantity_returned,
-          IFNULL(pr.total_refund_amount, 0) AS total_refund_amount,
+          IFNULL(pr.total_refund_amount, 0) AS total_refund,
           IFNULL(ps.total_revenue, 0) AS total_revenue
         FROM (${productSalesQuery}) ps
         LEFT JOIN (${productReturnQuery}) pr ON ps.product_id = pr.product_id
