@@ -155,11 +155,21 @@ const AnalysisController = {
 
   async getFinanceManagementByPeriod(req, res) {
     try {
-      const data = await AnalysisService.getFinanceManagementByPeriod(req.query);
-      return createResponse(res, 200, true, data, "Lấy báo cáo quản lý thu chi thành công");
+      const result = await AnalysisService.getFinanceManagementByPeriod(req.query);
+      return createResponse(res, 200, true, result, "Lấy thống kê tài chính thành công");
     } catch (error) {
-      //console.error("Lỗi khi lấy báo cáo quản lý thu chi:", error);
-      return errorResponse(res, "Lỗi khi lấy báo cáo quản lý thu chi", 500);
+      console.error("Lỗi khi lấy thống kê tài chính:", error);
+      return errorResponse(res, "Lỗi khi lấy thống kê tài chính", 500);
+    }
+  },
+
+  async getDetailedFinanceManagementByPeriod(req, res) {
+    try {
+      const result = await AnalysisService.getDetailedFinanceManagementByPeriod(req.query);
+      return createResponse(res, 200, true, result, "Lấy thống kê tài chính chi tiết thành công");
+    } catch (error) {
+      console.error("Lỗi khi lấy thống kê tài chính chi tiết:", error);
+      return errorResponse(res, "Lỗi khi lấy thống kê tài chính chi tiết", 500);
     }
   },
 

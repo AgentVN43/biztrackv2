@@ -82,6 +82,46 @@ const AnalysisService = {
     return { title, revenue, expense };
   },
 
+  async getDetailedFinanceManagementByPeriod(query) {
+    try {
+      const merged = await AnalysisModel.getDetailedFinanceManagementByPeriod(query);
+      
+      // Format dữ liệu cho response
+      const formattedData = {
+        time_periods: [],
+        metrics: {
+          total_revenue: [],
+          total_discount: [],
+          total_shipping_fee: [],
+          total_customer_return: [],
+          total_cost_of_goods: [],
+          total_supplier_return: [],
+          total_other_revenue: [],
+          total_other_expense: [],
+          net_revenue: [],
+          gross_profit: [],
+          net_profit: []
+        }
+      };
+
+      // Sắp xếp theo thời gian và format dữ liệu
+      Object.keys(merged).sort().forEach(period => {
+        formattedData.time_periods.push(period);
+        const row = merged[period];
+        
+        // Thêm tất cả metrics vào arrays tương ứng
+        Object.keys(formattedData.metrics).forEach(metric => {
+          formattedData.metrics[metric].push(Number(row[metric]) || 0);
+        });
+      });
+
+      return formattedData;
+    } catch (error) {
+      console.error("Lỗi ở Service khi lấy thống kê tài chính chi tiết:", error);
+      throw error;
+    }
+  },
+
   async getTopCustomers(query) {
     return await AnalysisModel.getTopCustomers(query);
   },

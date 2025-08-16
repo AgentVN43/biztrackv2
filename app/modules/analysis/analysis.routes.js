@@ -43,6 +43,7 @@ router.get("/payables/purchase", AnalysisController.getPayablePurchaseOrders); /
 // app.get('/api/v1/analysis/payables/overdue', /* controller function */); // Báo cáo công nợ phải trả quá hạn
 
 router.get("/finance/management", AnalysisController.getFinanceManagementByPeriod);
+router.get("/finance/management/detailed", AnalysisController.getDetailedFinanceManagementByPeriod);
 router.get("/finance/top-customers", AnalysisController.getTopCustomers);
 
 // Thống kê Top 10 sản phẩm bán chạy nhất

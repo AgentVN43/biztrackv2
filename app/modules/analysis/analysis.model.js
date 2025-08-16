@@ -592,8 +592,8 @@ const AnalysisModel = {
 
     // 3. Điều kiện riêng cho từng bảng
     const orderDateConditionParts = [];
-    if (effectiveStartDate) orderDateConditionParts.push(`DATE(order_date) >= ${db.escape(effectiveStartDate)}`);
-    if (effectiveEndDate) orderDateConditionParts.push(`DATE(order_date) <= ${db.escape(effectiveEndDate)}`);
+    if (effectiveStartDate) orderDateConditionParts.push(`DATE(created_at) >= ${db.escape(effectiveStartDate)}`);
+    if (effectiveEndDate) orderDateConditionParts.push(`DATE(created_at) <= ${db.escape(effectiveEndDate)}`);
     const orderDateCondition = orderDateConditionParts.length
       ? " AND " + orderDateConditionParts.join(" AND ")
       : "";
@@ -628,7 +628,7 @@ const AnalysisModel = {
     };
 
     const revenueQuery = `
-      SELECT ${getTimeGroupClause('order_date')} AS time_period, SUM(final_amount) AS revenue
+      SELECT ${getTimeGroupClause('created_at')} AS time_period, SUM(final_amount) AS revenue
       FROM orders
       WHERE order_status = 'Hoàn tất'${orderDateCondition}
       GROUP BY time_period
@@ -924,6 +924,249 @@ const AnalysisModel = {
   //   //console.log(result);
   //   return result;
   // },
+
+  async getDetailedFinanceManagementByPeriod(query) {
+    // 1. Xử lý ngày tháng
+    const { effectiveStartDate, effectiveEndDate } = processDateFilters(query);
+
+    // 2. Xác định loại nhóm thời gian (ngày/tháng/năm)
+    let timeGroupFormat = 'DATE'; // Mặc định nhóm theo ngày
+    let timePeriodFormat = 'YYYY-MM-DD'; // Mặc định format ngày
+    
+    if (query.year && !query.month && !query.day) {
+      // Nếu chỉ có năm, nhóm theo tháng
+      timeGroupFormat = 'YEAR_MONTH';
+      timePeriodFormat = 'YYYY-MM';
+    } else if (query.year && query.month && !query.day) {
+      // Nếu có năm và tháng, nhóm theo ngày
+      timeGroupFormat = 'DATE';
+      timePeriodFormat = 'YYYY-MM-DD';
+    } else if (query.year && query.month && query.day) {
+      // Nếu có đầy đủ ngày tháng năm, nhóm theo ngày
+      timeGroupFormat = 'DATE';
+      timePeriodFormat = 'YYYY-MM-DD';
+    }
+
+    // 3. Điều kiện riêng cho từng bảng
+    const orderDateConditionParts = [];
+    if (effectiveStartDate) orderDateConditionParts.push(`DATE(o.created_at) >= ${db.escape(effectiveStartDate)}`);
+    if (effectiveEndDate) orderDateConditionParts.push(`DATE(o.created_at) <= ${db.escape(effectiveEndDate)}`);
+    const orderDateCondition = orderDateConditionParts.length
+      ? " AND " + orderDateConditionParts.join(" AND ")
+      : "";
+
+    const returnDateConditionParts = [];
+    if (effectiveStartDate) returnDateConditionParts.push(`DATE(ro.created_at) >= ${db.escape(effectiveStartDate)}`);
+    if (effectiveEndDate) returnDateConditionParts.push(`DATE(ro.created_at) <= ${db.escape(effectiveEndDate)}`);
+    const returnDateCondition = returnDateConditionParts.length
+      ? " AND " + returnDateConditionParts.join(" AND ")
+      : "";
+
+    const purchaseDateConditionParts = [];
+    if (effectiveStartDate) purchaseDateConditionParts.push(`DATE(po.posted_at) >= ${db.escape(effectiveStartDate)}`);
+    if (effectiveEndDate) purchaseDateConditionParts.push(`DATE(po.posted_at) <= ${db.escape(effectiveEndDate)}`);
+    const purchaseDateCondition = purchaseDateConditionParts.length
+      ? " AND " + purchaseDateConditionParts.join(" AND ")
+      : "";
+
+    const transactionDateConditionParts = [];
+    if (effectiveStartDate) transactionDateConditionParts.push(`DATE(t.created_at) >= ${db.escape(effectiveStartDate)}`);
+    if (effectiveEndDate) transactionDateConditionParts.push(`DATE(t.created_at) <= ${db.escape(effectiveEndDate)}`);
+    const transactionDateCondition = transactionDateConditionParts.length
+      ? " AND " + transactionDateConditionParts.join(" AND ")
+      : "";
+
+    // 4. Query con với nhóm thời gian động
+    const getTimeGroupClause = (dateColumn) => {
+      if (timeGroupFormat === 'YEAR_MONTH') {
+        return `DATE_FORMAT(${dateColumn}, '%Y-%m')`;
+      }
+      return `DATE(${dateColumn})`;
+    };
+
+    // 1. Doanh thu tổng đơn hàng (total_amount)
+    const totalRevenueQuery = `
+      SELECT ${getTimeGroupClause('o.created_at')} AS time_period, 
+             SUM(o.total_amount) AS total_revenue
+      FROM orders o
+      WHERE o.order_status = 'Hoàn tất'${orderDateCondition}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+
+    // 2. Giảm giá (discount_amount)
+    const discountAmountQuery = `
+      SELECT ${getTimeGroupClause('o.created_at')} AS time_period, 
+             SUM(o.discount_amount) AS total_discount
+      FROM orders o
+      WHERE o.order_status = 'Hoàn tất'${orderDateCondition}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+
+    // 3. Phí ship (shipping_fee)
+    const shippingFeeQuery = `
+      SELECT ${getTimeGroupClause('o.created_at')} AS time_period, 
+             SUM(o.shipping_fee) AS total_shipping_fee
+      FROM orders o
+      WHERE o.order_status = 'Hoàn tất'${orderDateCondition}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+
+    // 4. Tổng tiền trả hàng (customer returns)
+    const customerReturnQuery = `
+      SELECT ${getTimeGroupClause('ro.created_at')} AS time_period, 
+             SUM(roi.refund_amount) AS total_customer_return
+      FROM return_orders ro
+      JOIN return_order_items roi ON ro.return_id = roi.return_id
+      WHERE ro.type = 'customer_return' AND ro.status = 'completed'${returnDateCondition}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+
+    // 5. Tổng giá vốn (cost of goods sold) - tính từ purchase_orders
+    const costOfGoodsQuery = `
+      SELECT ${getTimeGroupClause('po.posted_at')} AS time_period, 
+             SUM(po.total_amount) AS total_cost_of_goods
+      FROM purchase_orders po
+      WHERE po.status = 'posted'${purchaseDateCondition}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+
+    // 6. Hoàn trả nhà cung cấp (supplier returns)
+    const supplierReturnQuery = `
+      SELECT ${getTimeGroupClause('ro.created_at')} AS time_period, 
+             SUM(roi.refund_amount) AS total_supplier_return
+      FROM return_orders ro
+      JOIN return_order_items roi ON ro.return_id = roi.return_id
+      WHERE ro.type = 'supplier_return' AND ro.status = 'approved'${returnDateCondition}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+
+    // 7. Thu nhập khác (other receipts)
+    const otherRevenueQuery = `
+      SELECT ${getTimeGroupClause('t.created_at')} AS time_period, 
+             SUM(t.amount) AS total_other_revenue
+      FROM transactions t
+      WHERE t.category = 'other_receipt'${transactionDateCondition}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+
+    // 8. Chi phí khác (other payments)
+    const otherExpenseQuery = `
+      SELECT ${getTimeGroupClause('t.created_at')} AS time_period, 
+             SUM(t.amount) AS total_other_expense
+      FROM transactions t
+      WHERE t.category = 'other_payment'${transactionDateCondition}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+
+    // Thực thi tất cả queries song song
+    const [
+      [totalRevenueResults],
+      [discountAmountResults],
+      [shippingFeeResults],
+      [customerReturnResults],
+      [costOfGoodsResults],
+      [supplierReturnResults],
+      [otherRevenueResults],
+      [otherExpenseResults],
+    ] = await Promise.all([
+      db.promise().query(totalRevenueQuery),
+      db.promise().query(discountAmountQuery),
+      db.promise().query(shippingFeeQuery),
+      db.promise().query(customerReturnQuery),
+      db.promise().query(costOfGoodsQuery),
+      db.promise().query(supplierReturnQuery),
+      db.promise().query(otherRevenueQuery),
+      db.promise().query(otherExpenseQuery),
+    ]);
+
+    // Merge theo time_period và tính toán các chỉ số
+    const getDefaultRow = () => ({
+      total_revenue: 0,           // Doanh thu tổng đơn hàng
+      total_discount: 0,          // Giảm giá
+      total_shipping_fee: 0,      // Phí ship
+      total_customer_return: 0,   // Tổng tiền trả hàng
+      total_cost_of_goods: 0,     // Tổng giá vốn
+      total_supplier_return: 0,   // Hoàn trả nhà cung cấp
+      total_other_revenue: 0,     // Thu nhập khác
+      total_other_expense: 0,     // Chi phí khác
+      // Các chỉ số tính toán
+      net_revenue: 0,             // Doanh thu thuần = total_revenue - total_discount + total_shipping_fee - total_customer_return
+      gross_profit: 0,            // Lợi nhuận gộp = net_revenue - total_cost_of_goods + total_supplier_return
+      net_profit: 0,              // Lợi nhuận thuần = gross_profit + total_other_revenue - total_other_expense
+    });
+
+    const datasets = [
+      { data: totalRevenueResults, key: 'total_revenue' },
+      { data: discountAmountResults, key: 'total_discount' },
+      { data: shippingFeeResults, key: 'total_shipping_fee' },
+      { data: customerReturnResults, key: 'total_customer_return' },
+      { data: costOfGoodsResults, key: 'total_cost_of_goods' },
+      { data: supplierReturnResults, key: 'total_supplier_return' },
+      { data: otherRevenueResults, key: 'total_other_revenue' },
+      { data: otherExpenseResults, key: 'total_other_expense' },
+    ];
+
+    const merged = {};
+
+    const formatTimePeriod = (timeStr) => {
+      if (!timeStr) return timeStr;
+      
+      // Nếu đã là YYYY-MM (nhóm theo tháng)
+      if (/^\d{4}-\d{2}$/.test(timeStr)) return timeStr;
+      
+      // Nếu đã là YYYY-MM-DD (nhóm theo ngày)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(timeStr)) return timeStr;
+      
+      // Nếu là Date object hoặc string khác, cố gắng parse
+      const d = new Date(timeStr);
+      if (!isNaN(d)) {
+        if (timeGroupFormat === 'YEAR_MONTH') {
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        } else {
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+      }
+      return timeStr;
+    };
+
+    // Merge dữ liệu từ tất cả datasets
+    datasets.forEach(({ data, key }) => {
+      data.forEach((row) => {
+        const formattedTime = formatTimePeriod(row.time_period);
+        if (!merged[formattedTime]) {
+          merged[formattedTime] = getDefaultRow();
+        }
+        merged[formattedTime] = {
+          ...merged[formattedTime],
+          [key]: Number(row[key]) || 0,
+        };
+      });
+    });
+
+    // Tính toán các chỉ số phái sinh
+    Object.keys(merged).forEach(timePeriod => {
+      const row = merged[timePeriod];
+      
+      // Doanh thu thuần = Doanh thu tổng - Giảm giá + Phí ship - Trả hàng
+      row.net_revenue = row.total_revenue - row.total_discount + row.total_shipping_fee - row.total_customer_return;
+      
+      // Lợi nhuận gộp = Doanh thu thuần - Giá vốn + Hoàn trả nhà cung cấp
+      row.gross_profit = row.net_revenue - row.total_cost_of_goods + row.total_supplier_return;
+      
+      // Lợi nhuận thuần = Lợi nhuận gộp + Thu nhập khác - Chi phí khác
+      row.net_profit = row.gross_profit + row.total_other_revenue - row.total_other_expense;
+    });
+
+    return merged;
+  },
 
   async getTopCustomers(query) {
     // 1. Xử lý ngày tháng
