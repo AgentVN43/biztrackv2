@@ -27,7 +27,9 @@ const SupplierReportService = {
         WHERE po.supplier_id = ?
         ORDER BY po.created_at ASC
       `;
-      const [purchaseOrders] = await db.promise().query(purchaseOrdersSql, [supplier_id]);
+      const [purchaseOrders] = await db
+        .promise()
+        .query(purchaseOrdersSql, [supplier_id]);
 
       // 2. Lấy tất cả hóa đơn của nhà cung cấp
       const invoicesSql = `
@@ -50,7 +52,9 @@ const SupplierReportService = {
       // 3. Lấy tất cả giao dịch thanh toán
       const [directTransactions] = await db
         .promise()
-        .query(`SELECT * FROM transactions WHERE supplier_id = ?`, [supplier_id]);
+        .query(`SELECT * FROM transactions WHERE supplier_id = ?`, [
+          supplier_id,
+        ]);
 
       // Lấy transaction liên quan đến invoice của supplier
       const supplierInvoiceIds = invoices.map((inv) => inv.invoice_id);
@@ -150,7 +154,10 @@ const SupplierReportService = {
             (po) => po.po_id === transaction.related_id
           );
           isRelatedToPO = true;
-          if (relatedPO && (relatedPO.status === "cancelled" || relatedPO.status === "Huỷ đơn")) {
+          if (
+            relatedPO &&
+            (relatedPO.status === "cancelled" || relatedPO.status === "Huỷ đơn")
+          ) {
             isCancelled = true;
           }
         }
@@ -206,7 +213,8 @@ const SupplierReportService = {
       // //console.log("🔍 Debug - Thứ tự giao dịch sau khi sắp xếp (mới đến cũ):");
       allTransactions.forEach((t, index) => {
         console.log(
-          `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${t.type
+          `${index + 1}. ${t.transaction_code} | ${t.transaction_date} | ${
+            t.type
           } | ${t.amount}`
         );
       });
@@ -222,28 +230,28 @@ const SupplierReportService = {
       // Chuẩn hóa mapping kiểu giao dịch cho nhà cung cấp (công nợ phải trả)
       // Quy ước: tăng balance = tăng phải trả; giảm balance = giảm phải trả
       const INCREASE_TYPES = new Set([
-        "pending",           // PO tạo nợ
-        "purchase_invoice",  // Hóa đơn mua làm tăng phải trả
-        "debit_note",        // Ghi nợ từ NCC
-        "adj_increase"       // Điều chỉnh tăng phải trả
+        "pending", // PO tạo nợ
+        "purchase_invoice", // Hóa đơn mua làm tăng phải trả
+        "debit_note", // Ghi nợ từ NCC
+        "adj_increase", // Điều chỉnh tăng phải trả
       ]);
 
       const DECREASE_TYPES = new Set([
-        "payment",           // Trả tiền NCC
-        "receipt",           // Trường hợp nhận tiền lại (ít gặp) coi như giảm phải trả
-        "return",            // Trả hàng NCC
-        "credit_note",       // NCC ghi có cho mình
-        "refund",            // NCC hoàn lại
-        "transfer",          // Điều chuyển giảm phải trả
+        "payment", // Trả tiền NCC
+        "receipt", // Trường hợp nhận tiền lại (ít gặp) coi như giảm phải trả
+        "return", // Trả hàng NCC
+        "credit_note", // NCC ghi có cho mình
+        "refund", // NCC hoàn lại
+        "transfer", // Điều chuyển giảm phải trả
         "partial_paid",
         "refund_invoice",
-        "adj_decrease"       // Điều chỉnh giảm phải trả
+        "adj_decrease", // Điều chỉnh giảm phải trả
       ]);
 
       const SIGNED_TYPES = new Set([
         "adjustment",
         "opening_balance",
-        "adj_migration"      // Điều chỉnh từ hệ thống cũ
+        "adj_migration", // Điều chỉnh từ hệ thống cũ
       ]);
 
       allTransactionsNoRefund.forEach((txn) => {
@@ -289,7 +297,11 @@ const SupplierReportService = {
    * @returns {Promise<Array<Object>>} Promise giải quyết với mảng các sự kiện đã định dạng.
    * @throws {Error} Nếu có lỗi trong quá trình truy vấn database.
    */
-  getSupplierOrderHistoryWithDetails: async (supplier_id, page = 1, limit = 10) => {
+  getSupplierOrderHistoryWithDetails: async (
+    supplier_id,
+    page = 1,
+    limit = 10
+  ) => {
     try {
       const result = [];
 
@@ -363,10 +375,11 @@ const SupplierReportService = {
       supplierReturns.forEach((ret) => {
         result.push({
           order_id: ret.return_id, // Sử dụng return_id làm order_id để tương thích
-          order_code: `TH-${ret.related_order_code
-            ? ret.related_order_code.substring(0, 8)
-            : ret.return_id.substring(0, 8)
-            }`, // Tạo mã từ po_id hoặc return_id
+          order_code: `TH-${
+            ret.related_order_code
+              ? ret.related_order_code.substring(0, 8)
+              : ret.return_id.substring(0, 8)
+          }`, // Tạo mã từ po_id hoặc return_id
           order_date: ret.return_created_at,
           order_status: ret.return_status,
           total_amount: parseFloat(ret.total_value || 0), // Sử dụng total_value từ return_order_items
