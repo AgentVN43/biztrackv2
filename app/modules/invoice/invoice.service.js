@@ -21,6 +21,26 @@ const autoSyncCustomerDebt = async (customer_id) => {
   }
 };
 
+// ✅ Hàm tự động đồng bộ payable cho supplier
+const autoSyncSupplierPayable = async (supplier_id) => {
+  try {
+    if (!supplier_id) {
+      console.log(`❌ autoSyncSupplierPayable: supplier_id is null or undefined.`);
+      return;
+    }
+    
+    console.log(`🔄 autoSyncSupplierPayable: Bắt đầu đồng bộ payable cho supplier ${supplier_id}...`);
+    
+    const SupplierModel = require('../suppliers/supplier.model');
+    await SupplierModel.recalculatePayable(supplier_id);
+    
+    console.log(`✅ autoSyncSupplierPayable: Đã tự động đồng bộ payable cho supplier ${supplier_id}`);
+  } catch (error) {
+    console.error(`❌ Lỗi khi tự động đồng bộ payable cho supplier ${supplier_id}:`, error);
+    // Không throw error để không ảnh hưởng đến workflow chính
+  }
+};
+
 const InvoiceService = {
   // Đổi tên từ 'const create' sang 'const InvoiceService'
   /**
@@ -210,7 +230,12 @@ const InvoiceService = {
 
       // Cập nhật payable NCC nếu là hóa đơn mua
       if (invoice.supplier_id) {
-        await SupplierModel.recalculatePayable(invoice.supplier_id);
+        try {
+          await autoSyncSupplierPayable(invoice.supplier_id); // ✅ Gọi hàm tự động đồng bộ payable
+        } catch (syncError) {
+          console.error(`❌ Lỗi khi đồng bộ payable cho supplier ${invoice.supplier_id} trong recordPayment:`, syncError);
+          // Có thể quyết định re-throw hoặc chỉ log tùy mức độ nghiêm trọng
+        }
       }
 
       // 4. CẬP NHẬT LẠI DEBT CHO KHÁCH HÀNG
@@ -345,6 +370,16 @@ const InvoiceService = {
         new_debt: updatedCustomer.debt, 
         message: "Thanh toán hàng loạt và cập nhật công nợ thành công." 
       };
+    }
+
+    // Cập nhật payable NCC nếu là thanh toán cho nhà cung cấp (ĐÃ DI CHUYỂN RA NGOÀI KHỐI customerId)
+    if (firstInvoice.supplier_id) {
+      try {
+        await autoSyncSupplierPayable(firstInvoice.supplier_id);
+      } catch (syncError) {
+        console.error(`❌ Lỗi khi đồng bộ payable cho supplier ${firstInvoice.supplier_id} trong recordBulkPayment:`, syncError);
+        // Có thể quyết định re-throw hoặc chỉ log tùy mức độ nghiêm trọng
+      }
     }
 
     return { message: "Thanh toán hàng loạt thành công." };
