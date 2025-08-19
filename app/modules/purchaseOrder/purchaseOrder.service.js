@@ -466,6 +466,7 @@ const InventoryService = require("../../modules/inventories/inventory.service");
 const ProductEventModel = require("../product_report/product_event.model"); // Thêm import ProductEventModel
 const InventoryModel = require("../inventories/inventory.model"); // Thêm import InventoryModel để lấy total stock
 const SupplierModel = require("../suppliers/supplier.model");
+const { applyWACForPurchase } = require("../../utils/productCostUtils");
 
 const PurchaseOrderService = {
   /**
@@ -930,6 +931,13 @@ const PurchaseOrderService = {
         partner_name = supplier ? supplier.supplier_name : null; // Giả định đối tượng supplier có trường supplier_name
       }
 
+      // 0. Cập nhật WAC (cost_price) trước khi tăng kho, gộp theo sản phẩm
+      await applyWACForPurchase(details.map(d => ({
+        product_id: d.product_id,
+        quantity: d.quantity,
+        price: d.price, // giá nhập thuần
+      })));
+
       // Xử lý từng detail để cập nhật tồn kho và ghi nhận lịch sử
       await Promise.all(
         details.map(async (item) => {
@@ -945,25 +953,15 @@ const PurchaseOrderService = {
           // );
 
           // 2. Lấy tồn kho tổng sau khi cập nhật (quan trọng cho current_stock_after)
-          // const current_stock_after =
-          //   await InventoryModel.getTotalStockByProductId(product_id);
           const inventoryAtWarehouse =
             await InventoryModel.findByProductAndWarehouse(
               product_id,
               order.warehouse_id
             );
 
-          //console.log(
-          // `DEBUG: Đối tượng inventoryAtWarehouse thô cho ${product_id} tại kho ${order.warehouse_id}:`,
-          //   inventoryAtWarehouse
-          //     );
-
           const current_stock_after_at_warehouse = inventoryAtWarehouse
             ? inventoryAtWarehouse.quantity
             : 0;
-          //console.log(
-          // `DEBUG: Tồn kho SAU cập nhật (sử dụng .quantity từ object) cho ${product_id} tại kho ${order.warehouse_id}: ${current_stock_after_at_warehouse}`
-          //     );
 
           // 3. Ghi nhận sự kiện Product Event
           await ProductEventModel.recordEvent({
@@ -977,12 +975,9 @@ const PurchaseOrderService = {
             reference_id: po_id,
             reference_type: "PURCHASE_ORDER",
             description: `Sản phẩm ${item.product_name || product_id
-              } nhận từ đơn mua hàng ${po_id}.`, // Có thể lấy product_name từ item nếu có
+              } nhận từ đơn mua hàng ${po_id}.`,
             initiated_by: initiatedByUserId,
           });
-          //console.log(
-          // `🚀 ~ Product Event ghi nhận: Nhập ${quantity} của ${product_id} từ PO ${po_id}`
-          //     );
         })
       );
 
