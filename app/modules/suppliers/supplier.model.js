@@ -153,11 +153,13 @@ const SupplierModel = {
    */
   updatePayable: async (supplier_id, payable) => {
     try {
+      console.log(`🔄 updatePayable: Cập nhật payable cho supplier ${supplier_id} với giá trị ${payable}`);
       const sql = `UPDATE suppliers SET payable = ?, updated_at = CURRENT_TIMESTAMP WHERE supplier_id = ?`;
-      await db.promise().query(sql, [parseFloat(payable || 0), supplier_id]);
+      const [result] = await db.promise().query(sql, [parseFloat(payable || 0), supplier_id]);
+      console.log(`✅ updatePayable: Kết quả update: ${result.affectedRows} hàng bị ảnh hưởng.`);
       return { supplier_id, payable: parseFloat(payable || 0) };
     } catch (error) {
-      //console.error("🚀 ~ supplier.model.js: updatePayable - Error:", error);
+      console.error("🚀 ~ supplier.model.js: updatePayable - Error:", error);
       throw error;
     }
   },
@@ -171,6 +173,8 @@ const SupplierModel = {
    */
   recalculatePayable: async (supplier_id) => {
     try {
+      console.log(`🔄 recalculatePayable: Bắt đầu tính toán payable cho supplier ${supplier_id}...`);
+
       // 1) Công nợ còn lại từ hóa đơn mua và debit_note
       const [rowsOutstanding] = await db.promise().query(
         `SELECT COALESCE(SUM(final_amount - IFNULL(amount_paid, 0)), 0) AS outstanding
@@ -181,6 +185,7 @@ const SupplierModel = {
         [supplier_id]
       );
       const outstanding = parseFloat(rowsOutstanding[0]?.outstanding || 0);
+      console.log(`  - Outstanding invoices (purchase_invoice, debit_note): ${outstanding}`);
 
       // 2) Giảm trừ bởi credit_note và refund_invoice (tính toàn bộ giá trị)
       const [rowsNegativeInvoices] = await db.promise().query(
@@ -192,6 +197,7 @@ const SupplierModel = {
         [supplier_id]
       );
       const negatives = parseFloat(rowsNegativeInvoices[0]?.negatives || 0);
+      console.log(`  - Negative invoices (credit_note, refund_invoice): ${negatives}`);
 
       // 3) Các giao dịch trực tiếp không gắn invoice làm giảm phải trả (payment/receipt/...)
       const [rowsDirectDecrease] = await db.promise().query(
@@ -203,6 +209,7 @@ const SupplierModel = {
         [supplier_id]
       );
       const directDecrease = parseFloat(rowsDirectDecrease[0]?.total || 0);
+      console.log(`  - Direct decrease transactions: ${directDecrease}`);
 
       // 4) Điều chỉnh: adj_increase, adj_decrease, adj_migration
       const [rowsAdj] = await db.promise().query(
@@ -218,12 +225,15 @@ const SupplierModel = {
         if (r.type === 'adj_decrease') adjDecrease = parseFloat(r.sum_amount || 0);
         if (r.type === 'adj_migration') adjMigration = parseFloat(r.sum_amount || 0);
       }
+      console.log(`  - Adjustments: increase=${adjIncrease}, decrease=${adjDecrease}, migration=${adjMigration}`);
 
       const payable = outstanding - negatives - directDecrease + adjIncrease - adjDecrease + adjMigration;
+      console.log(`  - Calculated payable: ${payable}`);
       await SupplierModel.updatePayable(supplier_id, payable);
+      console.log(`✅ recalculatePayable: Đã cập nhật payable cho supplier ${supplier_id} thành ${payable}`);
       return payable;
     } catch (error) {
-      //console.error("🚀 ~ supplier.model.js: recalculatePayable - Error:", error);
+      console.error("🚀 ~ supplier.model.js: recalculatePayable - Error:", error);
       throw error;
     }
   },
