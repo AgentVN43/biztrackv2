@@ -234,11 +234,12 @@ const SupplierReportService = {
         "purchase_invoice", // Hóa đơn mua làm tăng phải trả
         "debit_note", // Ghi nợ từ NCC
         "adj_increase", // Điều chỉnh tăng phải trả
+        "receipt",
       ]);
 
       const DECREASE_TYPES = new Set([
         "payment", // Trả tiền NCC
-        "receipt", // Trường hợp nhận tiền lại (ít gặp) coi như giảm phải trả
+         // Trường hợp nhận tiền lại (ít gặp) coi như giảm phải trả
         "return", // Trả hàng NCC
         "credit_note", // NCC ghi có cho mình
         "refund", // NCC hoàn lại
