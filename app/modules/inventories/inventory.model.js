@@ -75,8 +75,6 @@ const InventoryModel = {
     });
   },
 
-
-
   /**
    * Tạo một bản ghi tồn kho mới.
    * @param {Object} data - Dữ liệu tồn kho (inventory_id, product_id, warehouse_id, quantity).
@@ -208,7 +206,7 @@ const InventoryModel = {
       `;
       const params = [];
       if (limit !== null && skip !== null) {
-        sql += ' LIMIT ? OFFSET ?';
+        sql += " LIMIT ? OFFSET ?";
         params.push(limit, skip);
       }
       db.query(sql, params, (err, results) => {
@@ -229,14 +227,13 @@ const InventoryModel = {
             quantity: row.quantity,
             reserved_stock: row.reserved_stock,
             available_stock: row.available_stock,
-            total_value: row.total_value,
+            cost_price: parseFloat(row.total_value),
             category: row.category_id
               ? {
                   category_id: row.category_id,
                   category_name: row.category_name,
                 }
               : null,
-            
           },
           warehouse: {
             warehouse_id: row.warehouse_id,
@@ -340,7 +337,7 @@ const InventoryModel = {
             total_quantity: row.total_quantity,
             reserved_quantity: row.reserved_quantity,
             available_quantity: row.available_quantity,
-            total_value: row.total_value,
+            cost_price: parseFloat(row.total_value),
             category: row.category_id
               ? {
                   category_id: row.category_id,
@@ -503,7 +500,7 @@ const InventoryModel = {
 
       // Giá trị quantityToSubtract được truyền vào cả 2 tham số.
       // Các ? cuối cùng là để đảm bảo điều kiện WHERE (quantity >= quantityToSubtract và available_stock >= quantityToSubtract)
-      const values = [quantity, quantity, product_id, warehouse_id]; 
+      const values = [quantity, quantity, product_id, warehouse_id];
       //quantity, check for quantity >= quantityToSubtract
       // quantity, check for available_stock >= quantityToSubtract
 
@@ -659,7 +656,7 @@ const InventoryModel = {
             total_quantity: row.total_quantity,
             reserved_quantity: row.reserved_quantity,
             available_quantity: row.available_quantity,
-            total_value: row.total_value,
+            cost_price: parseFloat(row.total_value),
             category: row.category_id
               ? {
                   category_id: row.category_id,
