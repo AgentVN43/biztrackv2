@@ -238,7 +238,7 @@ const OrderDetailModel = {
     try {
       await db.promise().query(
         // ✅ Sử dụng db.promise().query
-        "INSERT INTO order_details (order_detail_id, order_id, product_id, quantity, price, discount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO order_details (order_detail_id, order_id, product_id, quantity, price, discount, cost_price) VALUES (?, ?, ?, ?, ?, ?, ?)",
         [order_detail_id, order_id, product_id, quantity, price, discount || 0, cost_price || 0]
       );
       return { order_detail_id, ...data };
