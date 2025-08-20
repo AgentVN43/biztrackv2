@@ -37,7 +37,7 @@ const ProductModel = {
         SELECT
             p.product_id, p.product_name, p.product_desc, p.product_image,
             p.product_retail_price, p.product_note, p.product_barcode,
-            p.sku, p.is_active, p.category_id, c.category_name, p.created_at
+            p.sku, p.is_active, p.category_id, c.category_name, p.created_at, p.cost_price
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.category_id
     `;
@@ -105,7 +105,7 @@ const ProductModel = {
         SELECT
           p.product_id, p.product_name, p.product_desc, p.product_image,
           p.product_retail_price, p.product_note, p.product_barcode,
-          p.sku, p.is_active, p.category_id, c.category_name
+          p.sku, p.is_active, p.category_id, c.category_name, p.cost_price
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.category_id
         WHERE p.product_id = ?

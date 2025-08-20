@@ -14,7 +14,14 @@ const ProductService = {
         limit,
         filters
       );
-      return { products, total };
+      
+      // Chuyển đổi cost_price từ string sang number
+      const transformedProducts = products.map(product => ({
+        ...product,
+        cost_price: product.cost_price ? Number(product.cost_price) : 0
+      }));
+      
+      return { products: transformedProducts, total };
     } catch (error) {
       //console.error("🚀 ~ product.service.js: getAllProducts - Lỗi:", error);
       throw error; // Ném lỗi để controller xử lý
@@ -29,6 +36,15 @@ const ProductService = {
   getProductById: async (id) => {
     try {
       const product = await ProductModel.getProductById(id);
+      
+      if (product) {
+        // Chuyển đổi cost_price từ string sang number
+        return {
+          ...product,
+          cost_price: product.cost_price ? Number(product.cost_price) : 0
+        };
+      }
+      
       return product;
     } catch (error) {
       //console.error("🚀 ~ product.service.js: getProductById - Lỗi:", error);
