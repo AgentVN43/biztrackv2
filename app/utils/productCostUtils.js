@@ -31,6 +31,7 @@ function aggregateIncoming(details = []) {
  * - Đọc tổng tồn cũ (tổng trên mọi kho) từ inventories
  * - Đọc cost_price cũ từ products (FOR UPDATE)
  * - Tính cost_price mới và cập nhật
+ * - Sync total_value trong inventories cho tất cả kho có sản phẩm này
  *
  * @param {Array<{product_id:string, quantity:number, price:number}>} details
  * @returns {Promise<Array<{product_id:string, old_cost:number, new_cost:number, qty_old:number, qty_in:number}>>}
@@ -78,6 +79,12 @@ async function applyWACForPurchase(details = []) {
       // 4) Cập nhật products.cost_price
       await conn.query(
         `UPDATE products SET cost_price = ? WHERE product_id = ?`,
+        [new_cost, product_id]
+      );
+
+      // 5) Sync total_value trong inventories cho tất cả kho có sản phẩm này
+      await conn.query(
+        `UPDATE inventories SET total_value = quantity * ? WHERE product_id = ?`,
         [new_cost, product_id]
       );
 
