@@ -391,7 +391,7 @@ const OrderDetailModel = {
         od.product_id,
         p.product_name,
         p.sku, -- Thêm SKU của sản phẩm
-        p.total_value AS cost_price, -- Lấy tổng giá trị của sản phẩm
+        od.cost_price AS cost_price, -- Giá vốn snapshot tại thời điểm tạo đơn
         od.quantity AS detail_quantity,
         od.price AS detail_price,
         od.discount AS detail_discount,
