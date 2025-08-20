@@ -196,6 +196,7 @@ const InventoryModel = {
           i.updated_at,
           i.reserved_stock,
           i.available_stock,
+          i.total_value,
           p.*,
           c.category_name,
           w.warehouse_id AS warehouse_id,
@@ -228,12 +229,14 @@ const InventoryModel = {
             quantity: row.quantity,
             reserved_stock: row.reserved_stock,
             available_stock: row.available_stock,
+            total_value: row.total_value,
             category: row.category_id
               ? {
                   category_id: row.category_id,
                   category_name: row.category_name,
                 }
               : null,
+            
           },
           warehouse: {
             warehouse_id: row.warehouse_id,
@@ -300,6 +303,7 @@ const InventoryModel = {
           i.inventory_id,
           i.created_at,
           i.updated_at,
+          SUM(i.total_value) AS total_value,
           p.*,
           c.category_name,
           SUM(i.quantity) AS total_quantity,
@@ -336,6 +340,7 @@ const InventoryModel = {
             total_quantity: row.total_quantity,
             reserved_quantity: row.reserved_quantity,
             available_quantity: row.available_quantity,
+            total_value: row.total_value,
             category: row.category_id
               ? {
                   category_id: row.category_id,
@@ -619,6 +624,7 @@ const InventoryModel = {
           i.inventory_id,
           i.created_at,
           i.updated_at,
+          i.total_value,
           p.*,
           c.category_name,
           SUM(i.quantity) AS total_quantity,
@@ -653,6 +659,7 @@ const InventoryModel = {
             total_quantity: row.total_quantity,
             reserved_quantity: row.reserved_quantity,
             available_quantity: row.available_quantity,
+            total_value: row.total_value,
             category: row.category_id
               ? {
                   category_id: row.category_id,
