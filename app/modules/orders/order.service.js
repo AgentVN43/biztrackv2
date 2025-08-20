@@ -205,6 +205,7 @@ const OrderService = {
               quantity: item.quantity,
               price: item.price,
               discount: item.discount || 0,
+              cost_price: item.cost_price || 0, // Thêm cost_price nếu có
             };
             const createdDetail = await OrderDetailModel.create(detailToCreate);
             createdDetails.push(createdDetail);

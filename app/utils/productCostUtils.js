@@ -82,9 +82,9 @@ async function applyWACForPurchase(details = []) {
         [new_cost, product_id]
       );
 
-      // 5) Sync total_value trong inventories cho tất cả kho có sản phẩm này
+      // 5) Sync total_value (đơn giá cost_price) trong inventories cho tất cả kho có sản phẩm này
       await conn.query(
-        `UPDATE inventories SET total_value = quantity * ? WHERE product_id = ?`,
+        `UPDATE inventories SET total_value = ? WHERE product_id = ?`,
         [new_cost, product_id]
       );
 

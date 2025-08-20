@@ -234,12 +234,12 @@ const OrderDetailModel = {
   create: async (data) => {
     // ✅ Chuyển sang async
     const order_detail_id = uuidv4();
-    const { order_id, product_id, quantity, price, discount } = data;
+    const { order_id, product_id, quantity, price, discount, cost_price } = data;
     try {
       await db.promise().query(
         // ✅ Sử dụng db.promise().query
-        "INSERT INTO order_details (order_detail_id, order_id, product_id, quantity, price, discount) VALUES (?, ?, ?, ?, ?, ?)",
-        [order_detail_id, order_id, product_id, quantity, price, discount || 0]
+        "INSERT INTO order_details (order_detail_id, order_id, product_id, quantity, price, discount) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [order_detail_id, order_id, product_id, quantity, price, discount || 0, cost_price || 0]
       );
       return { order_detail_id, ...data };
     } catch (error) {
@@ -391,6 +391,7 @@ const OrderDetailModel = {
         od.product_id,
         p.product_name,
         p.sku, -- Thêm SKU của sản phẩm
+        p.total_value AS cost_price, -- Lấy tổng giá trị của sản phẩm
         od.quantity AS detail_quantity,
         od.price AS detail_price,
         od.discount AS detail_discount,
@@ -433,6 +434,7 @@ const OrderDetailModel = {
               quantity: r.detail_quantity, // Bắt đầu với detail_quantity của hàng này
               price: parseFloat(r.detail_price), // Giá và chiết khấu lấy từ hàng đầu tiên
               discount: parseFloat(r.detail_discount) || 0,
+              cost_price: parseFloat(r.cost_price), // Giá trị tổng của sản phẩm
             });
           }
         });
