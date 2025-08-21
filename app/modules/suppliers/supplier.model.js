@@ -189,7 +189,7 @@ const SupplierModel = {
 
       // 2) Giảm trừ bởi credit_note và refund_invoice (tính toàn bộ giá trị)
       const [rowsNegativeInvoices] = await db.promise().query(
-        `SELECT COALESCE(SUM(final_amount), 0) AS negatives
+        `SELECT COALESCE(SUM(final_amount - IFNULL(amount_paid, 0)), 0) AS negatives
          FROM invoices
          WHERE supplier_id = ?
            AND invoice_type IN ('credit_note', 'refund_invoice')
@@ -204,12 +204,28 @@ const SupplierModel = {
         `SELECT COALESCE(SUM(amount), 0) AS total
          FROM transactions
          WHERE supplier_id = ?
-           AND type IN ('payment','receipt','refund','return','transfer','partial_paid')
-           AND (related_type IS NULL OR related_type <> 'invoice')`,
+           AND LOWER(TRIM(type)) IN ('payment')
+           AND COALESCE(LOWER(TRIM(related_type)),'') <> 'invoice'`,
         [supplier_id]
       );
       const directDecrease = parseFloat(rowsDirectDecrease[0]?.total || 0);
-      console.log(`  - Direct decrease transactions: ${directDecrease}`);
+      console.log(`  - Direct decrease transactions (payments): ${directDecrease}`);
+
+      // 3.1) Thu tiền độc lập từ NCC (receipt không gắn invoice) để bù trừ credit/refund
+      const [rowsReceiptsIndependent] = await db.promise().query(
+        `SELECT COALESCE(SUM(amount), 0) AS total
+         FROM transactions
+         WHERE supplier_id = ?
+           AND LOWER(TRIM(type)) = 'receipt'
+           AND COALESCE(LOWER(TRIM(related_type)),'') <> 'invoice'`,
+        [supplier_id]
+      );
+      const receiptsIndependent = parseFloat(rowsReceiptsIndependent[0]?.total || 0);
+      console.log(`  - Independent receipts (refund cash-in): ${receiptsIndependent}`);
+
+      // 3.2) Giảm trừ phần credit/refund bởi các receipt độc lập
+      const negativesEffective = Math.max(0, negatives - receiptsIndependent);
+      console.log(`  - Negatives effective after receipts: ${negativesEffective}`);
 
       // 4) Điều chỉnh: adj_increase, adj_decrease, adj_migration
       const [rowsAdj] = await db.promise().query(
@@ -227,7 +243,7 @@ const SupplierModel = {
       }
       console.log(`  - Adjustments: increase=${adjIncrease}, decrease=${adjDecrease}, migration=${adjMigration}`);
 
-      const payable = outstanding - negatives - directDecrease + adjIncrease - adjDecrease + adjMigration;
+      const payable = outstanding - negativesEffective - directDecrease + adjIncrease - adjDecrease + adjMigration;
       console.log(`  - Calculated payable: ${payable}`);
       await SupplierModel.updatePayable(supplier_id, payable);
       console.log(`✅ recalculatePayable: Đã cập nhật payable cho supplier ${supplier_id} thành ${payable}`);
