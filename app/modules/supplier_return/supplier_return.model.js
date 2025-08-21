@@ -39,16 +39,17 @@ const SupplierReturn = {
       product_id,
       quantity,
       refund_amount,
-      warehouse_id
+      warehouse_id,
+      cost_price
     } = data;
     const return_item_id = uuidv4();
     const query = `
       INSERT INTO return_order_items (
-        return_item_id, return_id, product_id, quantity, refund_amount, warehouse_id
-      ) VALUES (?, ?, ?, ?, ?, ?)
+        return_item_id, return_id, product_id, quantity, refund_amount, warehouse_id, cost_price
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     const values = [
-      return_item_id, return_id, product_id, quantity, refund_amount, warehouse_id
+      return_item_id, return_id, product_id, quantity, refund_amount, warehouse_id, cost_price
     ];
     return new Promise((resolve, reject) => {
       db.query(query, values, (error, results) => {

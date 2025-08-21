@@ -85,7 +85,7 @@ const AnalysisService = {
   async getDetailedFinanceManagementByPeriod(query) {
     try {
       const merged = await AnalysisModel.getDetailedFinanceManagementByPeriod(query);
-      
+
       // Format dữ liệu cho response
       const formattedData = {
         time_periods: [],
@@ -95,6 +95,7 @@ const AnalysisService = {
           total_shipping_fee: [],
           total_customer_return: [],
           total_cost_of_goods: [],
+          total_cost_of_goods_returned: [],
           total_supplier_return: [],
           total_other_revenue: [],
           total_other_expense: [],
@@ -108,7 +109,7 @@ const AnalysisService = {
       Object.keys(merged).sort().forEach(period => {
         formattedData.time_periods.push(period);
         const row = merged[period];
-        
+
         // Thêm tất cả metrics vào arrays tương ứng
         Object.keys(formattedData.metrics).forEach(metric => {
           formattedData.metrics[metric].push(Number(row[metric]) || 0);

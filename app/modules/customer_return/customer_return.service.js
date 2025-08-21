@@ -22,6 +22,7 @@ const CustomerReturnService = {
       // Nếu có order_id, lấy thông tin sản phẩm và giá từ order gốc
       let productPriceMap = {};
       let productDiscountMap = {};
+      let productCostPriceMap = {};
       let orderInfo = null;
       let orderDetails = null;
       if (returnData.order_id) {
@@ -32,6 +33,7 @@ const CustomerReturnService = {
           for (const p of orderDetails.products) {
             productPriceMap[p.product_id] = p.price;
             productDiscountMap[p.product_id] = p.discount || 0;
+            productCostPriceMap[p.product_id] = p.cost_price || 0;
           }
         }
         // Lấy thông tin order để kiểm tra amount_paid
@@ -50,6 +52,7 @@ const CustomerReturnService = {
         returnDetails.map(async (detail) => {
           let price = productPriceMap[detail.product_id] || 0;
           let discount = productDiscountMap[detail.product_id] || 0;
+          let cost_price = productCostPriceMap[detail.product_id] || 0;
           let quantity = detail.quantity || 0;
 
           // Giá trị gốc hàng trả lại
@@ -78,6 +81,7 @@ const CustomerReturnService = {
           return {
             ...detail,
             refund_amount, // luôn tính lại, không lấy từ request body
+            cost_price, // Thêm cost_price vào chi tiết trả hàng
             _item_gross: item_gross,
             _item_discount: item_discount,
             _price_from_order: price,

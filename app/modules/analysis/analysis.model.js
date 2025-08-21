@@ -962,12 +962,12 @@ const AnalysisModel = {
       ? " AND " + returnDateConditionParts.join(" AND ")
       : "";
 
-    const purchaseDateConditionParts = [];
-    if (effectiveStartDate) purchaseDateConditionParts.push(`DATE(po.posted_at) >= ${db.escape(effectiveStartDate)}`);
-    if (effectiveEndDate) purchaseDateConditionParts.push(`DATE(po.posted_at) <= ${db.escape(effectiveEndDate)}`);
-    const purchaseDateCondition = purchaseDateConditionParts.length
-      ? " AND " + purchaseDateConditionParts.join(" AND ")
-      : "";
+    // const purchaseDateConditionParts = [];
+    // if (effectiveStartDate) purchaseDateConditionParts.push(`DATE(po.posted_at) >= ${db.escape(effectiveStartDate)}`);
+    // if (effectiveEndDate) purchaseDateConditionParts.push(`DATE(po.posted_at) <= ${db.escape(effectiveEndDate)}`);
+    // const purchaseDateCondition = purchaseDateConditionParts.length
+    //   ? " AND " + purchaseDateConditionParts.join(" AND ")
+    //   : "";
 
     const transactionDateConditionParts = [];
     if (effectiveStartDate) transactionDateConditionParts.push(`DATE(t.created_at) >= ${db.escape(effectiveStartDate)}`);
@@ -1025,12 +1025,24 @@ const AnalysisModel = {
       ORDER BY time_period
     `;
 
-    // 5. Tổng giá vốn (cost of goods sold) - tính từ purchase_orders
+    // 5. Tổng giá vốn (cost of goods sold) - tính từ order_details của các đơn hàng hoàn tất, trừ đi giá vốn của sản phẩm bị trả hàng
     const costOfGoodsQuery = `
-      SELECT ${getTimeGroupClause('po.posted_at')} AS time_period, 
-             SUM(po.total_amount) AS total_cost_of_goods
-      FROM purchase_orders po
-      WHERE po.status = 'posted'${purchaseDateCondition}
+      SELECT ${getTimeGroupClause('o.created_at')} AS time_period, 
+             SUM(od.cost_price * od.quantity) AS total_cost_of_goods
+      FROM orders o
+      JOIN order_details od ON o.order_id = od.order_id
+      WHERE o.order_status = 'Hoàn tất'${orderDateCondition}
+      GROUP BY time_period
+      ORDER BY time_period
+    `;
+
+    // 5b. Giá vốn của sản phẩm bị trả hàng (customer returns)
+    const costOfGoodsReturnQuery = `
+      SELECT ${getTimeGroupClause('ro.created_at')} AS time_period, 
+             SUM(roi.cost_price * roi.quantity) AS total_cost_of_goods_returned
+      FROM return_orders ro
+      JOIN return_order_items roi ON ro.return_id = roi.return_id
+      WHERE ro.type = 'customer_return' AND ro.status = 'completed'${returnDateCondition}
       GROUP BY time_period
       ORDER BY time_period
     `;
@@ -1073,6 +1085,7 @@ const AnalysisModel = {
       [shippingFeeResults],
       [customerReturnResults],
       [costOfGoodsResults],
+      [costOfGoodsReturnResults],
       [supplierReturnResults],
       [otherRevenueResults],
       [otherExpenseResults],
@@ -1082,6 +1095,7 @@ const AnalysisModel = {
       db.promise().query(shippingFeeQuery),
       db.promise().query(customerReturnQuery),
       db.promise().query(costOfGoodsQuery),
+      db.promise().query(costOfGoodsReturnQuery),
       db.promise().query(supplierReturnQuery),
       db.promise().query(otherRevenueQuery),
       db.promise().query(otherExpenseQuery),
@@ -1094,12 +1108,13 @@ const AnalysisModel = {
       total_shipping_fee: 0,      // Phí ship
       total_customer_return: 0,   // Tổng tiền trả hàng
       total_cost_of_goods: 0,     // Tổng giá vốn
+      total_cost_of_goods_returned: 0, // Giá vốn của sản phẩm bị trả hàng
       total_supplier_return: 0,   // Hoàn trả nhà cung cấp
       total_other_revenue: 0,     // Thu nhập khác
       total_other_expense: 0,     // Chi phí khác
       // Các chỉ số tính toán
       net_revenue: 0,             // Doanh thu thuần = total_revenue - total_discount + total_shipping_fee - total_customer_return
-      gross_profit: 0,            // Lợi nhuận gộp = net_revenue - total_cost_of_goods + total_supplier_return
+      gross_profit: 0,            // Lợi nhuận gộp = net_revenue - net_cost_of_goods + total_supplier_return
       net_profit: 0,              // Lợi nhuận thuần = gross_profit + total_other_revenue - total_other_expense
     });
 
@@ -1109,6 +1124,7 @@ const AnalysisModel = {
       { data: shippingFeeResults, key: 'total_shipping_fee' },
       { data: customerReturnResults, key: 'total_customer_return' },
       { data: costOfGoodsResults, key: 'total_cost_of_goods' },
+      { data: costOfGoodsReturnResults, key: 'total_cost_of_goods_returned' },
       { data: supplierReturnResults, key: 'total_supplier_return' },
       { data: otherRevenueResults, key: 'total_other_revenue' },
       { data: otherExpenseResults, key: 'total_other_expense' },
@@ -1158,8 +1174,11 @@ const AnalysisModel = {
       // Doanh thu thuần = Doanh thu tổng - Giảm giá + Phí ship - Trả hàng
       row.net_revenue = row.total_revenue - row.total_discount + row.total_shipping_fee - row.total_customer_return;
       
-      // Lợi nhuận gộp = Doanh thu thuần - Giá vốn + Hoàn trả nhà cung cấp
-      row.gross_profit = row.net_revenue - row.total_cost_of_goods + row.total_supplier_return;
+      // Giá vốn thực tế = Tổng giá vốn - Giá vốn của sản phẩm bị trả hàng
+      const netCostOfGoods = row.total_cost_of_goods - row.total_cost_of_goods_returned;
+      
+      // Lợi nhuận gộp = Doanh thu thuần - Giá vốn thực tế + Hoàn trả nhà cung cấp
+      row.gross_profit = row.net_revenue - netCostOfGoods;
       
       // Lợi nhuận thuần = Lợi nhuận gộp + Thu nhập khác - Chi phí khác
       row.net_profit = row.gross_profit + row.total_other_revenue - row.total_other_expense;
@@ -1239,11 +1258,11 @@ const AnalysisModel = {
       //console.log('\n=== EXECUTING SUB-QUERIES ===');
 
       // Query 1: Lấy dữ liệu doanh thu khách hàng
-      const [customerRevenueResults] = await db.promise().query(customerRevenueQuery);
+      // const [customerRevenueResults] = await db.promise().query(customerRevenueQuery);
       //console.log('Customer Revenue Results:', JSON.stringify(customerRevenueResults, null, 2));
 
       // Query 2: Lấy dữ liệu hoàn trả khách hàng
-      const [customerRefundResults] = await db.promise().query(customerRefundQuery);
+      // const [customerRefundResults] = await db.promise().query(customerRefundQuery);
       //console.log('Customer Refund Results:', JSON.stringify(customerRefundResults, null, 2));
 
       // Query cuối cùng

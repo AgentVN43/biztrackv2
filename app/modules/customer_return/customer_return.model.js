@@ -48,19 +48,20 @@ const CustomerReturn = {
       return_id,
       product_id,
       quantity,
-      refund_amount
+      refund_amount,
+      cost_price
     } = data;
 
     const return_item_id = uuidv4();
 
     const query = `
       INSERT INTO return_order_items (
-        return_item_id, return_id, product_id, quantity, refund_amount
-      ) VALUES (?, ?, ?, ?, ?)
+        return_item_id, return_id, product_id, quantity, refund_amount, cost_price
+      ) VALUES (?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
-      return_item_id, return_id, product_id, quantity, refund_amount
+      return_item_id, return_id, product_id, quantity, refund_amount, cost_price
     ];
 
     return new Promise((resolve, reject) => {
