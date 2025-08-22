@@ -81,12 +81,18 @@ async function applyWACForPurchase(details = []) {
         `UPDATE products SET cost_price = ? WHERE product_id = ?`,
         [new_cost, product_id]
       );
+      console.log(`✅ WAC: Product ${product_id} - Old cost: ${old_cost}, New cost: ${new_cost}, Qty old: ${qty_old}, Qty in: ${qty_in}`);
 
       // 5) Sync total_value (đơn giá cost_price) trong inventories cho tất cả kho có sản phẩm này
-      await conn.query(
-        `UPDATE inventories SET total_value = ? WHERE product_id = ?`,
-        [new_cost, product_id]
-      );
+      // Nếu là lần nhập đầu (qty_old <= 0), thì chỉ cần đảm bảo total_value được set khi tạo inventory record
+      // Nếu đã có tồn kho, thì update total_value cho tất cả kho có sản phẩm này
+      if (qty_old > 0) {
+        await conn.query(
+          `UPDATE inventories SET total_value = ? WHERE product_id = ?`,
+          [new_cost, product_id]
+        );
+      }
+      // Lưu ý: Với lần nhập đầu, total_value sẽ được set khi InventoryService.increaseStockFromPurchaseOrder tạo inventory record
 
       updates.push({
         product_id,

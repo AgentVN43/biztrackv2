@@ -932,7 +932,7 @@ const PurchaseOrderService = {
       }
 
       // 0. Cập nhật WAC (cost_price) trước khi tăng kho, gộp theo sản phẩm
-      await applyWACForPurchase(details.map(d => ({
+      const wacUpdates = await applyWACForPurchase(details.map(d => ({
         product_id: d.product_id,
         quantity: d.quantity,
         price: d.price, // giá nhập thuần

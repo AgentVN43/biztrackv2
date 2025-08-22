@@ -82,11 +82,15 @@ const InventoryModel = {
    */
   create: ({ inventory_id, product_id, warehouse_id, quantity }) => {
     return new Promise((resolve, reject) => {
-      const sql =
-        "INSERT INTO inventories (inventory_id, product_id, warehouse_id, quantity, available_stock ) VALUES (?, ?, ?, ?, ?)";
+      // Lấy cost_price từ products để set vào total_value
+      const sql = `
+        INSERT INTO inventories (inventory_id, product_id, warehouse_id, quantity, available_stock, total_value) 
+        SELECT ?, ?, ?, ?, ?, COALESCE(cost_price, 0) 
+        FROM products WHERE product_id = ?
+      `;
       db.query(
         sql,
-        [inventory_id, product_id, warehouse_id, quantity, quantity],
+        [inventory_id, product_id, warehouse_id, quantity, quantity, product_id],
         (err, result) => {
           if (err) {
             console.error(
@@ -95,6 +99,7 @@ const InventoryModel = {
             );
             return reject(err);
           }
+          console.log(`✅ Inventory created: Product ${product_id}, Warehouse ${warehouse_id}, Qty ${quantity}, Total value set from products.cost_price`);
           resolve(result);
         }
       );

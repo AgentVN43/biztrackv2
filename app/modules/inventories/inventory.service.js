@@ -604,6 +604,7 @@ const InventoryService = {
         if (existing) {
           await InventoryModel.update(product_id, warehouse_id, quantity);
         } else {
+          // Tạo inventory record mới - total_value sẽ được tự động lấy từ products.cost_price
           await InventoryModel.create({
             inventory_id: uuidv4(),
             product_id,
