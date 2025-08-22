@@ -13,6 +13,9 @@ const {
   searchInventory,
   searchCustomerAuto,
   searchProductsAuto,
+  searchSupplierByPhone,
+  searchSupplierByName,
+  searchSupplierAuto,
 } = require("./search.controller");
 
 router.get("/orders-by-phone", searchOrdersByPhone);
@@ -31,5 +34,10 @@ router.get("/categories-by-name", searchCategoryByName);
 router.get("/warehouses-by-name", searchWarehouseByName);
 
 router.get("/inventory", searchInventory);
+
+// Supplier search routes
+router.get("/suppliers-by-phone", searchSupplierByPhone);
+router.get("/suppliers-by-name", searchSupplierByName);
+router.get("/suppliers-search", searchSupplierAuto);
 
 module.exports = router;

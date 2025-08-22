@@ -556,6 +556,7 @@ const InventoryModel = {
         p.sku,
         p.product_image,
         p.product_retail_price,
+        p.cost_price,
         p.is_active,
         c.category_id,
         c.category_name,
@@ -595,6 +596,7 @@ const InventoryModel = {
           product_image: row.product_image,
           product_name: row.product_name,
           product_retail_price: row.product_retail_price,
+          cost_price: row.cost_price,
           quantity: row.quantity,
           reserved_stock: row.reserved_stock,
           available_stock: row.available_stock,
@@ -622,6 +624,132 @@ const InventoryModel = {
   },
 };
 
+const SupplierModel = {
+  findByPhone: async (phone, skip, limit) => {
+    const query = `
+      SELECT
+        supplier_id,
+        supplier_name,
+        email,
+        created_at,
+        updated_at,
+        phone,
+        address,
+        payable,
+        contact_person
+      FROM suppliers
+      WHERE phone LIKE ?
+      LIMIT ? OFFSET ?
+    `;
+    const searchTerm = `${phone}%`;
+
+    try {
+      const [results] = await db
+        .promise()
+        .query(query, [searchTerm, limit, skip]);
+      return results.map((row) => ({
+        supplier_id: row.supplier_id,
+        supplier_name: row.supplier_name,
+        email: row.email,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        phone: row.phone,
+        address: row.address,
+        payable: row.payable,
+        contact_person: row.contact_person,
+      }));
+    } catch (error) {
+      console.error(
+        "Lỗi khi tìm nhà cung cấp theo số điện thoại (có pagination):",
+        error.message
+      );
+      throw error;
+    }
+  },
+
+  countByPhone: async (phone) => {
+    const query = `
+      SELECT COUNT(*) AS total
+      FROM suppliers
+      WHERE phone LIKE ?
+    `;
+    const searchTerm = `${phone}%`;
+
+    try {
+      const [results] = await db.promise().query(query, [searchTerm]);
+      return results[0].total;
+    } catch (error) {
+      console.error(
+        "Lỗi khi đếm nhà cung cấp theo số điện thoại:",
+        error.message
+      );
+      throw error;
+    }
+  },
+
+  findByName: async (name, skip, limit) => {
+    const query = `
+      SELECT
+        supplier_id,
+        supplier_name,
+        email,
+        created_at,
+        updated_at,
+        phone,
+        address,
+        payable,
+        contact_person
+      FROM suppliers
+      WHERE supplier_name LIKE ?
+      LIMIT ? OFFSET ?
+    `;
+    const searchTerm = `%${name}%`;
+
+    try {
+      const [results] = await db
+        .promise()
+        .query(query, [searchTerm, limit, skip]);
+      return results.map((row) => ({
+        supplier_id: row.supplier_id,
+        supplier_name: row.supplier_name,
+        email: row.email,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        phone: row.phone,
+        address: row.address,
+        payable: row.payable,
+        contact_person: row.contact_person,
+      }));
+    } catch (error) {
+      console.error(
+        "Lỗi khi tìm nhà cung cấp theo tên (có pagination):",
+        error.message
+      );
+      throw error;
+    }
+  },
+
+  countByName: async (name) => {
+    const query = `
+      SELECT COUNT(*) AS total
+      FROM suppliers
+      WHERE supplier_name LIKE ?
+    `;
+    const searchTerm = `%${name}%`;
+
+    try {
+      const [results] = await db.promise().query(query, [searchTerm]);
+      return results[0].total;
+    } catch (error) {
+      console.error(
+        "Lỗi khi đếm nhà cung cấp theo tên:",
+        error.message
+      );
+      throw error;
+    }
+  },
+};
+
 module.exports = {
   CustomerModel,
   OrderModel,
@@ -629,4 +757,5 @@ module.exports = {
   CategoryModel,
   WarehouseModel,
   InventoryModel,
+  SupplierModel,
 };

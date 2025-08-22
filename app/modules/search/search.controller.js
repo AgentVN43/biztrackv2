@@ -297,3 +297,67 @@ exports.searchCustomerAuto = async (req, res) => {
     return createResponse(res, 500, false, null, error.message);
   }
 };
+
+exports.searchSupplierByPhone = async (req, res) => {
+  const { phone } = req.query;
+  const { page, skip, limit } = getPaginationParams(req);
+
+  if (!phone) {
+    return createResponse(res, 400, false, null, "Số điện thoại là bắt buộc");
+  }
+
+  try {
+    const { suppliers, total } = await SearchService.getSupplierByPhone(
+      phone,
+      skip,
+      limit
+    );
+    return createResponse(res, 200, true, suppliers, null, total, page, limit);
+  } catch (error) {
+    return createResponse(res, 404, false, null, error.message);
+  }
+};
+
+exports.searchSupplierByName = async (req, res) => {
+  const { name } = req.query;
+  const { page, skip, limit } = getPaginationParams(req);
+
+  if (!name) {
+    return createResponse(res, 400, false, null, "Tên nhà cung cấp là bắt buộc");
+  }
+
+  try {
+    const { suppliers, total } = await SearchService.getSupplierByName(
+      name,
+      skip,
+      limit
+    );
+    return createResponse(res, 200, true, suppliers, null, total, page, limit);
+  } catch (error) {
+    return createResponse(res, 404, false, null, error.message);
+  }
+};
+
+exports.searchSupplierAuto = async (req, res) => {
+  const { q } = req.query;
+  const { page, skip, limit } = getPaginationParams(req);
+
+  if (!q) {
+    return createResponse(res, 400, false, null, "Thiếu tham số tìm kiếm (q)");
+  }
+
+  // Kiểm tra nếu là số điện thoại (chỉ chứa số, hoặc bắt đầu bằng số)
+  const isPhone = /^\d+$/.test(q.trim());
+
+  try {
+    let result;
+    if (isPhone) {
+      result = await SearchService.getSupplierByPhone(q, skip, limit);
+    } else {
+      result = await SearchService.getSupplierByName(q, skip, limit);
+    }
+    return createResponse(res, 200, true, result.suppliers, null, result.total, page, limit);
+  } catch (error) {
+    return createResponse(res, 500, false, null, error.message);
+  }
+};

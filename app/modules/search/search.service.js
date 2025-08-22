@@ -1,4 +1,4 @@
-const { CustomerModel, OrderModel, ProductModel, CategoryModel, WarehouseModel, InventoryModel } = require("./search.model");
+const { CustomerModel, OrderModel, ProductModel, CategoryModel, WarehouseModel, InventoryModel, SupplierModel } = require("./search.model");
 
 exports.getCustomerByPhone = async (phone, skip, limit) => {
   try {
@@ -211,6 +211,34 @@ exports.searchProductsByQuery = async (q, limit, skip) => {
   } catch (error) {
     console.error(
       "Lỗi trong Search Service (searchProductsByQuery):",
+      error.message
+    );
+    throw error;
+  }
+};
+
+exports.getSupplierByPhone = async (phone, skip, limit) => {
+  try {
+    const suppliers = await SupplierModel.findByPhone(phone, skip, limit);
+    const total = await SupplierModel.countByPhone(phone);
+    return { suppliers, total };
+  } catch (error) {
+    console.error(
+      "Lỗi trong Search Service (getSupplierByPhone):",
+      error.message
+    );
+    throw error;
+  }
+};
+
+exports.getSupplierByName = async (name, skip, limit) => {
+  try {
+    const suppliers = await SupplierModel.findByName(name, skip, limit);
+    const total = await SupplierModel.countByName(name);
+    return { suppliers, total };
+  } catch (error) {
+    console.error(
+      "Lỗi trong Search Service (getSupplierByName):",
       error.message
     );
     throw error;
