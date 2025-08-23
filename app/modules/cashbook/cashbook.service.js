@@ -313,7 +313,7 @@ const CashbookService = {
           transaction_date: new Date(transaction.created_at),
           type: transaction.type,
           amount: parseFloat(transaction.amount),
-          description: transaction.description || `Giao dịch ${transaction.transaction_code}`,
+          description: transaction.description,
           source_type: transaction.source_type,
           source_id: transaction.transaction_id,
           customer_id: transaction.customer_id,
@@ -405,15 +405,17 @@ const CashbookService = {
 
         switch (transaction.type) {
           case "order_created":
-            thong_bao = `${transaction.customer_name || 'Khách hàng'} vừa tạo đơn hàng với giá trị ${formatAmount(transaction.amount)}`;
+            thong_bao = `Tạo đơn hàng thành công cho Khách hàng ${transaction.customer_name || ''} với giá trị ${formatAmount(transaction.amount)}`;
             break;
           case "purchase_order_created":
-            thong_bao = `Đơn hàng mua được tạo từ ${transaction.supplier_name || 'Nhà cung cấp'} với giá trị ${formatAmount(transaction.amount)}`;
+            thong_bao = `Tạo đơn hàng mua từ Nhà cung cấp ${transaction.supplier_name || ''} với giá trị ${formatAmount(transaction.amount)}`;
             break;
           case "receipt":
             // Kiểm tra nếu category là other_receipt thì sử dụng description
             if (transaction.category === "other_receipt") {
               thong_bao = `${transaction.description} với giá trị ${formatAmount(transaction.amount)}` || `Thu tiền khác với giá trị ${formatAmount(transaction.amount)}`;
+            } else if (transaction.category === "supplier_receive") {
+              thong_bao = `Thu tiền Nhà cung cấp ${transaction.supplier_name || ''} với giá trị ${formatAmount(transaction.amount)}`;
             } else {
               thong_bao = `${transaction.customer_name || 'Khách hàng'} vừa thanh toán với giá trị ${formatAmount(transaction.amount)}`;
             }
@@ -422,15 +424,17 @@ const CashbookService = {
             // Kiểm tra nếu category là other_payment thì sử dụng description
             if (transaction.category === "other_payment") {
               thong_bao = `${transaction.description} với giá trị ${formatAmount(transaction.amount)}` || `Thanh toán khác với giá trị ${formatAmount(transaction.amount)}`;
+            } else if (transaction.category === "customer_refund") {
+              thong_bao = `Chi tiền cho Khách hàng ${transaction.customer_name || ''} với giá trị ${formatAmount(transaction.amount)}`;
             } else {
               thong_bao = `Thanh toán cho ${transaction.supplier_name || 'Nhà cung cấp'} với giá trị ${formatAmount(transaction.amount)}`;
             }
             break;
           case "customer_return":
-            thong_bao = `${transaction.customer_name || 'Khách hàng'} vừa nhận hàng trả với giá trị ${formatAmount(transaction.amount)}`;
+            thong_bao = `Khách hàng ${transaction.customer_name || ''} trả hàng với giá trị ${formatAmount(transaction.amount)}`;
             break;
           case "supplier_return":
-            thong_bao = `Trả hàng cho ${transaction.supplier_name || 'Nhà cung cấp'} với giá trị ${formatAmount(transaction.amount)}`;
+            thong_bao = `Trả hàng cho Nhà cung cấp ${transaction.supplier_name || ''} với giá trị ${formatAmount(transaction.amount)}`;
             break;
           default:
             thong_bao = `Giao dịch ${transaction.transaction_code} với giá trị ${formatAmount(transaction.amount)}`;
