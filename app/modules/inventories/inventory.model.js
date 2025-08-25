@@ -505,7 +505,7 @@ const InventoryModel = {
 
       // Giá trị quantityToSubtract được truyền vào cả 2 tham số.
       // Các ? cuối cùng là để đảm bảo điều kiện WHERE (quantity >= quantityToSubtract và available_stock >= quantityToSubtract)
-      const values = [quantity, quantity, product_id, warehouse_id];
+      const values = [quantity, quantity, product_id, warehouse_id]; 
       //quantity, check for quantity >= quantityToSubtract
       // quantity, check for available_stock >= quantityToSubtract
 

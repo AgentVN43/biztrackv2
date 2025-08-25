@@ -101,6 +101,7 @@ class ImportService {
       // Insert valid data to database (chỉ khi không phải validateOnly)
       let insertedCount = 0;
       let insertedCustomers = [];
+      let insertedSuppliers = [];
       if (validData.length > 0 && !validateOnly) {
         try {
           insertedCount = await this.bulkInsert(validData, entityType);
@@ -113,6 +114,23 @@ class ImportService {
               debt: c.debt || 0,
             }));
             console.log("insertedCustomers:", insertedCustomers);
+          }
+          // Nếu là suppliers, lưu lại supplier_id và payable (nếu header có)
+          if (entityType === "suppliers") {
+            const headerMap = headerValidation.headerMap;
+            insertedSuppliers = lines.slice(1).map((row, idx) => {
+              const values = row.split(delimiter);
+              const supplier_name = ImportUtils.extractValue(values, headerMap, 'supplier_name');
+              if (!supplier_name) return null;
+              return {
+                supplier_name,
+                contact_person: ImportUtils.extractValue(values, headerMap, 'contact_person') || null,
+                phone: ImportUtils.extractValue(values, headerMap, 'phone') || null,
+                email: ImportUtils.extractValue(values, headerMap, 'email') || null,
+                address: ImportUtils.extractValue(values, headerMap, 'address') || null,
+                payable: ImportUtils.extractNumber(values, headerMap, 'payable') || 0
+              };
+            }).filter(Boolean);
           }
         } catch (dbError) {
           //console.error(`🚀 ~ ImportService.importFromText - Database insert failed for ${entityType}:`, dbError);
@@ -146,17 +164,46 @@ class ImportService {
                 debt > 0 ? "Nợ" : "Được hoàn"
               } ${Math.abs(debt).toLocaleString("vi-VN")}đ`,
             };
-            
-            console.log(`🚀 ~ Creating invoice with data:`, {
-              customer_id: invoiceData.customer_id,
-              customer_id_type: typeof invoiceData.customer_id,
-              customer_id_length: invoiceData.customer_id?.length,
-              customer: customer,
-              debt: debt
-            });
-            
             await InvoiceService.create(invoiceData);
           }
+        }
+      }
+
+      // Sau khi insert suppliers, tạo purchase_invoice mở đầu kỳ nếu có payable > 0
+      if (
+        entityType === "suppliers" &&
+        !validateOnly &&
+        insertedSuppliers.length > 0
+      ) {
+        try {
+          const dbConn = require('../config/db.config');
+          const InvoiceService = require("../modules/invoice/invoice.service");
+          // Map supplier_name -> supplier_id vừa insert
+          const [rows] = await dbConn.promise().query(`SELECT supplier_id, supplier_name FROM suppliers`);
+          const nameToId = new Map(rows.map(r => [r.supplier_name, r.supplier_id]));
+          for (const s of insertedSuppliers) {
+            const amount = Number(s.payable || 0);
+            if (!(amount > 0)) continue; // Chỉ tạo hóa đơn cho payable dương
+            const supplier_id = nameToId.get(s.supplier_name);
+            if (!supplier_id) continue;
+            const absAmount = Math.abs(amount);
+            const invoiceData = {
+              invoice_code: `MIG-OB-SUP-${s.supplier_name}`,
+              invoice_type: amount > 0 ? "debit_note" : "credit_note",
+              supplier_id,
+              total_amount: absAmount,
+              tax_amount: 0,
+              discount_amount: 0,
+              final_amount: absAmount,
+              issued_date: new Date(),
+              due_date: new Date(),
+              status: "pending",
+              note: `Công nợ đầu kỳ (supplier) ${amount > 0 ? 'Nợ' : 'Được ghi có'} ${absAmount.toLocaleString('vi-VN')}đ`
+            };
+            await InvoiceService.create(invoiceData);
+          }
+        } catch (e) {
+          //console.error('Opening payable import error:', e);
         }
       }
 

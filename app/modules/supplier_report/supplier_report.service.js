@@ -37,6 +37,8 @@ const SupplierReportService = {
           invoice_id,
           invoice_code,
           order_id,
+          supplier_id,
+          invoice_type,
           final_amount,
           amount_paid,
           status,
@@ -121,6 +123,29 @@ const SupplierReportService = {
           status: po.status,
         });
       });
+
+      // ✅ Thêm các hóa đơn của NCC (purchase_invoice, debit_note, credit_note)
+      if (Array.isArray(invoices)) {
+        invoices.forEach((inv) => {
+          const invType = inv.invoice_type;
+          if (!invType) return;
+          // Chỉ ghi nhận các loại hóa đơn có ý nghĩa với payable NCC
+          if (["purchase_invoice", "debit_note", "credit_note"].includes(invType)) {
+            const issueDate = inv.issued_date || inv.created_at;
+            allTransactions.push({
+              transaction_code: inv.invoice_code,
+              transaction_date: new Date(issueDate),
+              type: invType,
+              amount: parseFloat(inv.final_amount || 0),
+              description: `Hóa đơn NCC ${inv.invoice_code} (${invType})`,
+              po_id: inv.order_id || null,
+              invoice_id: inv.invoice_id,
+              transaction_id: null,
+              status: inv.status,
+            });
+          }
+        });
+      }
 
       // Xử lý return_orders: mỗi lần trả là 1 record riêng biệt
       for (const returnOrder of returnOrders) {
@@ -232,14 +257,12 @@ const SupplierReportService = {
       const INCREASE_TYPES = new Set([
         "pending", // PO tạo nợ
         "purchase_invoice", // Hóa đơn mua làm tăng phải trả
-        "debit_note", // Ghi nợ từ NCC
         "adj_increase", // Điều chỉnh tăng phải trả
         "receipt",
       ]);
 
       const DECREASE_TYPES = new Set([
         "payment", // Trả tiền NCC
-         // Trường hợp nhận tiền lại (ít gặp) coi như giảm phải trả
         "return", // Trả hàng NCC
         "credit_note", // NCC ghi có cho mình
         "refund", // NCC hoàn lại
@@ -247,6 +270,7 @@ const SupplierReportService = {
         "partial_paid",
         "refund_invoice",
         "adj_decrease", // Điều chỉnh giảm phải trả
+        "debit_note",
       ]);
 
       const SIGNED_TYPES = new Set([

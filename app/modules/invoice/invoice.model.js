@@ -22,12 +22,21 @@ const Invoice = {
     let invoice_customer_id = null;
     let invoice_supplier_id = null;
 
-    if (invoice_type === "sale_invoice" || invoice_type === "debit_note" || invoice_type === "credit_note") {
-      invoice_order_id = invoiceData.order_id;
-      invoice_customer_id = invoiceData.customer_id;
+    if (invoice_type === "sale_invoice") {
+      invoice_order_id = invoiceData.order_id || null;
+      invoice_customer_id = invoiceData.customer_id || null;
     } else if (invoice_type === "purchase_invoice") {
-      invoice_order_id = invoiceData.po_id_for_invoice_flow;
-      invoice_supplier_id = invoiceData.supplier_id;
+      invoice_order_id = invoiceData.po_id_for_invoice_flow || null;
+      invoice_supplier_id = invoiceData.supplier_id || null;
+    } else if (invoice_type === "debit_note" || invoice_type === "credit_note") {
+      // Ghi chú: debit/credit note có thể áp cho KH hoặc NCC
+      if (invoiceData.customer_id) {
+        invoice_customer_id = invoiceData.customer_id;
+      }
+      if (invoiceData.supplier_id) {
+        invoice_supplier_id = invoiceData.supplier_id;
+      }
+      invoice_order_id = invoiceData.order_id || invoiceData.po_id_for_invoice_flow || null;
     }
 
     let status;

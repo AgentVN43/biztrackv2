@@ -44,8 +44,8 @@ class ImportUtils {
       },
       suppliers: {
         required: ['supplier_name'],
-        optional: ['contact_person', 'phone', 'email', 'address'],
-        all: ['supplier_name', 'contact_person', 'phone', 'email', 'address']
+        optional: ['payable', 'contact_person', 'phone', 'email', 'address'],
+        all: ['supplier_name', 'payable', 'contact_person', 'phone', 'email', 'address']
       }
     };
 
@@ -323,15 +323,16 @@ Hướng dẫn:
 - category_id: UUID của category (có thể để trống)
 - Dòng trống sẽ được bỏ qua`,
 
-      suppliers: `supplier_name\tcontact_person\tphone\temail\taddress
-Công ty ABC\tNguyễn Văn A\t0123456789\tabc@company.com\t123 Đường ABC, Quận 1, TP.HCM
-Công ty XYZ\tTrần Thị B\t0987654321\txyz@company.com\t456 Đường XYZ, Quận 2, TP.HCM
-Công ty DEF\tLê Văn C\t0369852147\tdef@company.com\t789 Đường DEF, Quận 3, TP.HCM
+      suppliers: `supplier_name	payable	contact_person	phone	email	address
+Công ty ABC	1000000	Nguyễn Văn A	0123456789	abc@company.com	123 Đường ABC, Quận 1, TP.HCM
+Công ty XYZ	0	Trần Thị B	0987654321	xyz@company.com	456 Đường XYZ, Quận 2, TP.HCM
+Công ty DEF	-500000	Lê Văn C	0369852147	def@company.com	789 Đường DEF, Quận 3, TP.HCM
 
 Hướng dẫn:
 - Copy dữ liệu từ Excel và paste vào đây
 - Các cột bắt buộc: supplier_name
-- Các cột tùy chọn: contact_person, phone, email, address
+- Các cột tùy chọn: payable, contact_person, phone, email, address
+- payable: số tiền công nợ đầu kỳ (dương: phải trả, âm: NCC nợ lại)
 - Sử dụng Tab (\\t) làm ký tự phân cách
 - Dòng trống sẽ được bỏ qua`
     };
