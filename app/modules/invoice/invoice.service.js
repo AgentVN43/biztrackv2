@@ -240,9 +240,10 @@ const InvoiceService = {
 
       // 4. CẬP NHẬT LẠI DEBT CHO KHÁCH HÀNG
       if (invoice.customer_id) {
-        const newDebt = await CustomerModel.calculateDebt(invoice.customer_id);
+        await CustomerModel.updateDebt(invoice.customer_id, 0, true);
+        const newDebt = await CustomerModel.calculateDebtFromLedger(invoice.customer_id);
         await CustomerModel.update(invoice.customer_id, { debt: newDebt });
-        //console.log(`🚀 ~ InvoiceService: recordPayment - Đã cập nhật debt mới cho khách hàng ${invoice.customer_id} là: ${newDebt}`);
+        //console.log(`🚀 ~ InvoiceService: recordPayment - Đã cập nhật debt mới cho khách hàng ${invoice.customer_id} (ledger) là: ${newDebt}`);
       }
 
       //console.log(

@@ -579,10 +579,9 @@ const CustomerReturnService = {
         //console.log(
         //   `🔄 Đang cập nhật debt cho customer_id: ${returnInfo.customer_id}`
         // );
-        const newDebt = await CustomerModel.calculateDebt(
-          returnInfo.customer_id
-        );
-        //console.log(`📊 Debt mới được tính: ${newDebt}`);
+        await CustomerModel.updateDebt(returnInfo.customer_id, 0, true);
+        const newDebt = await CustomerModel.calculateDebtFromLedger(returnInfo.customer_id);
+        console.log(`📊 Debt mới được tính (ledger): ${newDebt}`);
         await CustomerModel.update(returnInfo.customer_id, { debt: newDebt });
         //console.log(
         //   `✅ Đã cập nhật debt thành công cho customer_id: ${returnInfo.customer_id}`
@@ -821,27 +820,7 @@ const CustomerReturnService = {
         });
       }
 
-      // ✅ Cập nhật debt ngay sau khi approve return
-      try {
-        // //console.log(
-        //   `🔄 ApproveReturn - Đang cập nhật debt cho customer_id: ${returnInfo.customer_id}`
-        // );
-        const newDebt = await CustomerModel.calculateDebt(
-          returnInfo.customer_id
-        );
-        //console.log(`📊 ApproveReturn - Debt mới được tính: ${newDebt}`);
-        await CustomerModel.update(returnInfo.customer_id, { debt: newDebt });
-        //console.log(`✅ ApproveReturn - Đã cập nhật debt thành công`);
-
-        if (newDebt < 0) {
-          console.log(
-            `💰 ApproveReturn - Khách hàng có debt âm (${newDebt}), cần hoàn tiền!`
-          );
-        }
-      } catch (debtError) {
-        //console.error(`❌ ApproveReturn - Lỗi khi cập nhật debt:`, debtError);
-        // Không throw error để không ảnh hưởng đến việc approve return
-      }
+      // Ghi chú: Không cập nhật debt ở bước approve; sẽ đồng bộ một lần ở processReturn
 
       // Sau khi approve, tự động process toàn bộ nghiệp vụ
       const processResult = await CustomerReturnService.processReturn(

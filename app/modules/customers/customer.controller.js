@@ -36,47 +36,61 @@ exports.create = async (req, res) => {
 // };
 
 exports.get = async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
-  const parsedPage = parseInt(page);
-  const parsedLimit = parseInt(limit);
-  const skip = (parsedPage - 1) * parsedLimit;
-  const { effectiveStartDate, effectiveEndDate } = processDateFilters(
-    req.query
-  );
-  try {
-    const { customers, total } = await CustomerService.getAllCustomers(
-      skip,
-      parsedLimit,
-      { startDate: effectiveStartDate, endDate: effectiveEndDate }
-    );
-    // Bổ sung total_remaining_value và total_payable cho từng khách hàng
-    const customersWithRemaining = await Promise.all(
-      customers.map(async (c) => {
-        const { total_remaining_value, net_debt } =
-          await CustomerService.getTotalRemainingValueForCustomer(
-            c.customer_id
-          );
-        return {
-          ...c,
-          total_remaining_value: Math.round(total_remaining_value),
-          net_debt: Math.round(net_debt),
-        };
-      })
-    );
-    return createResponse(
-      res,
-      200,
-      true,
-      customersWithRemaining,
-      null,
-      total,
-      parsedPage,
-      parsedLimit
-    );
-  } catch (err) {
-    //console.error("Lỗi khi lấy danh sách khách hàng:", err.message);
-    return errorResponse(res, 500, false, [], "Lỗi server");
-  }
+	const { page = 1, limit = 10 } = req.query;
+	const parsedPage = parseInt(page);
+	const parsedLimit = parseInt(limit);
+	const skip = (parsedPage - 1) * parsedLimit;
+	const { effectiveStartDate, effectiveEndDate } = processDateFilters(
+		req.query
+	);
+	try {
+		const { customers, total } = await CustomerService.getAllCustomers(
+			skip,
+			parsedLimit,
+			{ startDate: effectiveStartDate, endDate: effectiveEndDate }
+		);
+
+		// 🔄 Auto-sync debt for each customer to ensure up-to-date values
+		const CustomerModel = require("./customer.model");
+		await Promise.all(
+			customers.map((c) => CustomerModel.updateDebt(c.customer_id, 0, true))
+		);
+
+		// Refetch customers after sync to return updated debt values
+		const { customers: refreshedCustomers } = await CustomerService.getAllCustomers(
+			skip,
+			parsedLimit,
+			{ startDate: effectiveStartDate, endDate: effectiveEndDate }
+		);
+
+		// Bổ sung total_remaining_value và total_payable cho từng khách hàng
+		const customersWithRemaining = await Promise.all(
+			refreshedCustomers.map(async (c) => {
+				const { total_remaining_value, net_debt } =
+					await CustomerService.getTotalRemainingValueForCustomer(
+						c.customer_id
+					);
+				return {
+					...c,
+					total_remaining_value: Math.round(total_remaining_value),
+					net_debt: Math.round(net_debt),
+				};
+			})
+		);
+		return createResponse(
+			res,
+			200,
+			true,
+			customersWithRemaining,
+			null,
+			total,
+			parsedPage,
+			parsedLimit
+		);
+	} catch (err) {
+		//console.error("Lỗi khi lấy danh sách khách hàng:", err.message);
+		return errorResponse(res, 500, false, [], "Lỗi server");
+	}
 };
 
 // exports.getById = async (req, res) => {
@@ -254,7 +268,8 @@ exports.calculateDebt = async (req, res) => {
 
     // Gọi hàm tính debt từ model
     const CustomerModel = require('./customer.model');
-    const calculatedDebt = await CustomerModel.calculateDebt(customer_id);
+    await CustomerModel.updateDebt(customer_id, 0, true);
+    const calculatedDebt = await CustomerModel.calculateDebtFromLedger(customer_id);
 
     // Cập nhật debt vào database
     await CustomerModel.update(customer_id, { debt: calculatedDebt });
@@ -266,7 +281,7 @@ exports.calculateDebt = async (req, res) => {
       customer_id,
       calculated_debt: calculatedDebt,
       customer: updatedCustomer
-    }, `Tính debt thành công: ${calculatedDebt}`);
+    }, `Tính debt thành công (ledger): ${calculatedDebt}`);
 
   } catch (error) {
     //console.error('🚀 ~ CustomerController.calculateDebt - Error:', error);

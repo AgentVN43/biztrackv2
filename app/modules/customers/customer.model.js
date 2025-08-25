@@ -310,59 +310,58 @@ exports.delete = async (customer_id) => {
 
 // Hàm cập nhật debt cho khách hàng (tăng hoặc giảm)
 exports.updateDebt = async (customer_id, amount, increase = true) => {
-  // amount: số tiền tăng/giảm
-  // increase: true => tăng, false => giảm
-  try {
-    // Cách 1: Update trực tiếp (cũ)
-    // const [result] = await db.query(
-    //   `UPDATE customers SET debt = debt ${
-    //     increase ? "+" : "-"
-    //   } ? WHERE customer_id = ?`,
-    //   [amount, customer_id]
-    // );
-    // return result.affectedRows;
+	// amount: số tiền tăng/giảm
+	// increase: true => tăng, false => giảm
+	try {
+		// ✅ TÍNH THEO SỔ CÁI GIAO DỊCH (LEDGER) ĐỂ ĐẢM BẢO CHUẨN XÁC
+		const calculatedDebt = await exports.calculateDebtFromLedger(customer_id);
+		const [result] = await db.query(
+			`UPDATE customers SET debt = ? WHERE customer_id = ?`,
+			[calculatedDebt, customer_id]
+		);
+		return result.affectedRows;
+	} catch (err) {
+		throw err;
+	}
+};
 
-    // ✅ Cách 2: Tính lại toàn bộ debt để đảm bảo đồng bộ
-    //console.log(`🔄 updateDebt: Đang đồng bộ debt cho customer ${customer_id}`);
-    
-    // Tính lại debt chính xác
-    const calculatedDebt = await exports.calculateDebt(customer_id);
-    
-    // Update trường debt trong database
-    const [result] = await db.query(
-      `UPDATE customers SET debt = ? WHERE customer_id = ?`,
-      [calculatedDebt, customer_id]
-    );
-    
-    //console.log(`✅ updateDebt: Đã đồng bộ debt từ ${calculatedDebt} cho customer ${customer_id}`);
-    
-    return result.affectedRows;
-  } catch (err) {
-    //console.error("🚀 ~ customer.model.js: updateDebt - Lỗi:", err);
-    throw err;
-  }
+// ✅ Hàm mới: Tính debt dựa trên sổ cái giao dịch của khách hàng
+exports.calculateDebtFromLedger = async (customer_id) => {
+	try {
+		const CustomerReportService = require('../customer_report/customer_report.service');
+		const { ledger } = await CustomerReportService.getCustomerTransactionLedger(customer_id, 1, 100000);
+		if (!Array.isArray(ledger) || ledger.length === 0) return 0;
+		// Lấy dư nợ mới nhất
+		const latestBalance = ledger[0]?.du_no ?? 0;
+		return Number(latestBalance) || 0;
+	} catch (error) {
+		// Không fallback về calculateDebt vì logic cũ sai, trả 0 nếu không lấy được sổ cái
+		return 0;
+	}
 };
 
 // ✅ Hàm mới: Đồng bộ debt cho tất cả customers
 exports.syncAllDebts = async () => {
   try {
     //console.log("🔄 Bắt đầu đồng bộ debt cho tất cả customers...");
-    
+
     // Lấy tất cả customer IDs
     const [customers] = await db.query("SELECT customer_id FROM customers");
-    
+
     let successCount = 0;
     let errorCount = 0;
-    
+
     for (const customer of customers) {
       try {
-        const calculatedDebt = await exports.calculateDebt(customer.customer_id);
-        
-        await db.query(
-          `UPDATE customers SET debt = ? WHERE customer_id = ?`,
-          [calculatedDebt, customer.customer_id]
+        const calculatedDebt = await exports.calculateDebt(
+          customer.customer_id
         );
-        
+
+        await db.query(`UPDATE customers SET debt = ? WHERE customer_id = ?`, [
+          calculatedDebt,
+          customer.customer_id,
+        ]);
+
         successCount++;
         //console.log(`✅ Đã đồng bộ debt cho customer ${customer.customer_id}: ${calculatedDebt}`);
       } catch (error) {
@@ -370,7 +369,7 @@ exports.syncAllDebts = async () => {
         //console.error(`❌ Lỗi khi đồng bộ debt cho customer ${customer.customer_id}:`, error.message);
       }
     }
-    
+
     //console.log(`🎯 Kết quả đồng bộ: ${successCount} thành công, ${errorCount} lỗi`);
     return { successCount, errorCount };
   } catch (error) {
@@ -380,11 +379,147 @@ exports.syncAllDebts = async () => {
 };
 
 // Hàm tính lại debt dựa trên các hóa đơn chưa thanh toán, đơn hàng chưa có hóa đơn và đơn hàng trả
+// exports.calculateDebt = async (customer_id) => {
+//   try {
+//     //console.log(`🔍 Bắt đầu tính debt cho customer: ${customer_id}`);
+
+//     // 1. Lấy tất cả invoices của customer
+//     const invoiceSql = `
+//       SELECT
+//         invoice_id,
+//         order_id,
+//         final_amount,
+//         amount_paid,
+//         status
+//       FROM invoices
+//       WHERE customer_id = ?
+//         AND (status = 'pending' OR status = 'partial_paid' OR status = 'overdue')
+//         AND status != 'cancelled'
+//     `;
+//     const [invoiceRows] = await db.query(invoiceSql, [customer_id]);
+
+//     // 2. Lấy tất cả orders chưa có invoice
+//     const orderSql = `
+//       SELECT
+//         o.order_id,
+//         o.final_amount,
+//         o.amount_paid,
+//         o.order_status
+//       FROM orders o
+//       LEFT JOIN invoices i ON o.order_id = i.order_id
+//       WHERE o.customer_id = ?
+//         AND o.order_status IN ('Mới', 'Xác nhận', 'Hoàn tất')
+//         AND o.order_status != 'Huỷ đơn'
+//         AND i.order_id IS NULL
+//     `;
+//     const [orderRows] = await db.query(orderSql, [customer_id]);
+
+//     // 3. Lấy tất cả customer returns đã approved/completed (TRỪ VÀO DEBT)
+//     const returnSql = `
+//       SELECT
+//         ro.return_id,
+//         ro.order_id,
+//         ro.status,
+//         ro.created_at,
+//         SUM(roi.refund_amount) as total_refund
+//       FROM return_orders ro
+//       JOIN return_order_items roi ON ro.return_id = roi.return_id
+//       WHERE ro.customer_id = ?
+//         AND ro.type = 'customer_return'
+//         AND ro.status IN ('approved', 'completed')
+//       GROUP BY ro.return_id, ro.order_id, ro.status, ro.created_at
+//       ORDER BY ro.created_at ASC
+//     `;
+//     const [returnRows] = await db.query(returnSql, [customer_id]);
+
+//     // 4. Tính debt cho từng invoice (KHÔNG tính refund trong order nữa)
+//     let totalInvoiceDebt = 0;
+
+//     for (const invoice of invoiceRows) {
+//       const final_amount = parseFloat(invoice.final_amount || 0);
+//       const amount_paid = parseFloat(invoice.amount_paid || 0);
+//       const debt = final_amount - amount_paid;
+
+//       totalInvoiceDebt += debt;
+//     }
+
+//     // 5. Tính debt cho từng order (KHÔNG tính refund trong order nữa)
+//     let totalOrderDebt = 0;
+
+//     for (const order of orderRows) {
+//       const final_amount = parseFloat(order.final_amount || 0);
+//       const amount_paid = parseFloat(order.amount_paid || 0);
+
+//       const debt = final_amount - amount_paid;
+
+//       totalOrderDebt += debt;
+//     }
+
+//     // 6. Tính tổng refund từ customer returns (TRỪ VÀO DEBT)
+//     let totalReturnRefund = 0;
+
+//     for (const returnOrder of returnRows) {
+//       const totalRefund = parseFloat(returnOrder.total_refund || 0);
+//       totalReturnRefund += totalRefund;
+//     }
+
+//     // 7. ✅ Lấy tất cả adjustment transactions (bao gồm opening_balance từ migration)
+//     const adjustmentSql = `
+//       SELECT
+//         transaction_id,
+//         type,
+//         amount,
+//         description,
+//         created_at
+//       FROM transactions
+//       WHERE customer_id = ?
+//         AND type IN ('adjustment')
+//       ORDER BY created_at ASC
+//     `;
+//     const [adjustmentRows] = await db.query(adjustmentSql, [customer_id]);
+
+//     let totalAdjustmentDebt = 0;
+//     for (const adjustment of adjustmentRows) {
+//       const amount = parseFloat(adjustment.amount || 0);
+//       totalAdjustmentDebt += amount;
+
+//       //console.log(`📊 Adjustment Transaction ${adjustment.transaction_id}:`);
+//       //console.log(`  - Type: ${adjustment.type}`);
+//       //console.log(`  - Amount: ${amount}`);
+//       //console.log(`  - Description: ${adjustment.description}`);
+//     }
+
+//     // 8. ✅ Lấy tổng điều chỉnh tăng (adj_increase) và điều chỉnh giảm (adj_decrease)
+//     const adjIncreaseSql = `
+//       SELECT COALESCE(SUM(amount), 0) AS total_adj_increase
+//       FROM transactions
+//       WHERE customer_id = ?
+//         AND type = 'adj_increase'
+//     `;
+//     const [adjIncreaseRows] = await db.query(adjIncreaseSql, [customer_id]);
+//     const adjIncreaseDebt = parseFloat(adjIncreaseRows[0].total_adj_increase || 0);
+
+//     const adjDecreaseSql = `
+//       SELECT COALESCE(SUM(amount), 0) AS total_adj_decrease
+//       FROM transactions
+//       WHERE customer_id = ?
+//         AND type = 'adj_decrease'
+//     `;
+//     const [adjDecreaseRows] = await db.query(adjDecreaseSql, [customer_id]);
+//     const adjDecreaseDebt = parseFloat(adjDecreaseRows[0].total_adj_decrease || 0);
+
+//     // ✅ TÍNH TỔNG DEBT từ: invoices + orders + adjustments + adj_increase - adj_decrease - returns
+//     const totalDebt = totalInvoiceDebt + totalOrderDebt + totalAdjustmentDebt + adjIncreaseDebt - adjDecreaseDebt - totalReturnRefund;
+
+//     return totalDebt;
+//   } catch (error) {
+//     //console.error("🚀 ~ customer.model.js: calculateDebt - Lỗi:", error);
+//     throw error;
+//   }
+// };
 exports.calculateDebt = async (customer_id) => {
   try {
-    //console.log(`🔍 Bắt đầu tính debt cho customer: ${customer_id}`);
-
-    // 1. Lấy tất cả invoices của customer
+    // 1) INVOICES: lấy tất cả trừ cancelled
     const invoiceSql = `
       SELECT 
         invoice_id,
@@ -394,12 +529,11 @@ exports.calculateDebt = async (customer_id) => {
         status
       FROM invoices
       WHERE customer_id = ?
-        AND (status = 'pending' OR status = 'partial_paid' OR status = 'overdue')
         AND status != 'cancelled'
     `;
     const [invoiceRows] = await db.query(invoiceSql, [customer_id]);
 
-    // 2. Lấy tất cả orders chưa có invoice
+    // 2) ORDERS chưa có invoice 
     const orderSql = `
       SELECT 
         o.order_id,
@@ -415,14 +549,14 @@ exports.calculateDebt = async (customer_id) => {
     `;
     const [orderRows] = await db.query(orderSql, [customer_id]);
 
-    // 3. Lấy tất cả customer returns đã approved/completed (TRỪ VÀO DEBT)
+    // 3) REFUNDS: nguồn sự thật là return_orders (approved/completed)
     const returnSql = `
       SELECT 
         ro.return_id,
         ro.order_id,
         ro.status,
         ro.created_at,
-        SUM(roi.refund_amount) as total_refund
+        SUM(roi.refund_amount) AS total_refund
       FROM return_orders ro
       JOIN return_order_items roi ON ro.return_id = roi.return_id
       WHERE ro.customer_id = ?
@@ -433,61 +567,79 @@ exports.calculateDebt = async (customer_id) => {
     `;
     const [returnRows] = await db.query(returnSql, [customer_id]);
 
-    // 4. Tính debt cho từng invoice (KHÔNG tính refund trong order nữa)
+    // 4) Gom refund theo order + refund không gắn order
+    const returnsByOrder = new Map();
+    let unlinkedRefundTotal = 0;
+
+    for (const r of returnRows) {
+      const refund = Number.parseFloat(r.total_refund || 0) || 0;
+      const oid = r.order_id;
+      if (oid) {
+        if (!returnsByOrder.has(oid)) returnsByOrder.set(oid, []);
+        returnsByOrder.get(oid).push(r);
+      } else {
+        unlinkedRefundTotal += refund;
+      }
+    }
+
+    // 5) Tính nợ theo INVOICE, trừ refund theo thời gian
     let totalInvoiceDebt = 0;
+    let customerCredit = 0; // âm = còn phải hoàn cho khách
 
-    for (const invoice of invoiceRows) {
-      const final_amount = parseFloat(invoice.final_amount || 0);
-      const amount_paid = parseFloat(invoice.amount_paid || 0);
+    for (const inv of invoiceRows) {
+      const final_amount = Number.parseFloat(inv.final_amount || 0) || 0;
+      const amount_paid = Number.parseFloat(inv.amount_paid || 0) || 0;
+      const order_id = inv.order_id;
 
-      // ✅ CHỈ tính debt dựa trên final_amount và amount_paid
-      // ✅ KHÔNG trừ refund ở đây vì sẽ tính riêng ở bước 6
-      const debt = final_amount - amount_paid;
+      let debt = final_amount - amount_paid;
 
-      //console.log(
-      //   `📊 Invoice ${invoice.invoice_id} (Order ${invoice.order_id}):`
-      // );
-      //console.log(`  - Final amount: ${final_amount}`);
-      //console.log(`  - Amount paid: ${amount_paid}`);
-      //console.log(`  - Debt: ${debt}`);
+      const arr =
+        order_id && returnsByOrder.get(order_id)
+          ? [...returnsByOrder.get(order_id)]
+          : [];
+      arr.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
+      for (const r of arr) {
+        const refund = Number.parseFloat(r.total_refund || 0) || 0;
+        debt -= refund;
+      }
+
+      // Nếu âm, dồn phần âm sang customerCredit rồi set nợ đơn = 0
+      if (debt < 0) {
+        customerCredit += debt; // debt là số âm
+        debt = 0;
+      }
       totalInvoiceDebt += debt;
     }
 
-    // 5. Tính debt cho từng order (KHÔNG tính refund trong order nữa)
+    // 6) Tính nợ theo ORDER chưa có invoice, trừ refund theo thời gian
     let totalOrderDebt = 0;
 
-    for (const order of orderRows) {
-      const final_amount = parseFloat(order.final_amount || 0);
-      const amount_paid = parseFloat(order.amount_paid || 0);
+    for (const ord of orderRows) {
+      const final_amount = Number.parseFloat(ord.final_amount || 0) || 0;
+      const amount_paid = Number.parseFloat(ord.amount_paid || 0) || 0;
+      const order_id = ord.order_id;
 
-      // ✅ CHỈ tính debt dựa trên final_amount và amount_paid
-      // ✅ KHÔNG trừ refund ở đây vì sẽ tính riêng ở bước 6
-      const debt = final_amount - amount_paid;
+      let debt = final_amount - amount_paid;
 
-      //console.log(`📊 Order ${order.order_id}:`);
-      //console.log(`  - Final amount: ${final_amount}`);
-      //console.log(`  - Amount paid: ${amount_paid}`);
-      //console.log(`  - Debt: ${debt}`);
+      const arr = returnsByOrder.get(order_id)
+        ? [...returnsByOrder.get(order_id)]
+        : [];
+      arr.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
+      for (const r of arr) {
+        const refund = Number.parseFloat(r.total_refund || 0) || 0;
+        debt -= refund;
+      }
+
+      if (debt < 0) {
+        customerCredit += debt; // âm
+        debt = 0;
+      }
       totalOrderDebt += debt;
     }
 
-    // 6. Tính tổng refund từ customer returns (TRỪ VÀO DEBT)
-    let totalReturnRefund = 0;
-
-    for (const returnOrder of returnRows) {
-      const totalRefund = parseFloat(returnOrder.total_refund || 0);
-      totalReturnRefund += totalRefund;
-
-      //console.log(
-      //   `📊 Customer Return ${returnOrder.return_id} (Order ${returnOrder.order_id}):`
-      // );
-      //console.log(`  - Total refund: ${totalRefund}`);
-      //console.log(`  - Status: ${returnOrder.status}`);
-    }
-
-    // 7. ✅ Lấy tất cả adjustment transactions (bao gồm opening_balance từ migration)
+    // 7) Adjustments THUẦN (không phải refund)
     const adjustmentSql = `
       SELECT 
         transaction_id,
@@ -497,56 +649,34 @@ exports.calculateDebt = async (customer_id) => {
         created_at
       FROM transactions
       WHERE customer_id = ?
-        AND type IN ('adjustment')
+        AND type = 'refund'
       ORDER BY created_at ASC
     `;
     const [adjustmentRows] = await db.query(adjustmentSql, [customer_id]);
 
     let totalAdjustmentDebt = 0;
-    for (const adjustment of adjustmentRows) {
-      const amount = parseFloat(adjustment.amount || 0);
-      totalAdjustmentDebt += amount;
-
-      //console.log(`📊 Adjustment Transaction ${adjustment.transaction_id}:`);
-      //console.log(`  - Type: ${adjustment.type}`);
-      //console.log(`  - Amount: ${amount}`);
-      //console.log(`  - Description: ${adjustment.description}`);
+    for (const a of adjustmentRows) {
+      totalAdjustmentDebt += Number.parseFloat(a.amount || 0) || 0;
     }
 
-    // 8. ✅ Lấy tổng điều chỉnh tăng (adj_increase) và điều chỉnh giảm (adj_decrease)
-    const adjIncreaseSql = `
-      SELECT COALESCE(SUM(amount), 0) AS total_adj_increase
-      FROM transactions
-      WHERE customer_id = ?
-        AND type = 'adj_increase'
-    `;
-    const [adjIncreaseRows] = await db.query(adjIncreaseSql, [customer_id]);
-    const adjIncreaseDebt = parseFloat(adjIncreaseRows[0].total_adj_increase || 0);
+    // 🚫 Không dùng adj_increase/adj_decrease ở đây để tránh double-count refund
 
-    const adjDecreaseSql = `
-      SELECT COALESCE(SUM(amount), 0) AS total_adj_decrease
-      FROM transactions
-      WHERE customer_id = ?
-        AND type = 'adj_decrease'
-    `;
-    const [adjDecreaseRows] = await db.query(adjDecreaseSql, [customer_id]);
-    const adjDecreaseDebt = parseFloat(adjDecreaseRows[0].total_adj_decrease || 0);
+    // 8) Áp refund KHÔNG gắn order ở cấp khách
+    let subtotalDebt = totalInvoiceDebt + totalOrderDebt;
+    if (unlinkedRefundTotal > 0) {
+      const applied = Math.min(subtotalDebt, unlinkedRefundTotal);
+      subtotalDebt -= applied;
+      const residual = unlinkedRefundTotal - applied; // dư refund ⇒ nợ khách
+      if (residual > 0) {
+        customerCredit -= residual; // tăng phần âm (nợ khách)
+      }
+    }
 
-    // ✅ TÍNH TỔNG DEBT từ: invoices + orders + adjustments + adj_increase - adj_decrease - returns
-    const totalDebt = totalInvoiceDebt + totalOrderDebt + totalAdjustmentDebt + adjIncreaseDebt - adjDecreaseDebt - totalReturnRefund;
-
-    //console.log(`🔍 Kết quả tính debt cho customer ${customer_id}:`);
-    //console.log(`  - Total invoice debt: ${totalInvoiceDebt}`);
-    //console.log(`  - Total order debt: ${totalOrderDebt}`);
-    //console.log(`  - Total adjustment debt (bao gồm opening_balance): ${totalAdjustmentDebt}`);
-    //console.log(`  - Adjustment increase (adj_increase): ${adjIncreaseDebt}`);
-    //console.log(`  - Adjustment decrease (adj_decrease): ${adjDecreaseDebt}`);
-    //console.log(`  - Total customer returns refund: ${totalReturnRefund}`);
-    //console.log(`  - Final total debt: ${totalDebt} (có thể âm)`);
+    // 9) Tổng kết: cộng cả customerCredit (âm)
+    const totalDebt = subtotalDebt + totalAdjustmentDebt + customerCredit;
 
     return totalDebt;
   } catch (error) {
-    //console.error("🚀 ~ customer.model.js: calculateDebt - Lỗi:", error);
     throw error;
   }
 };

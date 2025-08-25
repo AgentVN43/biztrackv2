@@ -10,7 +10,8 @@ exports.createPayment = (data, callback) => {
       if (payment && payment.customer_id) {
         try {
           const CustomerModel = require("../customers/customer.model");
-          const debt = await CustomerModel.calculateDebt(payment.customer_id);
+          await CustomerModel.updateDebt(payment.customer_id, 0, true);
+          const debt = await CustomerModel.calculateDebtFromLedger(payment.customer_id);
           await CustomerModel.update(payment.customer_id, { debt });
         } catch (debtErr) {
           // Ghi log nhưng không làm fail thanh toán
