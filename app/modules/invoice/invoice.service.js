@@ -311,12 +311,15 @@ const InvoiceService = {
   },
 
   recordBulkPayment: async (payments, method, initiatedByUserId = null) => {
-    // Lấy thông tin khách hàng từ hóa đơn đầu tiên để kiểm tra
+    // Lấy thông tin hóa đơn từ payment đầu tiên để xác định ngữ cảnh (customer hay supplier)
     const firstInvoice = await InvoiceModel.findById(payments[0].invoice_id);
     if (!firstInvoice) {
       throw new Error(`Hóa đơn với ID ${payments[0].invoice_id} không tồn tại.`);
     }
-    const customerId = firstInvoice.customer_id;
+
+    const isSupplierFlow = !!firstInvoice.supplier_id;
+    const supplierId = firstInvoice.supplier_id || null;
+    const customerId = firstInvoice.customer_id || null;
 
     for (const payment of payments) {
       // 1. Lấy thông tin hóa đơn để kiểm tra
@@ -324,9 +327,18 @@ const InvoiceService = {
       if (!invoice) {
         throw new Error(`Hóa đơn với ID ${payment.invoice_id} không tồn tại.`);
       }
-      if (invoice.customer_id !== customerId) {
-        throw new Error("Tất cả các hóa đơn phải thuộc về cùng một khách hàng.");
+
+      // Đảm bảo tất cả invoices thuộc cùng một đối tượng
+      if (isSupplierFlow) {
+        if (invoice.supplier_id !== supplierId) {
+          throw new Error("Tất cả các hóa đơn phải thuộc về cùng một nhà cung cấp.");
+        }
+      } else {
+        if (invoice.customer_id !== customerId) {
+          throw new Error("Tất cả các hóa đơn phải thuộc về cùng một khách hàng.");
+        }
       }
+
       if (invoice.status === 'paid') {
         //console.warn(`Hóa đơn ${invoice.invoice_code} đã được thanh toán đủ. Bỏ qua.`);
         continue;
@@ -336,16 +348,16 @@ const InvoiceService = {
         continue;
       }
 
-
       // 2. Tạo giao dịch với method chung
       const transactionData = {
         transaction_code: `TT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        type: invoice.invoice_type === 'purchase_invoice' ? 'payment' : 'receipt',
+        type: isSupplierFlow ? 'payment' : (invoice.invoice_type === 'purchase_invoice' ? 'payment' : 'receipt'),
         amount: payment.amount,
         description: `AnNK Thanh toán cho hóa đơn ${invoice.invoice_code}`,
-        category: invoice.invoice_type === 'purchase_invoice' ? 'purchase_payment' : 'sale_payment',
-        payment_method: method, // Sử dụng method chung
-        customer_id: invoice.customer_id,
+        category: isSupplierFlow ? 'purchase_payment' : (invoice.invoice_type === 'purchase_invoice' ? 'purchase_payment' : 'sale_payment'),
+        payment_method: method,
+        customer_id: isSupplierFlow ? null : invoice.customer_id,
+        supplier_id: isSupplierFlow ? invoice.supplier_id : null,
         order_id: invoice.order_id,
         related_type: "invoice",
         related_id: invoice.invoice_id,
@@ -357,30 +369,32 @@ const InvoiceService = {
       await InvoiceModel.updateAmountPaidAndStatus(invoice.invoice_id, payment.amount);
     }
 
-    // 4. Cập nhật lại debt một lần duy nhất
-    if (customerId) {
-      // ✅ Sử dụng autoSync thay vì tính toán trực tiếp
+    // 4. Đồng bộ công nợ sau khi thanh toán
+    if (!isSupplierFlow && customerId) {
+      // ✅ Khách hàng: sử dụng autoSync debt
       await autoSyncCustomerDebt(customerId);
-      
-      // Lấy thông tin customer sau khi sync để trả về
       const CustomerModel = require('../customers/customer.model');
       const updatedCustomer = await CustomerModel.getById(customerId);
-      
       return { 
         customer_id: customerId, 
         new_debt: updatedCustomer.debt, 
-        message: "Thanh toán hàng loạt và cập nhật công nợ thành công." 
+        message: "Thanh toán hàng loạt và cập nhật công nợ khách hàng thành công." 
       };
     }
 
-    // Cập nhật payable NCC nếu là thanh toán cho nhà cung cấp (ĐÃ DI CHUYỂN RA NGOÀI KHỐI customerId)
-    if (firstInvoice.supplier_id) {
+    if (isSupplierFlow && supplierId) {
       try {
-        await autoSyncSupplierPayable(firstInvoice.supplier_id);
+        await autoSyncSupplierPayable(supplierId);
       } catch (syncError) {
-        console.error(`❌ Lỗi khi đồng bộ payable cho supplier ${firstInvoice.supplier_id} trong recordBulkPayment:`, syncError);
-        // Có thể quyết định re-throw hoặc chỉ log tùy mức độ nghiêm trọng
+        console.error(`❌ Lỗi khi đồng bộ payable cho supplier ${supplierId} trong recordBulkPayment:`, syncError);
       }
+      const SupplierModel = require('../suppliers/supplier.model');
+      const updatedSupplier = await SupplierModel.getById(supplierId);
+      return {
+        supplier_id: supplierId,
+        new_payable: updatedSupplier?.payable,
+        message: "Thanh toán hàng loạt và cập nhật công nợ nhà cung cấp thành công."
+      };
     }
 
     return { message: "Thanh toán hàng loạt thành công." };
