@@ -130,7 +130,7 @@ const SupplierReportService = {
           const invType = inv.invoice_type;
           if (!invType) return;
           // Chỉ ghi nhận các loại hóa đơn có ý nghĩa với payable NCC
-          if (["purchase_invoice", "debit_note", "credit_note"].includes(invType)) {
+          if (["debit_note", "credit_note"].includes(invType)) {
             const issueDate = inv.issued_date || inv.created_at;
             allTransactions.push({
               transaction_code: inv.invoice_code,
