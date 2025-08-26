@@ -389,7 +389,7 @@ const InvoiceService = {
         console.error(`❌ Lỗi khi đồng bộ payable cho supplier ${supplierId} trong recordBulkPayment:`, syncError);
       }
       const SupplierModel = require('../suppliers/supplier.model');
-      const updatedSupplier = await SupplierModel.getById(supplierId);
+      const updatedSupplier = await SupplierModel.findById(supplierId);
       return {
         supplier_id: supplierId,
         new_payable: updatedSupplier?.payable,
