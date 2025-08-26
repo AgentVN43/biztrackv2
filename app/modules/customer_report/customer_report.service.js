@@ -775,7 +775,7 @@ const CustomerReportService = {
             transaction_date: new Date(invoice.created_at),
             type: "adjustment", // ✅ Sử dụng 'adjustment' thay vì 'debit_note' cho transaction.type
             amount: parseFloat(invoice.final_amount),
-            description: `Công nợ đầu kỳ: ${invoice.invoice_code} - ${
+            description: `Tạo công nợ đầu kỳ: ${invoice.invoice_code} - ${
               invoice.note || "Nợ từ hệ thống cũ"
             }`,
             order_id: invoice.order_id,
@@ -802,7 +802,7 @@ const CustomerReportService = {
             transaction_date: new Date(returnOrder.created_at),
             type: "return",
             amount: found.refund_amount,
-            description: `Trả hàng cho đơn hàng ${
+            description: `Tạo trả hàng cho đơn hàng ${
               returnOrder.order_code || returnOrder.order_id
             } - ${returnOrder.status}`,
             order_id: returnOrder.order_id,

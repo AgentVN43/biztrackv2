@@ -353,7 +353,7 @@ const InvoiceService = {
         transaction_code: `TT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
         type: isSupplierFlow ? 'payment' : (invoice.invoice_type === 'purchase_invoice' ? 'payment' : 'receipt'),
         amount: payment.amount,
-        description: `AnNK Thanh toán cho hóa đơn ${invoice.invoice_code}`,
+        description: `Tạo giao dịch cho hóa đơn ${invoice.invoice_code}`,
         category: isSupplierFlow ? 'purchase_payment' : (invoice.invoice_type === 'purchase_invoice' ? 'purchase_payment' : 'sale_payment'),
         payment_method: method,
         customer_id: isSupplierFlow ? null : invoice.customer_id,

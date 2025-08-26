@@ -476,7 +476,7 @@ const CustomerReturnService = {
             current_stock_after: current_stock_after, // ✅ Tồn kho thực tế sau khi trả hàng
             reference_id: return_id,
             reference_type: "RETURN_FROM_CUSTOMER",
-            description: `Customer return - ${returnInfo.return_id}`,
+            description: `Khách hàng trả hàng - ${returnInfo.return_id}`,
             initiated_by: processed_by,
           });
 
@@ -562,7 +562,7 @@ const CustomerReturnService = {
           transaction_code: generateTransactionCode(),
           type: "refund",
           amount: total_refund,
-          description: `Refund for return - ${returnInfo.return_id}`,
+          description: `Hoàn tiền cho đơn trả hàng - ${returnInfo.return_id}`,
           category: "customer_refund",
           payment_method: "cash",
           customer_id: returnInfo.customer_id,
@@ -720,7 +720,7 @@ const CustomerReturnService = {
               current_stock_after: current_stock_after,
               reference_id: return_id,
               reference_type: 'CUSTOMER_RETURN',
-              description: `Return rejected - ${rejection_reason}`,
+              description: `Không phê duyệt đơn trả hàng - ${rejection_reason}`,
               initiated_by: null
             });
           }
