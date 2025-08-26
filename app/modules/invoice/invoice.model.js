@@ -34,7 +34,7 @@ const Invoice = {
         invoice_customer_id = invoiceData.customer_id;
       }
       if (invoiceData.supplier_id) {
-        invoice_supplier_id = invoiceData.supplier_id;
+      invoice_supplier_id = invoiceData.supplier_id;
       }
       invoice_order_id = invoiceData.order_id || invoiceData.po_id_for_invoice_flow || null;
     }
@@ -410,7 +410,7 @@ const Invoice = {
       LEFT JOIN purchase_orders po ON i.order_id = po.po_id
       LEFT JOIN suppliers s ON i.supplier_id = s.supplier_id
       WHERE i.supplier_id = ?
-        AND i.invoice_type = 'purchase_invoice'
+        AND i.invoice_type IN ('purchase_invoice','debit_note')
         AND i.status IN ('pending', 'partial_paid', 'overdue')
       ORDER BY i.due_date ASC, i.issued_date DESC;
     `;
@@ -444,7 +444,7 @@ const Invoice = {
         COALESCE(SUM(i.final_amount - i.amount_paid), 0) AS total_payables
       FROM invoices i
       WHERE i.supplier_id = ?
-        AND i.invoice_type = 'purchase_invoice'
+        AND i.invoice_type IN ('purchase_invoice','debit_note')
         AND i.status IN ('pending', 'partial_paid', 'overdue');
     `;
     try {

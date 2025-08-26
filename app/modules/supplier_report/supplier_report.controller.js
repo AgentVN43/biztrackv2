@@ -119,7 +119,7 @@ const SupplierReportController = {
         WHERE supplier_id = ?
           AND (status = 'pending' OR status = 'partial_paid' OR status = 'overdue')
           AND status != 'cancelled'
-          AND invoice_type = 'purchase_invoice'
+          AND invoice_type IN ('purchase_invoice','debit_note')
       `;
       const [invoiceRows] = await db.promise().query(invoiceSql, [supplier_id]);
       const invoiceDebt = parseFloat(invoiceRows[0].total_payables || 0);

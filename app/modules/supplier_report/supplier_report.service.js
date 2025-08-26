@@ -54,7 +54,7 @@ const SupplierReportService = {
       // 3. Lấy tất cả giao dịch thanh toán
       const [directTransactions] = await db
         .promise()
-        .query(`SELECT * FROM transactions WHERE supplier_id = ?`, [
+        .query(`SELECT * FROM transactions WHERE supplier_id = ? AND (related_type IS NULL OR related_type <> 'invoice')`, [
           supplier_id,
         ]);
 

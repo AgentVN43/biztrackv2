@@ -310,19 +310,19 @@ exports.delete = async (customer_id) => {
 
 // Hàm cập nhật debt cho khách hàng (tăng hoặc giảm)
 exports.updateDebt = async (customer_id, amount, increase = true) => {
-	// amount: số tiền tăng/giảm
-	// increase: true => tăng, false => giảm
-	try {
+  // amount: số tiền tăng/giảm
+  // increase: true => tăng, false => giảm
+  try {
 		// ✅ TÍNH THEO SỔ CÁI GIAO DỊCH (LEDGER) ĐỂ ĐẢM BẢO CHUẨN XÁC
 		const calculatedDebt = await exports.calculateDebtFromLedger(customer_id);
-		const [result] = await db.query(
-			`UPDATE customers SET debt = ? WHERE customer_id = ?`,
-			[calculatedDebt, customer_id]
-		);
-		return result.affectedRows;
-	} catch (err) {
-		throw err;
-	}
+    const [result] = await db.query(
+      `UPDATE customers SET debt = ? WHERE customer_id = ?`,
+      [calculatedDebt, customer_id]
+    );
+    return result.affectedRows;
+  } catch (err) {
+    throw err;
+  }
 };
 
 // ✅ Hàm mới: Tính debt dựa trên sổ cái giao dịch của khách hàng
@@ -344,24 +344,24 @@ exports.calculateDebtFromLedger = async (customer_id) => {
 exports.syncAllDebts = async () => {
   try {
     //console.log("🔄 Bắt đầu đồng bộ debt cho tất cả customers...");
-
+    
     // Lấy tất cả customer IDs
     const [customers] = await db.query("SELECT customer_id FROM customers");
-
+    
     let successCount = 0;
     let errorCount = 0;
-
+    
     for (const customer of customers) {
       try {
         const calculatedDebt = await exports.calculateDebt(
           customer.customer_id
         );
-
+        
         await db.query(`UPDATE customers SET debt = ? WHERE customer_id = ?`, [
           calculatedDebt,
           customer.customer_id,
         ]);
-
+        
         successCount++;
         //console.log(`✅ Đã đồng bộ debt cho customer ${customer.customer_id}: ${calculatedDebt}`);
       } catch (error) {
@@ -369,7 +369,7 @@ exports.syncAllDebts = async () => {
         //console.error(`❌ Lỗi khi đồng bộ debt cho customer ${customer.customer_id}:`, error.message);
       }
     }
-
+    
     //console.log(`🎯 Kết quả đồng bộ: ${successCount} thành công, ${errorCount} lỗi`);
     return { successCount, errorCount };
   } catch (error) {
