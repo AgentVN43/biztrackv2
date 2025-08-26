@@ -258,7 +258,6 @@ const SupplierReportService = {
         "pending", // PO tạo nợ
         "purchase_invoice", // Hóa đơn mua làm tăng phải trả
         "adj_increase", // Điều chỉnh tăng phải trả
-        "receipt",
         "debit_note",
       ]);
 
@@ -271,7 +270,7 @@ const SupplierReportService = {
         "partial_paid",
         "refund_invoice",
         "adj_decrease", // Điều chỉnh giảm phải trả
-        
+        "receipt",
       ]);
 
       const SIGNED_TYPES = new Set([
