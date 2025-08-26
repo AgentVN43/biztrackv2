@@ -259,6 +259,7 @@ const SupplierReportService = {
         "purchase_invoice", // Hóa đơn mua làm tăng phải trả
         "adj_increase", // Điều chỉnh tăng phải trả
         "receipt",
+        "debit_note",
       ]);
 
       const DECREASE_TYPES = new Set([
@@ -270,7 +271,7 @@ const SupplierReportService = {
         "partial_paid",
         "refund_invoice",
         "adj_decrease", // Điều chỉnh giảm phải trả
-        "debit_note",
+        
       ]);
 
       const SIGNED_TYPES = new Set([
