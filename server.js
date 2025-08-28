@@ -17,7 +17,10 @@ const app = express();
 const port = process.env.PORT || 3008;
 
 const corsOptions = {
-  origin: ["https://fuger.shop", "http://localhost:5173", "http://137.59.105.41", "https://bepthanhhuy.fuger.shop"], // Thay đổi thành domain của client nếu cần
+  // origin: ["https://fuger.shop", "http://localhost:5173", "http://137.59.105.41", "https://bepthanhhuy.fuger.shop", "https://biz002.biztrack.vn"], // Thay đổi thành domain của client nếu cần
+   origin: (origin, callback) => {
+    callback(null, origin || true); // Cho phép tất cả domain
+  },
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true, // Cho phép cookie được gửi
   optionsSuccessStatus: 204, // Một số trình duyệt cũ (IE11, các trình duyệt cũ) không hỗ trợ 204

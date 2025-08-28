@@ -40,11 +40,18 @@ exports.getProductHistoryByProductAndWarehouse = async (req, res, next) => {
   const product_id = req.params.productId; // Lấy product_id từ URL params
   const warehouse_id = req.params.warehouseId; // Lấy warehouse_id từ URL params
   try {
-    const history =
-      await ProductReportService.getProductHistoryByProductAndWarehouse(
-        product_id,
-        warehouse_id
-      );
+    const { page = 1, limit = 10 } = req.query;
+    const parsedPage = parseInt(page);
+    const parsedLimit = parseInt(limit);
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const { history, total } = await ProductReportService.getProductHistoryByProductAndWarehouse(
+      product_id,
+      warehouse_id,
+      skip,
+      parsedLimit
+    );
+
     if (!history || history.length === 0) {
       return createResponse(
         res,
@@ -54,13 +61,7 @@ exports.getProductHistoryByProductAndWarehouse = async (req, res, next) => {
         `Không tìm thấy lịch sử cho sản phẩm ID: ${product_id} tại kho ID: ${warehouse_id}.`
       );
     }
-    createResponse(
-      res,
-      200,
-      true,
-      history,
-      "Lịch sử sản phẩm theo kho đã được tải thành công."
-    );
+    createResponse(res, 200, true, history, "Lịch sử sản phẩm theo kho đã được tải thành công.", total, parsedPage, parsedLimit);
   } catch (error) {
     console.error(
       "🚀 ~ ProductReportController: getProductHistoryByProductAndWarehouse - Lỗi:",

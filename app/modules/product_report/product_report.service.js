@@ -79,7 +79,7 @@ const ProductReportService = {
     }
   },
 
-  getProductHistoryByProductAndWarehouse: async (product_id, warehouse_id) => {
+  getProductHistoryByProductAndWarehouse: async (product_id, warehouse_id, skip = 0, limit = 10) => {
     try {
       // Gọi hàm model mới để lấy sự kiện theo sản phẩm và kho
       const events = await ProductEventModel.getEventsByProductAndWarehouseId(
@@ -88,7 +88,7 @@ const ProductReportService = {
       );
 
       if (!events || events.length === 0) {
-        return [];
+        return { history: [], total: 0 };
       }
 
       // Lấy thông tin chi tiết về sản phẩm
@@ -156,7 +156,11 @@ const ProductReportService = {
       });
 
       // Sắp xếp lại theo thời gian giảm dần (mới nhất trước) để hiển thị
-      return reportWithCalculatedStock.sort((a, b) => new Date(b.thoi_gian) - new Date(a.thoi_gian));
+      const sortedDesc = reportWithCalculatedStock.sort((a, b) => new Date(b.thoi_gian) - new Date(a.thoi_gian));
+
+      const total = sortedDesc.length;
+      const paginated = sortedDesc.slice(skip, skip + limit);
+      return { history: paginated, total };
     } catch (error) {
       console.error(
         "🚀 ~ ProductReportService: getProductHistoryByProductAndWarehouse - Lỗi:",
