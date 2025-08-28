@@ -1218,6 +1218,7 @@ const AnalysisModel = {
         COUNT(DISTINCT o.order_id) AS total_orders
       FROM customers c
       LEFT JOIN orders o ON o.customer_id = c.customer_id${orderDateCondition}
+      WHERE o.order_status = 'Hoàn tất'
       GROUP BY c.customer_id, c.customer_name, c.phone, c.email
     `;
 
