@@ -759,7 +759,7 @@ const InventoryService = {
     }
   },
 
-  increaseStockManually: async (product_id, warehouse_id, quantity, reason) => {
+  increaseStockManually: async (product_id, warehouse_id, quantity, reason, initiatedByUserId = null) => {
     if (quantity <= 0) {
       throw new Error("Số lượng tăng phải lớn hơn 0.");
     }
@@ -803,7 +803,7 @@ const InventoryService = {
       ? updatedInventory.total_quantity
       : 0;
     //console.log("current_quantity_after:", current_quantity_after);
-
+    // initiatedByUserId is now passed as parameter
     // Bước 4: Ghi lại lịch sử điều chỉnh vào inventory_adjustments
     const adjustmentResult = await InventoryModel.recordAdjustment({
       product_id,
@@ -811,7 +811,7 @@ const InventoryService = {
       quantity_changed: quantity, // Số lượng thay đổi (luôn là số dương)
       adjustment_type: "increase",
       reason,
-      adjusted_by: "9bf04b0d-63be-471c-81dd-bbed309d0700",
+      adjusted_by: initiatedByUserId,
       current_quantity_before,
       current_quantity_after,
     });
@@ -829,13 +829,13 @@ const InventoryService = {
       reference_id: adjustment_id,
       reference_type: "INVENTORY_ADJUSTMENT",
       description: `Điều chỉnh tăng kho: ${reason}`,
-      initiated_by: "9bf04b0d-63be-471c-81dd-bbed309d0700",
+      initiated_by: initiatedByUserId,
     });
 
     return updatedInventory;
   },
 
-  decreaseStockManually: async (product_id, warehouse_id, quantity, reason) => {
+  decreaseStockManually: async (product_id, warehouse_id, quantity, reason, initiatedByUserId = null) => {
     if (quantity <= 0) {
       throw new Error("Số lượng giảm phải lớn hơn 0.");
     }
@@ -882,6 +882,8 @@ const InventoryService = {
       ? updatedInventory.total_quantity
       : 0;
 
+      // initiatedByUserId is now passed as parameter
+
     // Bước 4: Ghi lại lịch sử điều chỉnh vào inventory_adjustments
     const adjustmentResult = await InventoryModel.recordAdjustment({
       product_id,
@@ -889,7 +891,7 @@ const InventoryService = {
       quantity_changed: quantity,
       adjustment_type: "decrease",
       reason,
-      adjusted_by: "9bf04b0d-63be-471c-81dd-bbed309d0700",
+      adjusted_by: initiatedByUserId,
       current_quantity_before,
       current_quantity_after,
     });
@@ -907,7 +909,7 @@ const InventoryService = {
       reference_id: adjustment_id,
       reference_type: "INVENTORY_ADJUSTMENT",
       description: `Điều chỉnh giảm kho: ${reason}`,
-      initiated_by: "9bf04b0d-63be-471c-81dd-bbed309d0700",
+      initiated_by: initiatedByUserId,
     });
 
     return updatedInventory;

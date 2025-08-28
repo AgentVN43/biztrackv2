@@ -324,7 +324,8 @@ exports.stockIncrease = async (req, res, next) => {
       product_id,
       warehouse_id,
       quantity,
-      reason
+      reason,
+      req.user?.user_id
     );
     // Sử dụng createResponse cho phản hồi thành công, có thể trả về dữ liệu tồn kho cập nhật
     createResponse(
@@ -350,7 +351,8 @@ exports.stockDecrease = async (req, res, next) => {
       product_id,
       warehouse_id,
       quantity,
-      reason
+      reason,
+      req.user?.user_id
     );
     // Sử dụng createResponse cho phản hồi thành công, có thể trả về dữ liệu tồn kho cập nhật
     createResponse(
