@@ -1308,7 +1308,7 @@ const AnalysisModel = {
           p.category_id,
           c.category_name,
           IFNULL(SUM(od.quantity), 0) AS total_quantity_sold,
-          IFNULL(SUM(od.quantity * od.price), 0) AS total_revenue,
+          IFNULL(SUM((od.quantity * od.price) - od.discount), 0) AS total_revenue,
           COUNT(DISTINCT o.order_id) AS total_orders
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.category_id
@@ -1485,7 +1485,7 @@ const AnalysisModel = {
         SELECT 
           c.category_id,
           c.category_name,
-          IFNULL(SUM(od.quantity * od.price), 0) AS total_sales
+          IFNULL(SUM((od.quantity * od.price) - od.discount), 0) AS total_sales
         FROM categories c
         JOIN products p ON c.category_id = p.category_id
         JOIN order_details od ON p.product_id = od.product_id

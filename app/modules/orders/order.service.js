@@ -636,7 +636,7 @@ const OrderService = {
               type: 'receipt',
               amount: parseFloat(order.amount_paid),
               status: 'completed',
-              note: `Thanh toán trước chuyển thành thanh toán hóa đơn ${createdInvoice ? createdInvoice.invoice_code : ''}`,
+              description: `Thanh toán trước đơn hàng ${createdInvoice ? createdInvoice.invoice_code : ''}`,
               created_by: initiatedByUserId || null,
             });
             console.log(
