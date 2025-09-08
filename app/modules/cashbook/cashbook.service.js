@@ -761,7 +761,208 @@ const CashbookService = {
       //console.error("🚀 ~ CashbookService: getRecentActivitiesCombined - Lỗi:", error);
       throw error;
     }
-  }
+  },
+
+  /**
+   * Lấy giao dịch theo ID
+   * @param {string} transactionId - ID của giao dịch
+   * @returns {Promise<Object|null>} Giao dịch hoặc null nếu không tìm thấy
+   */
+  getTransactionById: async (transactionId) => {
+    try {
+      const [rows] = await db.promise().query(
+        `SELECT t.*, 
+                c.customer_name, c.phone as customer_phone, c.email as customer_email,
+                s.supplier_name, s.phone as supplier_phone, s.email as supplier_email
+         FROM transactions t
+         LEFT JOIN customers c ON t.customer_id = c.customer_id
+         LEFT JOIN suppliers s ON t.supplier_id = s.supplier_id
+         WHERE t.transaction_id = ?`,
+        [transactionId]
+      );
+
+      if (rows.length === 0) {
+        return null;
+      }
+
+      const transaction = rows[0];
+      
+      // Format response
+      return {
+        transaction_id: transaction.transaction_id,
+        transaction_code: transaction.transaction_code,
+        type: transaction.type,
+        amount: parseFloat(transaction.amount),
+        description: transaction.description,
+        category: transaction.category,
+        payment_method: transaction.payment_method,
+        customer_id: transaction.customer_id,
+        supplier_id: transaction.supplier_id,
+        related_type: transaction.related_type,
+        related_id: transaction.related_id,
+        customer: transaction.customer_id ? {
+          customer_id: transaction.customer_id,
+          customer_name: transaction.customer_name,
+          phone: transaction.customer_phone,
+          email: transaction.customer_email,
+        } : null,
+        supplier: transaction.supplier_id ? {
+          supplier_id: transaction.supplier_id,
+          supplier_name: transaction.supplier_name,
+          phone: transaction.supplier_phone,
+          email: transaction.supplier_email,
+        } : null,
+        created_at: transaction.created_at,
+        updated_at: transaction.updated_at,
+      };
+    } catch (error) {
+      console.error("🚀 ~ CashbookService: getTransactionById - Lỗi:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cập nhật giao dịch
+   * @param {string} transactionId - ID của giao dịch
+   * @param {Object} updateData - Dữ liệu cập nhật
+   * @returns {Promise<Object|null>} Giao dịch đã cập nhật hoặc null nếu không tìm thấy
+   */
+  updateTransaction: async (transactionId, updateData) => {
+    try {
+      // Kiểm tra giao dịch có tồn tại không
+      const existingTransaction = await CashbookService.getTransactionById(transactionId);
+      if (!existingTransaction) {
+        return null;
+      }
+
+      // Chuẩn bị dữ liệu cập nhật
+      const allowedFields = [
+        'type', 'amount', 'description', 'category', 'payment_method',
+        'customer_id', 'supplier_id', 'related_type', 'related_id'
+      ];
+      
+      const updateFields = [];
+      const updateValues = [];
+      
+      for (const [key, value] of Object.entries(updateData)) {
+        if (allowedFields.includes(key) && value !== undefined) {
+          updateFields.push(`${key} = ?`);
+          updateValues.push(value);
+        }
+      }
+      
+      if (updateFields.length === 0) {
+        throw new Error('Không có dữ liệu để cập nhật');
+      }
+      
+      // Thêm updated_at
+      updateFields.push('updated_at = NOW()');
+      updateValues.push(transactionId);
+      
+      const sql = `UPDATE transactions SET ${updateFields.join(', ')} WHERE transaction_id = ?`;
+      
+      const [result] = await db.promise().query(sql, updateValues);
+      
+      if (result.affectedRows === 0) {
+        return null;
+      }
+      
+      // Lấy giao dịch đã cập nhật
+      const updatedTransaction = await CashbookService.getTransactionById(transactionId);
+      
+      // Tự động đồng bộ debt cho customer (nếu có thay đổi)
+      if (updateData.customer_id !== undefined && updateData.customer_id) {
+        const autoSyncCustomerDebt = async (customer_id) => {
+          try {
+            const CustomerModel = require('../customers/customer.model');
+            await CustomerModel.updateDebt(customer_id, 0, true);
+          } catch (error) {
+            console.error(`❌ Lỗi khi tự động đồng bộ debt cho customer ${customer_id}:`, error);
+          }
+        };
+        await autoSyncCustomerDebt(updateData.customer_id);
+      }
+      
+      // Tự động đồng bộ payable cho supplier (nếu có thay đổi)
+      if (updateData.supplier_id !== undefined && updateData.supplier_id) {
+        const autoSyncSupplierPayable = async (supplier_id) => {
+          try {
+            const SupplierModel = require('../suppliers/supplier.model');
+            if (SupplierModel.recalculatePayable) {
+              await SupplierModel.recalculatePayable(supplier_id);
+            }
+          } catch (error) {
+            console.error(`❌ Lỗi khi tự động đồng bộ payable cho supplier ${supplier_id}:`, error);
+          }
+        };
+        await autoSyncSupplierPayable(updateData.supplier_id);
+      }
+      
+      return updatedTransaction;
+    } catch (error) {
+      console.error("🚀 ~ CashbookService: updateTransaction - Lỗi:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Xóa giao dịch
+   * @param {string} transactionId - ID của giao dịch
+   * @returns {Promise<boolean>} True nếu xóa thành công, false nếu không tìm thấy
+   */
+  deleteTransaction: async (transactionId) => {
+    try {
+      // Kiểm tra giao dịch có tồn tại không
+      const existingTransaction = await CashbookService.getTransactionById(transactionId);
+      if (!existingTransaction) {
+        return false;
+      }
+      
+      // Xóa giao dịch
+      const [result] = await db.promise().query(
+        'DELETE FROM transactions WHERE transaction_id = ?',
+        [transactionId]
+      );
+      
+      if (result.affectedRows === 0) {
+        return false;
+      }
+      
+      // Tự động đồng bộ debt cho customer (nếu có)
+      if (existingTransaction.customer_id) {
+        const autoSyncCustomerDebt = async (customer_id) => {
+          try {
+            const CustomerModel = require('../customers/customer.model');
+            await CustomerModel.updateDebt(customer_id, 0, true);
+          } catch (error) {
+            console.error(`❌ Lỗi khi tự động đồng bộ debt cho customer ${customer_id}:`, error);
+          }
+        };
+        await autoSyncCustomerDebt(existingTransaction.customer_id);
+      }
+      
+      // Tự động đồng bộ payable cho supplier (nếu có)
+      if (existingTransaction.supplier_id) {
+        const autoSyncSupplierPayable = async (supplier_id) => {
+          try {
+            const SupplierModel = require('../suppliers/supplier.model');
+            if (SupplierModel.recalculatePayable) {
+              await SupplierModel.recalculatePayable(supplier_id);
+            }
+          } catch (error) {
+            console.error(`❌ Lỗi khi tự động đồng bộ payable cho supplier ${supplier_id}:`, error);
+          }
+        };
+        await autoSyncSupplierPayable(existingTransaction.supplier_id);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("🚀 ~ CashbookService: deleteTransaction - Lỗi:", error);
+      throw error;
+    }
+  },
+
 };
 
 // Helper function để tính thời gian trước

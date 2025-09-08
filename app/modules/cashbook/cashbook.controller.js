@@ -268,3 +268,92 @@ exports.getRecentActivitiesCombined = async (req, res) => {
     return errorResponse(res, err.message || "Lỗi lấy hoạt động gần đây tổng hợp", 500);
   }
 };
+
+// CRUD operations for transactions
+
+// Lấy giao dịch theo ID
+exports.getTransactionById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return errorResponse(res, "Transaction ID là bắt buộc", 400);
+    }
+
+    const transaction = await CashbookService.getTransactionById(id);
+    
+    if (!transaction) {
+      return errorResponse(res, "Không tìm thấy giao dịch", 404);
+    }
+
+    return createResponse(
+      res,
+      200,
+      true,
+      transaction,
+      "Lấy thông tin giao dịch thành công"
+    );
+  } catch (err) {
+    return errorResponse(res, err.message || "Lỗi lấy thông tin giao dịch", 500);
+  }
+};
+
+// Cập nhật giao dịch
+exports.updateTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    if (!id) {
+      return errorResponse(res, "Transaction ID là bắt buộc", 400);
+    }
+
+    // Validate required fields
+    if (updateData.amount !== undefined && (isNaN(updateData.amount) || updateData.amount <= 0)) {
+      return errorResponse(res, "Số tiền phải là số dương", 400);
+    }
+
+    const updatedTransaction = await CashbookService.updateTransaction(id, updateData);
+    
+    if (!updatedTransaction) {
+      return errorResponse(res, "Không tìm thấy giao dịch để cập nhật", 404);
+    }
+
+    return createResponse(
+      res,
+      200,
+      true,
+      updatedTransaction,
+      "Cập nhật giao dịch thành công"
+    );
+  } catch (err) {
+    return errorResponse(res, err.message || "Lỗi cập nhật giao dịch", 500);
+  }
+};
+
+// Xóa giao dịch
+exports.deleteTransaction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      return errorResponse(res, "Transaction ID là bắt buộc", 400);
+    }
+
+    const result = await CashbookService.deleteTransaction(id);
+    
+    if (!result) {
+      return errorResponse(res, "Không tìm thấy giao dịch để xóa", 404);
+    }
+
+    return createResponse(
+      res,
+      200,
+      true,
+      { deleted: true, transaction_id: id },
+      "Xóa giao dịch thành công"
+    );
+  } catch (err) {
+    return errorResponse(res, err.message || "Lỗi xóa giao dịch", 500);
+  }
+};
