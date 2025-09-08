@@ -43,10 +43,10 @@ const PurchaseOrderDetailModel = {
    * @param {number} data.price - Giá sản phẩm.
    * @returns {Promise<Object>} Promise giải quyết với kết quả tạo chi tiết.
    */
-  create: async ({ po_detail_id, po_id, product_id, quantity, price }) => {
+  create: async ({ po_detail_id, po_id, product_id, quantity, price, vat_rate, vat_amount }) => {
     const sql =
-      "INSERT INTO purchase_order_details (po_detail_id, po_id, product_id, quantity, price) VALUES (?, ?, ?, ?, ?)";
-    const values = [po_detail_id, po_id, product_id, quantity, price];
+      "INSERT INTO purchase_order_details (po_detail_id, po_id, product_id, quantity, price, vat_rate, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    const values = [po_detail_id, po_id, product_id, quantity, price, vat_rate || 0, vat_amount || 0];
     try {
       const [results] = await db.promise().query(sql, values);
       return {
@@ -55,6 +55,8 @@ const PurchaseOrderDetailModel = {
         product_id,
         quantity,
         price,
+        vat_rate: vat_rate || 0,
+        vat_amount: vat_amount || 0,
         affectedRows: results.affectedRows,
       };
     } catch (error) {
@@ -92,13 +94,13 @@ const PurchaseOrderDetailModel = {
    * @returns {Promise<Object>} Promise giải quyết với kết quả cập nhật.
    */
   update: async (po_detail_id, data) => {
-    const { product_id, quantity, price } = data;
+    const { product_id, quantity, price, vat_rate, vat_amount } = data;
     const sql = `
       UPDATE purchase_order_details
-      SET product_id = ?, quantity = ?, price = ?
+      SET product_id = ?, quantity = ?, price = ?, vat_rate = ?, vat_amount = ?
       WHERE po_detail_id = ?
     `;
-    const values = [product_id, quantity, price, po_detail_id];
+    const values = [product_id, quantity, price, vat_rate || 0, vat_amount || 0, po_detail_id];
     try {
       const [results] = await db.promise().query(sql, values);
       return { po_detail_id, ...data, affectedRows: results.affectedRows };

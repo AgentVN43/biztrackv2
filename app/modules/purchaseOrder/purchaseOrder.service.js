@@ -468,11 +468,29 @@ const InventoryModel = require("../inventories/inventory.model"); // Thêm impor
 const SupplierModel = require("../suppliers/supplier.model");
 const { applyWACForPurchase } = require("../../utils/productCostUtils");
 
+// Helper function to calculate total amount from details (including VAT)
+function calculateTotalAmount(details) {
+  let totalAmount = 0;
+
+  const validDetails = Array.isArray(details) ? details : [];
+  
+  validDetails.forEach((detail) => {
+    const price = parseFloat(detail.price || 0);
+    const quantity = parseInt(detail.quantity || 0);
+    const vatAmount = parseFloat(detail.vat_amount || 0);
+    const lineTotal = (price * quantity) + vatAmount;
+    
+    totalAmount += lineTotal;
+  });
+
+  return totalAmount;
+}
+
 const PurchaseOrderService = {
   /**
    * Tạo một đơn mua hàng mới và các chi tiết đơn mua hàng.
-   * @param {Object} data - Dữ liệu đơn mua hàng, bao gồm supplier_name, warehouse_id, note, details, (optional) order_date, (optional) payment_method, (optional) discount_amount, (optional) supplier_id (nếu cần cho Invoice/Transaction).
-   * @returns {Promise<Object>} Promise giải quyết với thông tin đơn mua hàng đã tạo (bao gồm final_amount, discount_amount, order_date, supplier_name, payment_method, supplier_id).
+   * @param {Object} data - Dữ liệu đơn mua hàng, bao gồm supplier_id, warehouse_id, note, details, vat_rate, (optional) order_date, (optional) payment_method, (optional) discount_amount.
+   * @returns {Promise<Object>} Promise giải quyết với thông tin đơn mua hàng đã tạo (bao gồm final_amount, discount_amount, order_date, supplier_id, payment_method, vat_amount).
    */
   // createPurchaseOrder: async (data) => {
   //   // ✅ Destructuring các trường cần thiết từ `data`
@@ -592,19 +610,13 @@ const PurchaseOrderService = {
     } = data;
     const po_id = uuidv4();
 
-    // Tính toán totalAmount từ chi tiết đơn hàng
-    const totalAmount = details
-      ? details.reduce(
-        (sum, detail) =>
-          sum + detail.quantity * parseFloat(detail.price || 0),
-        0
-      )
-      : 0;
+    // Tính toán total_amount từ details (bao gồm VAT)
+    const totalAmount = calculateTotalAmount(details);
 
     // Lấy discount_amount từ data, nếu không có thì mặc định là 0
     const discountAmount = data.discount_amount || 0;
-    // Tính final_amount (cho Invoice/Transaction, không lưu vào PO table)
-    const finalAmount = totalAmount - discountAmount;
+    // Tính final_amount sau khi trừ discount (cho Invoice/Transaction)
+    const finalAmountAfterDiscount = totalAmount - discountAmount;
 
     //console.log(
     //   "🚀 ~ purchaseOrder.service.js: createPurchaseOrder - Calculated Total Amount:",
@@ -643,12 +655,15 @@ const PurchaseOrderService = {
         await Promise.all(
           details.map(async (item) => {
             const po_detail_id = uuidv4();
+            
             await PurchaseOrderDetailModel.create({
               po_detail_id,
               po_id: createdPO.po_id, // Sử dụng po_id từ PO đã tạo
               product_id: item.product_id,
               quantity: item.quantity,
               price: item.price,
+              vat_rate: item.vat_rate || 0,
+              vat_amount: item.vat_amount || 0,
             });
           })
         );
@@ -667,7 +682,7 @@ const PurchaseOrderService = {
         supplier_id: createdPO.supplier_id, // Lấy từ PO đã tạo
         total_amount: createdPO.total_amount, // Lấy từ PO đã tạo
         discount_amount: discountAmount,
-        final_amount: finalAmount,
+        final_amount: finalAmountAfterDiscount,
         order_date: order_date || new Date(),
         payment_method: payment_method || "Chuyển khoản",
       };
@@ -754,16 +769,14 @@ const PurchaseOrderService = {
         })
       );
 
-      // 5. Cập nhật lại tổng số tiền của PO và Payment liên quan
+      // 5. Cập nhật lại tổng số tiền của PO
       const updatedDetails = await PurchaseOrderDetailModel.findByPOId(poId);
-      const newTotalAmount = updatedDetails.reduce(
-        (sum, detail) => sum + detail.quantity * parseFloat(detail.price || 0),
-        0
-      );
-
-      // Cần tính lại discount_amount và final_amount nếu có logic đó ở đây
-      const updatedPOData = { total_amount: newTotalAmount };
-      // Nếu có discount logic, cần thêm vào updatedPOData.discount_amount và updatedPOData.final_amount
+      const newTotalAmount = calculateTotalAmount(updatedDetails);
+      
+      const updatedPOData = { 
+        total_amount: newTotalAmount
+      };
+      
       await PurchaseOrderModel.update(poId, updatedPOData);
       //console.log(
       // "🚀 ~ purchaseOrder.service.js: updatePOWithDetails - Updated PO with new totalAmount:",
@@ -989,13 +1002,17 @@ const PurchaseOrderService = {
 
       // ✅ TẠO INVOICE KHI NHẬN HÀNG (theo best practice)
       const InvoiceService = require("../invoice/invoice.service");
+      
+      // Tính tổng VAT amount từ details
+      const totalVATAmount = details.reduce((sum, detail) => sum + parseFloat(detail.vat_amount || 0), 0);
+      
       const invoiceData = {
         invoice_code: `INV-PO-${Date.now()}`,
         invoice_type: "purchase_invoice",
         purchase_order_id: po_id, // Liên kết với PO
         supplier_id: order.supplier_id,
         total_amount: order.total_amount,
-        tax_amount: 0, // Cần tính toán nếu có thuế
+        tax_amount: totalVATAmount, // Tổng VAT amount từ details
         discount_amount: order.discount_amount || 0,
         final_amount: order.final_amount || order.total_amount,
         issued_date: new Date(),
@@ -1109,6 +1126,8 @@ const PurchaseOrderService = {
         sku: row.sku, // Từ JOIN với bảng products
         quantity: row.quantity,
         price: row.price,
+        vat_rate: row.vat_rate,
+        vat_amount: row.vat_amount,
       }));
 
       // Trả về đối tượng PO đã định dạng
@@ -1172,6 +1191,8 @@ const PurchaseOrderService = {
           sku: row.sku,
           quantity: row.quantity,
           price: parseFloat(row.price),
+          vat_rate: parseFloat(row.vat_rate || 0),
+          vat_amount: parseFloat(row.vat_amount || 0),
         });
       });
 

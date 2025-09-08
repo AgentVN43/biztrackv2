@@ -475,6 +475,8 @@ const PurchaseOrderModel = {
         pod.product_id,
         pod.quantity,
         pod.price,
+        pod.vat_rate,
+        pod.vat_amount,
         p.product_name, -- ✅ Get product_name from the joined products table
         p.sku -- ✅ Get sku from the joined products table
       FROM
@@ -520,6 +522,8 @@ const PurchaseOrderModel = {
         pod.product_id,
         pod.quantity,
         pod.price,
+        pod.vat_rate,
+        pod.vat_amount,
         p.product_name,
         p.sku
       FROM
