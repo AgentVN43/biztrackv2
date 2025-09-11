@@ -93,6 +93,35 @@ exports.get = async (req, res) => {
   }
 };
 
+// Trả về danh sách khách hàng đơn giản (không đồng bộ debt, không enrich)
+exports.getListSimple = async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+  const parsedPage = parseInt(page);
+  const parsedLimit = parseInt(limit);
+  const skip = (parsedPage - 1) * parsedLimit;
+
+  try {
+    const { customers, total } = await CustomerService.getAllCustomers(
+      skip,
+      parsedLimit,
+      {}
+    );
+
+    return createResponse(
+      res,
+      200,
+      true,
+      customers,
+      null,
+      total,
+      parsedPage,
+      parsedLimit
+    );
+  } catch (err) {
+    return errorResponse(res, 500, false, [], "Lỗi server");
+  }
+};
+
 // exports.getById = async (req, res) => {
 //   const id = req.params.id;
 //   try {

@@ -9,6 +9,7 @@ router.get('/import-template', CustomerController.downloadImportTemplate);
 // Định nghĩa các route cho CRUD
 router.post('/', CustomerController.create);
 router.get('/', CustomerController.get);
+router.get('/list', CustomerController.getListSimple);
 router.get('/:id', CustomerController.getById);
 router.put('/:id', CustomerController.update);
 router.put('/:id/status', CustomerController.updateStatus);
