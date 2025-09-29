@@ -201,12 +201,21 @@ const OrderModel = {
   readById: async (order_id) => {
     try {
       const [orderResults] = await db.promise().query(
-        "SELECT * FROM orders WHERE order_id = ?",
+        `SELECT o.*, c.customer_name
+         FROM orders o
+         LEFT JOIN customers c ON o.customer_id = c.customer_id
+         WHERE o.order_id = ?`,
         [order_id]
       );
       if (orderResults.length === 0) return null;
 
       const order = orderResults[0];
+
+      // Gắn thông tin customer đầy đủ vào order
+      order.customer = {
+        customer_id: order.customer_id,
+        customer_name: order.customer_name,
+      };
 
       const [detailResults] = await db.promise().query(
         "SELECT * FROM order_details WHERE order_id = ?",
