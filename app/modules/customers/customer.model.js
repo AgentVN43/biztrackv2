@@ -108,13 +108,13 @@ const { v4: uuidv4 } = require("uuid");
 
 exports.create = async (data) => {
   const customer_id = uuidv4();
-  const { customer_name, email, phone, debt = 0 } = data;
+  const { customer_name, email, phone, address = null, debt = 0 } = data;
   try {
     await db.query(
-      "INSERT INTO customers (customer_id, customer_name, email, phone, debt) VALUES (?, ?, ?, ?, ?)",
-      [customer_id, customer_name, email, phone, debt]
+      "INSERT INTO customers (customer_id, customer_name, email, phone, address, debt) VALUES (?, ?, ?, ?, ?, ?)",
+      [customer_id, customer_name, email, phone, address, debt]
     );
-    return { customer_id, ...data, debt };
+    return { customer_id, ...data, address, debt };
   } catch (err) {
     //console.error("Lỗi khi tạo khách hàng:", err.message);
     throw err;
@@ -189,7 +189,7 @@ exports.getAll = async (skip, limit, filters = {}) => {
 
     const total = countResult[0].total;
     return {
-      customers: results.map((c) => ({ ...c, debt: Number(c.debt) })),
+      customers: results.map((c) => ({ ...c, debt: Number(c.debt), address: c.address })),
       total: total,
     };
   } catch (err) {
@@ -205,7 +205,7 @@ exports.getById = async (customer_id) => {
       [customer_id]
     );
     if (results.length === 0) return null;
-    return { ...results[0], debt: Number(results[0].debt) };
+    return { ...results[0], debt: Number(results[0].debt), address: results[0].address };
   } catch (err) {
     //console.error("Lỗi khi lấy khách hàng theo ID:", err.message);
     throw err;
@@ -255,6 +255,7 @@ exports.update = async (customer_id, data) => {
     "customer_name",
     "email",
     "phone",
+    "address",
     "total_expenditure",
     "status",
     "total_orders",

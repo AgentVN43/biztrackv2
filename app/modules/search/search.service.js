@@ -100,16 +100,20 @@ exports.getOrdersByCustomerName = async (customerName, skip, limit) => {
 
 exports.searchOrdersByQuery = async (q, skip, limit) => {
   try {
+    // Kiểm tra nếu là order_code (bắt đầu bằng ORD- và có số)
+    const isOrderCode = /^ORD-\d{8}-\d{5}$/.test(q) || /^ORD-/.test(q);
+    if (isOrderCode) {
+      // Tìm kiếm theo order_code (chính xác hoặc gần đúng)
+      return await OrderModel.findByOrderCode(q, skip, limit);
+    }
     // Kiểm tra xem query có phải là số điện thoại không (chỉ chứa số và có độ dài từ 9-11 ký tự)
     const isPhoneNumber = /^\d{9,11}$/.test(q);
-    
     if (isPhoneNumber) {
       // Tìm kiếm theo số điện thoại
       return await this.getOrdersByCustomerPhone(q, skip, limit);
-    } else {
-      // Tìm kiếm theo tên khách hàng
-      return await this.getOrdersByCustomerName(q, skip, limit);
     }
+    // Mặc định tìm theo tên khách hàng
+    return await this.getOrdersByCustomerName(q, skip, limit);
   } catch (error) {
     console.error(
       "Lỗi trong Search Service (searchOrdersByQuery):",

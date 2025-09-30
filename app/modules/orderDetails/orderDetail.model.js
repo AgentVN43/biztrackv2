@@ -234,12 +234,11 @@ const OrderDetailModel = {
   create: async (data) => {
     // ✅ Chuyển sang async
     const order_detail_id = uuidv4();
-    const { order_id, product_id, quantity, price, discount, cost_price } = data;
+    const { order_id, product_id, quantity, price, discount, cost_price, vat_rate, vat_amount } = data;
     try {
       await db.promise().query(
-        // ✅ Sử dụng db.promise().query
-        "INSERT INTO order_details (order_detail_id, order_id, product_id, quantity, price, discount, cost_price) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [order_detail_id, order_id, product_id, quantity, price, discount || 0, cost_price || 0]
+        "INSERT INTO order_details (order_detail_id, order_id, product_id, quantity, price, discount, cost_price, vat_rate, vat_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [order_detail_id, order_id, product_id, quantity, price, discount || 0, cost_price || 0, vat_rate || 0, vat_amount || 0]
       );
       return { order_detail_id, ...data };
     } catch (error) {
@@ -394,7 +393,9 @@ const OrderDetailModel = {
         od.cost_price AS cost_price, -- Giá vốn snapshot tại thời điểm tạo đơn
         od.quantity AS detail_quantity,
         od.price AS detail_price,
-        od.discount AS detail_discount,
+        od.discount AS detail_discount, 
+        od.vat_rate,
+        od.vat_amount,
         inv.invoice_id, -- Lấy invoice_id
         inv.invoice_code, -- Lấy invoice_code
         inv.amount_paid AS invoice_current_amount_paid, -- Lấy amount_paid HIỆN TẠI từ hóa đơn
@@ -435,6 +436,8 @@ const OrderDetailModel = {
               price: parseFloat(r.detail_price), // Giá và chiết khấu lấy từ hàng đầu tiên
               discount: parseFloat(r.detail_discount) || 0,
               cost_price: parseFloat(r.cost_price), // Giá trị tổng của sản phẩm
+              vat_rate: typeof r.vat_rate !== 'undefined' ? parseFloat(r.vat_rate) : 0,
+              vat_amount: typeof r.vat_amount !== 'undefined' ? parseFloat(r.vat_amount) : 0,
             });
           }
         });
@@ -500,12 +503,11 @@ const OrderDetailModel = {
    */
   update: async (order_detail_id, data) => {
     // ✅ Chuyển sang async
-    const { order_id, product_id, quantity, price, discount } = data;
+    const { order_id, product_id, quantity, price, discount, cost_price, vat_rate, vat_amount } = data;
     try {
       const [results] = await db.promise().query(
-        // ✅ Sử dụng db.promise().query
-        "UPDATE order_details SET order_id = ?, product_id = ?, quantity = ?, price = ?, discount = ?, updated_at = CURRENT_TIMESTAMP WHERE order_detail_id = ?",
-        [order_id, product_id, quantity, price, discount || 0, order_detail_id]
+        "UPDATE order_details SET order_id = ?, product_id = ?, quantity = ?, price = ?, discount = ?, cost_price = ?, vat_rate = ?, vat_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE order_detail_id = ?",
+        [order_id, product_id, quantity, price, discount || 0, cost_price || 0, vat_rate || 0, vat_amount || 0, order_detail_id]
       );
       return results.affectedRows > 0 ? { order_detail_id, ...data } : null;
     } catch (error) {

@@ -7,6 +7,7 @@ const CustomerModel = {
         customer_id,
         customer_name,
         email,
+        address,
         created_at,
         updated_at,
         phone,
@@ -28,6 +29,7 @@ const CustomerModel = {
         customer_id: row.customer_id,
         customer_name: row.customer_name,
         email: row.email,
+        address: row.address,
         created_at: row.created_at,
         updated_at: row.updated_at,
         phone: row.phone,
@@ -71,6 +73,7 @@ const CustomerModel = {
         customer_id,
         customer_name,
         email,
+        address,
         created_at,
         updated_at,
         phone,
@@ -92,6 +95,7 @@ const CustomerModel = {
         customer_id: row.customer_id,
         customer_name: row.customer_name,
         email: row.email,
+        address: row.address,
         created_at: row.created_at,
         updated_at: row.updated_at,
         phone: row.phone,
@@ -131,6 +135,74 @@ const CustomerModel = {
 };
 
 const OrderModel = {
+  /**
+   * Tìm đơn hàng theo order_code (chính xác hoặc gần đúng, có phân trang)
+   */
+  findByOrderCode: async (orderCode, skip = 0, limit = 20) => {
+    // Nếu orderCode có dạng ORD-YYYYMMDD-xxxxx thì tìm chính xác, nếu không thì LIKE
+    let sql, countSql, params, countParams;
+    if (/^ORD-\d{8}-\d{5}$/.test(orderCode)) {
+      sql = `
+        SELECT orders.*, customers.customer_name
+        FROM orders
+        LEFT JOIN customers ON orders.customer_id = customers.customer_id
+        WHERE orders.order_code = ? AND orders.is_active = 1
+        ORDER BY orders.order_date DESC
+        LIMIT ? OFFSET ?
+      `;
+      countSql = `
+        SELECT COUNT(*) AS total
+        FROM orders
+        WHERE order_code = ? AND is_active = 1
+      `;
+      params = [orderCode, limit, skip];
+      countParams = [orderCode];
+    } else {
+      sql = `
+        SELECT orders.*, customers.customer_name
+        FROM orders
+        LEFT JOIN customers ON orders.customer_id = customers.customer_id
+        WHERE orders.order_code LIKE ? AND orders.is_active = 1
+        ORDER BY orders.order_date DESC
+        LIMIT ? OFFSET ?
+      `;
+      countSql = `
+        SELECT COUNT(*) AS total
+        FROM orders
+        WHERE order_code LIKE ? AND is_active = 1
+      `;
+      params = [`%${orderCode}%`, limit, skip];
+      countParams = [`%${orderCode}%`];
+    }
+    try {
+      const [results] = await db.promise().query(sql, params);
+      const [countResult] = await db.promise().query(countSql, countParams);
+      const formattedResults = results.map((order) => ({
+        order_id: order.order_id,
+        order_code: order.order_code,
+        order_date: order.order_date,
+        order_status: order.order_status,
+        shipping_address: order.shipping_address,
+        shipping_fee: order.shipping_fee,
+        payment_method: order.payment_method,
+        note: order.note,
+        total_amount: order.total_amount,
+        discount_amount: order.discount_amount,
+        final_amount: order.final_amount,
+        created_at: order.created_at,
+        updated_at: order.updated_at,
+        warehouse_id: order.warehouse_id,
+        customer: {
+          customer_id: order.customer_id,
+          customer_name: order.customer_name || "Khách lẻ",
+        },
+      }));
+      return { orders: formattedResults, total: countResult[0].total };
+    } catch (error) {
+      console.error("Lỗi khi tìm đơn hàng theo order_code:", error.message);
+      throw error;
+    }
+  },
   // findByCustomerId: async (customerId) => {
   //   const sql =
   //     "SELECT * FROM orders WHERE customer_id = ? ORDER BY order_date DESC";

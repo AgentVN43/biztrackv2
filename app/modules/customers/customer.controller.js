@@ -7,6 +7,14 @@ const { createResponse, errorResponse } = require("../../utils/response");
 exports.create = async (req, res) => {
   const customerData = req.body;
   try {
+    // Kiểm tra trùng số điện thoại
+    if (customerData.phone) {
+      const CustomerModel = require("./customer.model");
+      const existing = await CustomerModel.findByPhone(customerData.phone);
+      if (existing) {
+        return res.status(400).json({ error: "Số điện thoại đã tồn tại trong hệ thống." });
+      }
+    }
     const result = await CustomerService.createCustomer(customerData);
     res
       .status(201)
@@ -198,7 +206,7 @@ exports.getListSimple = async (req, res) => {
       if (!result) {
         return res.status(404).json({ message: "Customer not found" });
       }
-      res.status(200).json({ message: "Customer updated successfully" });
+      res.status(200).json({ message: "Customer updated successfully", data: result });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }

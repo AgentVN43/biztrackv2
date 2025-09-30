@@ -48,8 +48,9 @@ const { v4: uuidv4 } = require("uuid");
 // }
 
 function calculateOrderTotals(orderDetails, orderData = {}) {
-  let calculatedGrossProductAmount = 0;
-  let calculatedProductLevelDiscountSum = 0;
+  let totalProductAmount = 0;
+  let totalProductDiscount = 0;
+  let totalVAT = 0;
 
   const validDetails = Array.isArray(orderDetails) ? orderDetails : [];
 
@@ -57,29 +58,24 @@ function calculateOrderTotals(orderDetails, orderData = {}) {
     const price = parseFloat(detail.price) || 0;
     const quantity = parseInt(detail.quantity) || 0;
     const discount = parseFloat(detail.discount || 0);
-
-    calculatedGrossProductAmount += price * quantity;
-    calculatedProductLevelDiscountSum += discount; //* quantity;
+    const vat_rate = parseFloat(detail.vat_rate || 0);
+    // Tính lại vat_amount từng dòng
+    const vat_amount = ((price * quantity - discount) * vat_rate) / 100;
+    totalProductAmount += price * quantity;
+    totalProductDiscount += discount;
+    totalVAT += vat_amount;
   });
 
   const orderLevelDiscountAmount = parseFloat(orderData.order_amount || 0);
-  const taxAmount = parseFloat(orderData.tax_amount || 0); // ✅ Đã sửa lỗi: Đảm bảo tax_amount luôn là số
   const shippingFee = parseFloat(orderData.shipping_fee || 0);
+  const totalCombinedDiscount = totalProductDiscount + orderLevelDiscountAmount;
 
-  const totalCombinedDiscount =
-    calculatedProductLevelDiscountSum + orderLevelDiscountAmount;
-
-  // final_amount = gross - product_discount - order_discount + tax + shipping_fee
-  const finalAmount =
-    calculatedGrossProductAmount -
-    calculatedProductLevelDiscountSum -
-    orderLevelDiscountAmount +
-    taxAmount +
-    shippingFee;
+  // final_amount = tổng (price*quantity - discount + vat_amount) + shipping_fee
+  const finalAmount = totalProductAmount - totalProductDiscount + totalVAT - orderLevelDiscountAmount + shippingFee;
 
   return {
-    total_amount: calculatedGrossProductAmount, // Tổng giá trị sản phẩm gốc
-    tax_amount: taxAmount,
+    total_amount: totalProductAmount, // Tổng giá trị sản phẩm gốc
+    tax_amount: totalVAT, // Tổng VAT đã tính lại
     discount_amount: totalCombinedDiscount, // Tổng tất cả khuyến mãi (trên sản phẩm + trên đơn)
     final_amount: finalAmount,
     shipping_fee: shippingFee,
@@ -196,6 +192,8 @@ const OrderService = {
         await Promise.all(
           details.map(async (item) => {
             const order_detail_id = uuidv4();
+            const vat_rate = item.vat_rate || 0;
+            const vat_amount = ((item.price * item.quantity) * vat_rate) / 100;
             const detailToCreate = {
               order_detail_id,
               order_id: createdOrder.order_id,
@@ -206,13 +204,15 @@ const OrderService = {
               price: item.price,
               discount: item.discount || 0,
               cost_price: item.cost_price || 0, // Thêm cost_price nếu có
+              vat_rate,
+              vat_amount,
             };
             const createdDetail = await OrderDetailModel.create(detailToCreate);
             createdDetails.push(createdDetail);
           })
         );
         console.log(
-          "🚀 ~ order.service.js: create - Chi tiết đơn hàng đã tạo thành công."
+          "🚀 ~ order.service.js: create - Chi tiết đơn hàng đã tạo thành công (có VAT)."
         );
       }
 
@@ -588,13 +588,18 @@ const OrderService = {
             ).padStart(4, "0")}`;
           };
 
+          // Tính tổng VAT từ order_details
+          let totalVAT = 0;
+          if (orderDetails && orderDetails.length > 0) {
+            totalVAT = orderDetails.reduce((sum, d) => sum + parseFloat(d.vat_amount || 0), 0);
+          }
           const invoiceData = {
             invoice_code: generateInvoiceCode(),
             invoice_type: "sale_invoice",
             order_id: order.order_id,
             customer_id: order.customer_id || null,
             total_amount: parseFloat(order.total_amount),
-            tax_amount: parseFloat(order.tax_amount || 0), // Lấy từ order
+            tax_amount: totalVAT,
             discount_amount: parseFloat(order.discount_amount || 0),
             final_amount: parseFloat(order.final_amount),
             issued_date: new Date(),
