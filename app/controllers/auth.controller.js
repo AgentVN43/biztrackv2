@@ -1,7 +1,7 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const db = require('../config/db.config');
-const { v4: uuidv4 } = require('uuid');
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const db = require("../config/db.config");
+const { v4: uuidv4 } = require("uuid");
 /**
  * Register a new user
  * @param {object} req - Express request object
@@ -14,54 +14,57 @@ exports.register = async (req, res, next) => {
     const { username, email, password } = req.body;
 
     // Check if email already exists
-    db.query('SELECT user_id FROM users WHERE email = ?', [email], async (err, results) => {
-      if (err) {
-        return next(err);
-      }
+    db.query(
+      "SELECT user_id FROM users WHERE email = ?",
+      [email],
+      async (err, results) => {
+        if (err) {
+          return next(err);
+        }
 
-      if (results.length > 0) {
-        return res.status(409).json({
-          success: false,
-          message: 'Email is already registered'
-        });
-      }
+        if (results.length > 0) {
+          return res.status(409).json({
+            success: false,
+            message: "Email is already registered",
+          });
+        }
 
-      // Hash password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-      // Generate UUID for new user
-      const userId = uuidv4();
+        // Generate UUID for new user
+        const userId = uuidv4();
 
-      // Create user with default role 'user'
-      const query = `
+        // Create user with default role 'user'
+        const query = `
         INSERT INTO users 
           (user_id, username, email, password, role, status, created_at)
         VALUES 
           (?, ?, ?, ?, 'user', 'active', NOW())
       `;
 
-      db.query(query, [userId, username, email, hashedPassword], (err) => {
-        if (err) {
-          return next(err);
-        }
-
-        res.status(201).json({
-          success: true,
-          message: 'User registered successfully',
-          data: {
-            id: userId,
-            username,
-            email
+        db.query(query, [userId, username, email, hashedPassword], (err) => {
+          if (err) {
+            return next(err);
           }
+
+          res.status(201).json({
+            success: true,
+            message: "User registered successfully",
+            data: {
+              id: userId,
+              username,
+              email,
+            },
+          });
         });
-      });
-    });
+      }
+    );
   } catch (error) {
     next(error);
   }
 };
-
 
 /**
  * Login user
@@ -83,26 +86,31 @@ exports.login = (req, res, next) => {
     db.query(query, [email], async (err, results) => {
       if (err) return next(err);
       if (results.length === 0) {
-        return res.status(401).json({ success: false, message: 'Invalid credentials or inactive account' });
+        return res.status(401).json({
+          success: false,
+          message: "Invalid credentials or inactive account",
+        });
       }
 
       const user = results[0];
       // 2) So khớp password
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        return res
+          .status(401)
+          .json({ success: false, message: "Invalid credentials" });
       }
 
       // 3) Tạo Access + Refresh tokens
       const accessToken = jwt.sign(
         { user_id: user.user_id, role: user.role },
         process.env.JWT_SECRET,
-        { expiresIn: '1d' }
+        { expiresIn: "1d" }
       );
       const refreshToken = jwt.sign(
         { id: user.user_id },
         process.env.REFRESH_TOKEN_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: "7d" }
       );
 
       // 4) Sinh UUID cho refresh_token_id
@@ -121,10 +129,10 @@ exports.login = (req, res, next) => {
           if (err) return next(err);
 
           // 6) Đặt HTTP-only cookie
-          res.cookie('refreshToken', refreshToken, {
+          res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            maxAge: 7 * 24 * 60 * 60 * 1000
+            secure: process.env.NODE_ENV === "production",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
           });
 
           // 7) Trả về access token và thông tin user
@@ -136,8 +144,8 @@ exports.login = (req, res, next) => {
               id: user.user_id,
               username: user.username,
               email: user.email,
-              role: user.role
-            }
+              role: user.role,
+            },
           });
         }
       );
@@ -160,24 +168,28 @@ exports.logout = (req, res, next) => {
     if (!refreshToken) {
       return res.status(400).json({
         success: false,
-        message: 'Refresh token is required'
+        message: "Refresh token is required",
       });
     }
 
     // Delete refresh token from database
-    db.query('DELETE FROM refresh_tokens WHERE token = ?', [refreshToken], (err) => {
-      if (err) {
-        return next(err);
+    db.query(
+      "DELETE FROM refresh_tokens WHERE token = ?",
+      [refreshToken],
+      (err) => {
+        if (err) {
+          return next(err);
+        }
+
+        // Clear cookie
+        res.clearCookie("refreshToken");
+
+        res.json({
+          success: true,
+          message: "Logged out successfully",
+        });
       }
-
-      // Clear cookie
-      res.clearCookie('refreshToken');
-
-      res.json({
-        success: true,
-        message: 'Logged out successfully'
-      });
-    });
+    );
   } catch (error) {
     next(error);
   }
@@ -191,11 +203,15 @@ exports.logout = (req, res, next) => {
  */
 exports.getProfile = (req, res, next) => {
   try {
-    const { user_id } = req.user;  // dùng user_id
+    const { user_id } = req.user; // dùng user_id
 
     const query = `
-      SELECT user_id, username, email, role, status, created_at, updated_at
+      SELECT 
+        *,
+        roles.role_name,
+        roles.role_description  
       FROM users
+      LEFT JOIN roles ON users.role_id = roles.role_id
       WHERE user_id = ?
     `;
 
@@ -207,13 +223,13 @@ exports.getProfile = (req, res, next) => {
       if (results.length === 0) {
         return res.status(404).json({
           success: false,
-          message: 'User not found'
+          message: "User not found",
         });
       }
 
       res.json({
         success: true,
-        data: results[0]
+        data: results[0],
       });
     });
   } catch (error) {
@@ -227,26 +243,26 @@ exports.getProfile = (req, res, next) => {
 exports.updatePassword = (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const { user_id } = req.user;  // dùng user_id
+    const { user_id } = req.user; // dùng user_id
 
     // Validate input
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Current password and new password are required'
+        message: "Current password and new password are required",
       });
     }
 
     if (newPassword.length < 6) {
       return res.status(400).json({
         success: false,
-        message: 'New password must be at least 6 characters'
+        message: "New password must be at least 6 characters",
       });
     }
 
     // Get current user password
     db.query(
-      'SELECT password FROM users WHERE user_id = ?',
+      "SELECT password FROM users WHERE user_id = ?",
       [user_id],
       async (err, results) => {
         if (err) {
@@ -256,7 +272,7 @@ exports.updatePassword = (req, res, next) => {
         if (results.length === 0) {
           return res.status(404).json({
             success: false,
-            message: 'User not found'
+            message: "User not found",
           });
         }
 
@@ -267,7 +283,7 @@ exports.updatePassword = (req, res, next) => {
         if (!isMatch) {
           return res.status(401).json({
             success: false,
-            message: 'Current password is incorrect'
+            message: "Current password is incorrect",
           });
         }
 
@@ -277,7 +293,7 @@ exports.updatePassword = (req, res, next) => {
 
         // Update password in database
         db.query(
-          'UPDATE users SET password = ?, updated_at = NOW() WHERE user_id = ?',
+          "UPDATE users SET password = ?, updated_at = NOW() WHERE user_id = ?",
           [hashedPassword, user_id],
           (err) => {
             if (err) {
@@ -285,15 +301,19 @@ exports.updatePassword = (req, res, next) => {
             }
 
             // Revoke all refresh tokens for this user
-            db.query('DELETE FROM refresh_tokens WHERE user_id = ?', [user_id], (err) => {
-              if (err) {
-                return next(err);
+            db.query(
+              "DELETE FROM refresh_tokens WHERE user_id = ?",
+              [user_id],
+              (err) => {
+                if (err) {
+                  return next(err);
+                }
+                res.json({
+                  success: true,
+                  message: "Password updated successfully. Please login again.",
+                });
               }
-              res.json({
-                success: true,
-                message: 'Password updated successfully. Please login again.'
-              });
-            });
+            );
           }
         );
       }

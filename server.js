@@ -1,10 +1,14 @@
 // Thêm đoạn code này vào đầu file app.js hoặc server.js của bạn
-process.on('uncaughtException', (err) => {
-  console.error('🔥 Lỗi không được xử lý (Uncaught Exception):', err);
+process.on("uncaughtException", (err) => {
+  console.error("🔥 Lỗi không được xử lý (Uncaught Exception):", err);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('🔥 Lỗi Promise không được xử lý (Unhandled Rejection):', reason, promise);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error(
+    "🔥 Lỗi Promise không được xử lý (Unhandled Rejection):",
+    reason,
+    promise
+  );
   // Tùy chọn thoát tiến trình
   // process.exit(1);
 });
@@ -18,7 +22,7 @@ const port = process.env.PORT || 3008;
 
 const corsOptions = {
   // origin: ["https://fuger.shop", "http://localhost:5173", "http://137.59.105.41", "https://bepthanhhuy.fuger.shop", "https://biz002.biztrack.vn"], // Thay đổi thành domain của client nếu cần
-   origin: (origin, callback) => {
+  origin: (origin, callback) => {
     callback(null, origin || true); // Cho phép tất cả domain
   },
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
@@ -48,6 +52,3 @@ app.listen(port, () => {
 });
 
 module.exports = app; // For testing purposes
-
-
-

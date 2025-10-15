@@ -23,6 +23,8 @@ const customerReturnRoutes = require("../modules/customer_return/customer_return
 const supplierReturnRoutes = require("../modules/supplier_return/supplier_return.routes");
 const cashbookRoutes = require("../modules/cashbook/cashbook.routes");
 const importRoutes = require("./import.routes");
+const permissionRoutes = require("../modules/permissions/permission.routes");
+const roleRoutes = require("../modules/roles/role.routes");
 const { authMiddleware } = require("../middlewares/auth.middleware");
 
 module.exports = (app) => {
@@ -73,6 +75,8 @@ module.exports = (app) => {
   app.use("/api/v1/suppliers", authMiddleware, supplierRoutes);
   app.use("/api/v1/customer-returns", authMiddleware, customerReturnRoutes);
   app.use("/api/v1/supplier-returns", authMiddleware, supplierReturnRoutes);
+  app.use("/api/v1/permissions", permissionRoutes);
+  app.use("/api/v1/roles", roleRoutes);
 
   // Default route for non-existent endpoints
   app.use("*", (req, res) => {

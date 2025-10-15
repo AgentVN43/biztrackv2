@@ -77,12 +77,151 @@ exports.authorize = (roles) => {
     // Convert roles to array if string
     const allowedRoles = Array.isArray(roles) ? roles : [roles];
     
-    if (allowedRoles.includes(req.user.role)) {
+    if (allowedRoles.includes(req.user.role_name)) {
       next();
     } else {
       res.status(403).json({
         success: false,
         message: 'Access denied: insufficient permissions'
+      });
+    }
+  };
+};
+
+/**
+ * Permission-based authorization middleware
+ * Checks if user has specific permission through role
+ * 
+ * @param {string} permissionCode - Required permission code
+ * @returns {function} Middleware function
+ */
+exports.checkPermission = (permissionCode) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const query = `
+      SELECT DISTINCT p.permission_name
+      FROM permissions p
+      INNER JOIN role_permissions rp ON p.permission_id = rp.permission_id
+      INNER JOIN users u ON rp.role_id = u.role_id
+      WHERE u.user_id = ? 
+        AND p.permission_name = ? 
+    `;
+
+    db.query(query, [req.user.user_id, permissionCode], (error, results) => {
+      if (error) {
+        console.error('DB error:', error);
+        return res.status(500).json({
+          success: false,
+          message: 'Permission check error'
+        });
+      }
+
+      if (results.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: `Access denied. Required permission: ${permissionCode}`
+        });
+      }
+
+      next();
+    });
+  };
+};
+
+/**
+ * Check multiple permissions (OR logic - any one permission is sufficient)
+ * 
+ * @param {string[]} permissionCodes - Array of permission codes
+ * @returns {function} Middleware function
+ */
+exports.checkAnyPermission = (permissionCodes) => {
+  return  (req, res, next) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required'
+        });
+      }
+
+      const placeholders = permissionCodes.map(() => '?').join(',');
+      const [permissions] =  db.query(`
+        SELECT DISTINCT p.permission_code
+        FROM permissions p
+        INNER JOIN role_permissions rp ON p.permission_id = rp.permission_id
+        INNER JOIN users u ON rp.role_id = u.role_id
+        WHERE u.user_id = ? 
+          AND p.permission_code IN (${placeholders})
+          AND p.is_active = 1 
+          AND u.is_active = 1
+      `, [req.user.user_id, ...permissionCodes]);
+
+      if (permissions.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: `Access denied. Required one of permissions: ${permissionCodes.join(', ')}`
+        });
+      }
+
+      next();
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Permission check error'
+      });
+    }
+  };
+};
+
+/**
+ * Check multiple permissions (AND logic - all permissions required)
+ * 
+ * @param {string[]} permissionCodes - Array of permission codes
+ * @returns {function} Middleware function
+ */
+exports.checkAllPermissions = (permissionCodes) => {
+  return  (req, res, next) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required'
+        });
+      }
+
+      const placeholders = permissionCodes.map(() => '?').join(',');
+      const [permissions] =  db.query(`
+        SELECT DISTINCT p.permission_code
+        FROM permissions p
+        INNER JOIN role_permissions rp ON p.permission_id = rp.permission_id
+        INNER JOIN users u ON rp.role_id = u.role_id
+        WHERE u.user_id = ? 
+          AND p.permission_code IN (${placeholders})
+          AND p.is_active = 1 
+          AND u.is_active = 1
+      `, [req.user.user_id, ...permissionCodes]);
+
+      if (permissions.length < permissionCodes.length) {
+        const missingPermissions = permissionCodes.filter(
+          code => !permissions.some(p => p.permission_code === code)
+        );
+        return res.status(403).json({
+          success: false,
+          message: `Access denied. Missing permissions: ${missingPermissions.join(', ')}`
+        });
+      }
+
+      next();
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Permission check error'
       });
     }
   };

@@ -17,7 +17,16 @@ exports.getAllProducts = async (req, res, next) => {
       parsedLimit,
       { startDate: effectiveStartDate, endDate: effectiveEndDate }
     ); // Truyền skip, limit vào service
-    return createResponse(res, 200, true, products, null, total, parsedPage, parsedLimit);
+    return createResponse(
+      res,
+      200,
+      true,
+      products,
+      null,
+      total,
+      parsedPage,
+      parsedLimit
+    );
   } catch (err) {
     //console.error("🚀 ~ product.controller.js: getAllProducts - Error:", err);
     next(err);
